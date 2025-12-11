@@ -1,5 +1,11 @@
 import { create } from 'zustand';
-import type { CallsignLookedUpEvent, RotatorPositionEvent, RigStatusEvent } from '../api/signalr';
+import type {
+  CallsignLookedUpEvent,
+  RotatorPositionEvent,
+  RigStatusEvent,
+  AntennaGeniusStatusEvent,
+  AntennaGeniusPortStatus,
+} from '../api/signalr';
 
 interface AppState {
   // Connection status
@@ -24,6 +30,12 @@ interface AppState {
   stationCallsign: string;
   stationGrid: string;
   setStationInfo: (callsign: string, grid: string) => void;
+
+  // Antenna Genius
+  antennaGeniusDevices: Map<string, AntennaGeniusStatusEvent>;
+  setAntennaGeniusStatus: (status: AntennaGeniusStatusEvent) => void;
+  updateAntennaGeniusPort: (serial: string, portStatus: AntennaGeniusPortStatus) => void;
+  removeAntennaGeniusDevice: (serial: string) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -49,4 +61,33 @@ export const useAppStore = create<AppState>((set) => ({
   stationCallsign: 'EI6LF',
   stationGrid: 'IO63',
   setStationInfo: (callsign, grid) => set({ stationCallsign: callsign, stationGrid: grid }),
+
+  // Antenna Genius
+  antennaGeniusDevices: new Map(),
+  setAntennaGeniusStatus: (status) =>
+    set((state) => {
+      const devices = new Map(state.antennaGeniusDevices);
+      devices.set(status.deviceSerial, status);
+      return { antennaGeniusDevices: devices };
+    }),
+  updateAntennaGeniusPort: (serial, portStatus) =>
+    set((state) => {
+      const devices = new Map(state.antennaGeniusDevices);
+      const device = devices.get(serial);
+      if (device) {
+        const updated = {
+          ...device,
+          portA: portStatus.portId === 1 ? portStatus : device.portA,
+          portB: portStatus.portId === 2 ? portStatus : device.portB,
+        };
+        devices.set(serial, updated);
+      }
+      return { antennaGeniusDevices: devices };
+    }),
+  removeAntennaGeniusDevice: (serial) =>
+    set((state) => {
+      const devices = new Map(state.antennaGeniusDevices);
+      devices.delete(serial);
+      return { antennaGeniusDevices: devices };
+    }),
 }));

@@ -54,6 +54,10 @@ builder.Services.AddScoped<ISpotService, SpotService>();
 // Register event bus
 builder.Services.AddSingleton<IEventBus, EventBus>();
 
+// Register Antenna Genius service
+builder.Services.AddSingleton<AntennaGeniusService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<AntennaGeniusService>());
+
 var app = builder.Build();
 
 // Configure middleware

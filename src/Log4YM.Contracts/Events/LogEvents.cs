@@ -108,3 +108,101 @@ public record RigStatusEvent(
     string Mode,
     bool IsTransmitting
 );
+
+// ===== Antenna Genius Events =====
+
+/// <summary>
+/// Antenna Genius device discovered on network
+/// </summary>
+public record AntennaGeniusDiscoveredEvent(
+    string IpAddress,
+    int Port,
+    string Version,
+    string Serial,
+    string Name,
+    int RadioPorts,
+    int AntennaPorts,
+    string Mode,
+    int Uptime
+);
+
+/// <summary>
+/// Antenna Genius device disconnected
+/// </summary>
+public record AntennaGeniusDisconnectedEvent(
+    string Serial
+);
+
+/// <summary>
+/// Full status update from Antenna Genius
+/// </summary>
+public record AntennaGeniusStatusEvent(
+    string DeviceSerial,
+    string DeviceName,
+    string IpAddress,
+    string Version,
+    bool IsConnected,
+    List<AntennaGeniusAntennaInfo> Antennas,
+    List<AntennaGeniusBandInfo> Bands,
+    AntennaGeniusPortStatus PortA,
+    AntennaGeniusPortStatus PortB
+);
+
+/// <summary>
+/// Antenna info for events (without BSON attributes)
+/// </summary>
+public record AntennaGeniusAntennaInfo(
+    int Id,
+    string Name,
+    ushort TxBandMask,
+    ushort RxBandMask,
+    ushort InbandMask
+);
+
+/// <summary>
+/// Band info for events
+/// </summary>
+public record AntennaGeniusBandInfo(
+    int Id,
+    string Name,
+    double FreqStart,
+    double FreqStop
+);
+
+/// <summary>
+/// Port status for events
+/// </summary>
+public record AntennaGeniusPortStatus(
+    int PortId,
+    bool Auto,
+    string Source,
+    int Band,
+    int RxAntenna,
+    int TxAntenna,
+    bool IsTransmitting,
+    bool IsInhibited
+);
+
+/// <summary>
+/// Port status changed (antenna selection, band change, etc.)
+/// </summary>
+public record AntennaGeniusPortChangedEvent(
+    string DeviceSerial,
+    int PortId,
+    bool Auto,
+    string Source,
+    int Band,
+    int RxAntenna,
+    int TxAntenna,
+    bool IsTransmitting,
+    bool IsInhibited
+);
+
+/// <summary>
+/// Request to select antenna for a port (client to server)
+/// </summary>
+public record SelectAntennaCommand(
+    string DeviceSerial,
+    int PortId,
+    int AntennaId
+);

@@ -11,6 +11,9 @@ export function useSignalR() {
     setFocusedCallsignInfo,
     setRotatorPosition,
     setRigStatus,
+    setAntennaGeniusStatus,
+    updateAntennaGeniusPort,
+    removeAntennaGeniusDevice,
   } = useAppStore();
 
   useEffect(() => {
@@ -38,9 +41,37 @@ export function useSignalR() {
           onRigStatus: (evt) => {
             setRigStatus(evt);
           },
+          // Antenna Genius handlers
+          onAntennaGeniusDiscovered: (evt) => {
+            console.log('Antenna Genius discovered:', evt.name, evt.serial);
+          },
+          onAntennaGeniusDisconnected: (evt) => {
+            console.log('Antenna Genius disconnected:', evt.serial);
+            removeAntennaGeniusDevice(evt.serial);
+          },
+          onAntennaGeniusStatus: (evt) => {
+            console.log('Antenna Genius status:', evt.deviceName, evt.isConnected);
+            setAntennaGeniusStatus(evt);
+          },
+          onAntennaGeniusPortChanged: (evt) => {
+            console.log('Antenna Genius port changed:', evt.portId, evt.rxAntenna);
+            updateAntennaGeniusPort(evt.deviceSerial, {
+              portId: evt.portId,
+              auto: evt.auto,
+              source: evt.source,
+              band: evt.band,
+              rxAntenna: evt.rxAntenna,
+              txAntenna: evt.txAntenna,
+              isTransmitting: evt.isTransmitting,
+              isInhibited: evt.isInhibited,
+            });
+          },
         });
 
         await signalRService.connect();
+
+        // Request current Antenna Genius status after connection
+        await signalRService.requestAntennaGeniusStatus();
         setConnected(true);
       } catch (error) {
         console.error('Failed to connect to SignalR:', error);
@@ -54,7 +85,7 @@ export function useSignalR() {
       signalRService.disconnect();
       setConnected(false);
     };
-  }, [queryClient, setConnected, setFocusedCallsign, setFocusedCallsignInfo, setRotatorPosition, setRigStatus]);
+  }, [queryClient, setConnected, setFocusedCallsign, setFocusedCallsignInfo, setRotatorPosition, setRigStatus, setAntennaGeniusStatus, updateAntennaGeniusPort, removeAntennaGeniusDevice]);
 
   const focusCallsign = useCallback(async (callsign: string, source: string) => {
     setFocusedCallsign(callsign);
@@ -69,10 +100,15 @@ export function useSignalR() {
     await signalRService.commandRotator({ rotatorId: 'default', targetAzimuth, source });
   }, []);
 
+  const selectAntenna = useCallback(async (deviceSerial: string, portId: number, antennaId: number) => {
+    await signalRService.selectAntenna(deviceSerial, portId, antennaId);
+  }, []);
+
   return {
     isConnected: signalRService.isConnected,
     focusCallsign,
     selectSpot,
     commandRotator,
+    selectAntenna,
   };
 }

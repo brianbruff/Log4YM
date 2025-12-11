@@ -29,7 +29,8 @@ public class SystemController : ControllerBase
             new PluginInfo("cluster", "DX Cluster", "1.0.0", true),
             new PluginInfo("log-entry", "Log Entry", "1.0.0", true),
             new PluginInfo("log-history", "Log History", "1.0.0", true),
-            new PluginInfo("map-globe", "Map/Globe", "1.0.0", true)
+            new PluginInfo("map-globe", "Map/Globe", "1.0.0", true),
+            new PluginInfo("antenna-genius", "Antenna Genius", "1.0.0", true)
         };
 
         return Ok(plugins);

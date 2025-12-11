@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.SignalR;
 using Log4YM.Contracts.Events;
+using Log4YM.Server.Services;
 
 namespace Log4YM.Server.Hubs;
 
@@ -13,15 +14,23 @@ public interface ILogHubClient
     Task OnRotatorPosition(RotatorPositionEvent evt);
     Task OnRigStatus(RigStatusEvent evt);
     Task OnStationLocation(StationLocationEvent evt);
+
+    // Antenna Genius events
+    Task OnAntennaGeniusDiscovered(AntennaGeniusDiscoveredEvent evt);
+    Task OnAntennaGeniusDisconnected(AntennaGeniusDisconnectedEvent evt);
+    Task OnAntennaGeniusStatus(AntennaGeniusStatusEvent evt);
+    Task OnAntennaGeniusPortChanged(AntennaGeniusPortChangedEvent evt);
 }
 
 public class LogHub : Hub<ILogHubClient>
 {
     private readonly ILogger<LogHub> _logger;
+    private readonly AntennaGeniusService _antennaGeniusService;
 
-    public LogHub(ILogger<LogHub> logger)
+    public LogHub(ILogger<LogHub> logger, AntennaGeniusService antennaGeniusService)
     {
         _logger = logger;
+        _antennaGeniusService = antennaGeniusService;
     }
 
     public override async Task OnConnectedAsync()
@@ -61,6 +70,26 @@ public class LogHub : Hub<ILogHubClient>
             true,
             evt.TargetAzimuth
         ));
+    }
+
+    // Antenna Genius methods
+
+    public async Task SelectAntenna(SelectAntennaCommand cmd)
+    {
+        _logger.LogInformation("Selecting antenna {AntennaId} for port {PortId} on device {Serial}",
+            cmd.AntennaId, cmd.PortId, cmd.DeviceSerial);
+
+        await _antennaGeniusService.SelectAntennaAsync(cmd.DeviceSerial, cmd.PortId, cmd.AntennaId);
+    }
+
+    public async Task RequestAntennaGeniusStatus()
+    {
+        _logger.LogDebug("Client requested Antenna Genius status");
+
+        foreach (var status in _antennaGeniusService.GetAllDeviceStatuses())
+        {
+            await Clients.Caller.OnAntennaGeniusStatus(status);
+        }
     }
 }
 

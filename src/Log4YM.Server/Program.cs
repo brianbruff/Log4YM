@@ -1,8 +1,8 @@
 using Serilog;
 using Log4YM.Server.Core.Database;
 using Log4YM.Server.Core.Events;
+using Log4YM.Server.Services;
 using Log4YM.Server.Hubs;
-using Log4YM.Server.Endpoints;
 
 var builder = WebApplication.CreateBuilder(args);
 
@@ -15,7 +15,10 @@ Log.Logger = new LoggerConfiguration()
 
 builder.Host.UseSerilog();
 
-// Add services
+// Add controllers
+builder.Services.AddControllers();
+
+// Add API Explorer and Swagger
 builder.Services.AddEndpointsApiExplorer();
 builder.Services.AddSwaggerGen(c =>
 {
@@ -44,6 +47,10 @@ builder.Services.AddSingleton<MongoDbContext>();
 builder.Services.AddScoped<IQsoRepository, QsoRepository>();
 builder.Services.AddScoped<ISpotRepository, SpotRepository>();
 
+// Register services
+builder.Services.AddScoped<IQsoService, QsoService>();
+builder.Services.AddScoped<ISpotService, SpotService>();
+
 // Register event bus
 builder.Services.AddSingleton<IEventBus, EventBus>();
 
@@ -62,26 +69,11 @@ app.UseCors();
 app.UseDefaultFiles();
 app.UseStaticFiles();
 
-// Map API endpoints
-app.MapQsoEndpoints();
-app.MapSpotEndpoints();
+// Map controllers
+app.MapControllers();
 
 // Map SignalR hub
 app.MapHub<LogHub>("/hubs/log");
-
-// Health check
-app.MapGet("/api/health", () => new { Status = "Healthy", Timestamp = DateTime.UtcNow })
-    .WithName("HealthCheck")
-    .WithTags("System");
-
-// Plugin info endpoint
-app.MapGet("/api/plugins", () => new[]
-{
-    new { Id = "cluster", Name = "DX Cluster", Version = "1.0.0", Enabled = true },
-    new { Id = "log-entry", Name = "Log Entry", Version = "1.0.0", Enabled = true },
-    new { Id = "log-history", Name = "Log History", Version = "1.0.0", Enabled = true },
-    new { Id = "map-globe", Name = "Map/Globe", Version = "1.0.0", Enabled = true }
-}).WithName("GetPlugins").WithTags("System");
 
 // Fallback to index.html for SPA routing
 app.MapFallbackToFile("index.html");

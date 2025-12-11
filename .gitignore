@@ -75,6 +75,9 @@ build/
 coverage/
 *.coverage
 
+# Frontend build artifacts in backend (run frontend separately)
+**/wwwroot/
+
 # MongoDB
 data/
 .playwright-mcp/

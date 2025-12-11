@@ -42,34 +42,64 @@ Existing amateur radio logging solutions like Log4OM, while functional, are buil
 
 ## Technical Architecture
 
-### Platform Decision: Electron + React
+### Platform Decision: Web Application + Backend Server
 
-**Recommendation: Electron with React frontend and Node.js backend**
+**Recommendation: React SPA frontend + Node.js/Fastify backend server**
 
 #### Rationale
 
+The "native" capabilities (UDP multicast, serial ports, filesystem) only need to run on **one machine** - the shack PC where the radio equipment is connected. The UI can be a pure web application accessible from any device on the network (or remotely via VPN/tunnel).
+
+```mermaid
+flowchart LR
+    subgraph Clients["Client Devices (Any Browser)"]
+        Laptop[Laptop in Shack]
+        Tablet[Tablet on Couch]
+        Phone[Phone in Garden]
+        Desktop[Desktop Upstairs]
+    end
+
+    subgraph ShackPC["Shack PC (Server)"]
+        Server[Log4YM Server]
+    end
+
+    subgraph Hardware["Radio Equipment"]
+        Radio[Transceiver]
+        Rotator[Rotator]
+        Cluster[DX Cluster UDP]
+    end
+
+    Clients <-->|WebSocket| Server
+    Server <-->|Serial/CAT| Radio
+    Server <-->|Serial| Rotator
+    Server <-->|UDP Multicast| Cluster
+```
+
+#### Architecture Comparison
+
 | Option | Pros | Cons | Verdict |
 |--------|------|------|---------|
-| **Electron** | Full Node.js access, mature ecosystem, native APIs, excellent cross-platform | Larger bundle size (~150MB) | **Selected** |
-| PWA | Small size, easy updates | No UDP multicast, limited filesystem, no rig control | Rejected |
-| Tauri | Smaller bundle, Rust backend | Less mature, smaller ecosystem | Future consideration |
-| Atom | Deprecated | No longer maintained | Rejected |
+| **Web App + Server** | Access from any device, no install on clients, single update point, native mobile support | Requires server running | **Selected** |
+| Electron | Self-contained | Heavy (~150MB), must install everywhere, can't use on mobile | Rejected |
+| PWA + Server | Installable feel | Still needs server, PWA adds complexity | Consider for mobile |
 
-**Key Electron Advantages for Log4YM:**
-- `dgram` module for UDP multicast (cluster spots)
-- `serialport` for CAT rig control
-- Full filesystem access for ADIF files
-- Native menu integration
-- System tray support for background operation
-- IPC for secure renderer-to-main communication
+#### Key Advantages of Web + Server Architecture
+
+1. **Multi-Device Access**: Log from laptop, tablet, phone - all connected to same server
+2. **No Client Installation**: Just open a browser - works on any OS including Android/iOS
+3. **Single Source of Truth**: One database, one connection to radio equipment
+4. **Easier Updates**: Update server once, all clients get new features
+5. **Remote Operation**: Access your shack from anywhere (with proper security)
+6. **Lower Resource Usage**: Server can be lightweight (Raspberry Pi capable)
+7. **Native Hardware Access**: Server has full access to serial ports, UDP, filesystem
 
 ### High-Level Architecture
 
 ```mermaid
 flowchart TB
-    subgraph Electron["Electron Shell"]
-        subgraph Renderer["React Frontend (Renderer Process)"]
-            subgraph Plugins["Plugins"]
+    subgraph Clients["Browser Clients (Any Device)"]
+        subgraph SPA["React SPA"]
+            subgraph Plugins["Plugin Components"]
                 Cluster[Cluster Plugin]
                 MapGlobe[Map/Globe Plugin]
                 LogHistory[Log History Plugin]
@@ -77,26 +107,35 @@ flowchart TB
                 MorePlugins[...]
             end
 
-            EventBus["Event Bus (Typed Pub/Sub)<br/>Plugin-to-Plugin Communication"]
+            EventBus["Event Bus (Typed Pub/Sub)<br/>Client-Side Plugin Communication"]
             Docking["Docking Framework (FlexLayout)"]
 
             Plugins <--> EventBus
             EventBus --> Docking
         end
+    end
 
-        subgraph Main["Electron Main Process"]
-            UDP[UDP Multicast]
-            Serial[Serial Port]
-            FileSystem[File System]
-            WebAPI[WebAPI Server]
-            IPC[IPC Bridge]
+    subgraph ShackServer["Log4YM Server (Shack PC / Raspberry Pi)"]
+        subgraph API["Fastify API Server"]
+            REST[REST Endpoints]
+            WS[WebSocket Server]
+            SSE[Server-Sent Events]
         end
 
-        Renderer <-->|Context Bridge| IPC
-        IPC <--> UDP
-        IPC <--> Serial
-        IPC <--> FileSystem
-        IPC <--> WebAPI
+        subgraph Services["Native Services"]
+            UDP[UDP Multicast<br/>Listener]
+            Serial[Serial Port<br/>Manager]
+            FileSystem[File System<br/>ADIF Import/Export]
+            DB[(SQLite<br/>Database)]
+        end
+
+        subgraph ServerEventBus["Server Event Bus"]
+            SEB[Event Distribution]
+        end
+
+        API <--> Services
+        Services <--> ServerEventBus
+        API <--> ServerEventBus
     end
 
     subgraph External["External Services"]
@@ -106,10 +145,58 @@ flowchart TB
         LoTW[LoTW API]
     end
 
+    SPA <-->|WebSocket| WS
+    SPA <-->|REST| REST
+    SPA <-->|SSE| SSE
+
     UDP <-->|Multicast| DXCluster
-    WebAPI <-->|HTTPS| QRZ
-    WebAPI <-->|HTTPS| ClubLog
-    WebAPI <-->|HTTPS| LoTW
+    API <-->|HTTPS| QRZ
+    API <-->|HTTPS| ClubLog
+    API <-->|HTTPS| LoTW
+
+    subgraph RadioEquipment["Radio Equipment"]
+        Radio[Transceiver]
+        Rot[Rotator Controller]
+    end
+
+    Serial <-->|CAT Protocol| Radio
+    Serial <-->|Yaesu/GH Protocol| Rot
+```
+
+### Client-Server Communication
+
+```mermaid
+sequenceDiagram
+    participant Browser as Browser Client
+    participant WS as WebSocket
+    participant API as REST API
+    participant Bus as Server Event Bus
+    participant HW as Hardware Services
+
+    Note over Browser,HW: Initial Connection
+    Browser->>WS: Connect WebSocket
+    WS->>Browser: Connected + Initial State
+
+    Note over Browser,HW: Real-time Events (Server → Client)
+    HW->>Bus: UDP Spot Received
+    Bus->>WS: Broadcast to all clients
+    WS->>Browser: spot.received event
+
+    HW->>Bus: Rotator Position Changed
+    Bus->>WS: Broadcast
+    WS->>Browser: rotator.position event
+
+    Note over Browser,HW: User Actions (Client → Server)
+    Browser->>API: POST /api/qso (log contact)
+    API->>Bus: qso.logged event
+    Bus->>WS: Broadcast to all clients
+    API->>Browser: 201 Created
+
+    Browser->>WS: rotator.command (turn to 270°)
+    WS->>Bus: rotator.command
+    Bus->>HW: Send serial command
+    HW->>Bus: rotator.position (moving)
+    Bus->>WS: Broadcast position updates
 ```
 
 ### Monorepo Structure
@@ -119,26 +206,52 @@ log4ym/
 ├── package.json                 # Workspace root
 ├── turbo.json                   # Turborepo configuration
 ├── pnpm-workspace.yaml          # PNPM workspace config
+├── docker-compose.yml           # Local dev / deployment
 │
 ├── apps/
-│   ├── desktop/                 # Electron application
+│   ├── web/                     # React SPA (Frontend)
 │   │   ├── src/
-│   │   │   ├── main/           # Electron main process
-│   │   │   │   ├── index.ts
-│   │   │   │   ├── ipc/        # IPC handlers
-│   │   │   │   ├── services/   # Native services
-│   │   │   │   │   ├── udp-multicast.ts
-│   │   │   │   │   ├── serial-port.ts
-│   │   │   │   │   └── file-system.ts
-│   │   │   │   └── webapi/     # Embedded HTTP server
-│   │   │   └── renderer/       # React application
-│   │   │       ├── App.tsx
-│   │   │       ├── components/
-│   │   │       ├── hooks/
-│   │   │       └── store/
+│   │   │   ├── App.tsx
+│   │   │   ├── main.tsx
+│   │   │   ├── components/
+│   │   │   ├── hooks/
+│   │   │   │   ├── useWebSocket.ts
+│   │   │   │   └── useServerEvents.ts
+│   │   │   ├── store/
+│   │   │   └── api/            # API client (REST + WebSocket)
+│   │   │       ├── client.ts
+│   │   │       ├── websocket.ts
+│   │   │       └── types.ts
+│   │   ├── index.html
+│   │   ├── vite.config.ts
 │   │   └── package.json
 │   │
-│   └── mobile/                  # React Native (future)
+│   └── server/                  # Node.js/Fastify Backend
+│       ├── src/
+│       │   ├── index.ts         # Entry point
+│       │   ├── server.ts        # Fastify setup
+│       │   ├── routes/          # REST API routes
+│       │   │   ├── qso.ts
+│       │   │   ├── spots.ts
+│       │   │   ├── rotator.ts
+│       │   │   └── settings.ts
+│       │   ├── websocket/       # WebSocket handlers
+│       │   │   ├── handler.ts
+│       │   │   └── broadcast.ts
+│       │   ├── services/        # Native services
+│       │   │   ├── udp-multicast.ts
+│       │   │   ├── serial-port.ts
+│       │   │   ├── telnet-cluster.ts
+│       │   │   ├── rotator.ts
+│       │   │   └── rig-cat.ts
+│       │   ├── events/          # Server-side event bus
+│       │   │   ├── bus.ts
+│       │   │   └── types.ts
+│       │   └── db/              # Database layer
+│       │       ├── sqlite.ts
+│       │       ├── migrations/
+│       │       └── repositories/
+│       ├── Dockerfile
 │       └── package.json
 │
 ├── packages/
@@ -231,28 +344,33 @@ log4ym/
 
 ### Technology Stack
 
-#### Frontend (Renderer Process)
+#### Frontend (React SPA)
 
 | Component | Technology | Rationale |
 |-----------|------------|-----------|
 | Framework | React 18+ | Component model, hooks, massive ecosystem |
 | State Management | Zustand | Lightweight, TypeScript-first |
+| Server State | TanStack Query | Caching, background refetch, optimistic updates |
 | Docking | FlexLayout | Best React docking library, MIT license |
 | Styling | Tailwind CSS | Utility-first, dark mode support |
 | Data Grid | TanStack Table | Headless, virtualized, performant |
 | Forms | React Hook Form | Performant form handling |
 | Build | Vite | Fast HMR, ESM native |
+| WebSocket | Native + reconnecting-websocket | Auto-reconnect, message queuing |
+| Maps | Leaflet + CesiumJS | 2D/3D mapping |
 
-#### Backend (Main Process)
+#### Backend (Node.js Server)
 
 | Component | Technology | Rationale |
 |-----------|------------|-----------|
 | Runtime | Node.js 20+ | LTS, native module support |
-| IPC | Electron IPC | Secure context bridge |
-| Web API | Fastify | Fast, schema validation |
+| Framework | Fastify | Fast, schema validation, WebSocket support |
+| WebSocket | @fastify/websocket | Native Fastify integration |
 | UDP | Node dgram | Native multicast support |
-| Serial | serialport | Industry standard |
-| Database | SQLite (better-sqlite3) | Local, no server, fast |
+| Serial | serialport | Industry standard, cross-platform |
+| Database | SQLite (better-sqlite3) | Local, no external server, fast |
+| Validation | Zod | TypeScript-first schema validation |
+| Logging | Pino | Fast JSON logging (Fastify default) |
 
 #### Monorepo Tooling
 
@@ -1175,20 +1293,54 @@ CREATE TABLE layouts (
 
 ### Security Considerations
 
-1. **Context Isolation**: Electron renderer process fully isolated
-2. **Preload Scripts**: Explicit IPC channel allowlist
+1. **Authentication**: Optional JWT-based auth for remote access
+2. **CORS**: Configurable allowed origins
 3. **CSP Headers**: Strict content security policy
-4. **Input Validation**: All user inputs sanitized
-5. **API Keys**: Stored in OS keychain (keytar)
+4. **Input Validation**: All user inputs validated with Zod schemas
+5. **API Keys**: Stored encrypted in SQLite or environment variables
+6. **Network Binding**: Default to localhost only, explicit config for LAN/remote
+7. **HTTPS**: Optional TLS termination for remote access
 
-### Android Considerations (Future)
+### Mobile & Remote Access
 
-For Android support, two approaches are viable:
+With the web-based architecture, mobile support comes **free**:
 
-1. **React Native + Native Modules**: Reuse React components, native UDP/serial
-2. **Capacitor**: Wrap web app, plugins for native features
+```mermaid
+flowchart LR
+    subgraph Local["Local Network"]
+        Phone[Phone Browser]
+        Tablet[Tablet Browser]
+        Laptop[Laptop Browser]
+    end
 
-Recommendation: Defer Android until core desktop is stable. Share `@log4ym/core` and `@log4ym/ui` packages.
+    subgraph Remote["Remote Access"]
+        RemotePhone[Phone via VPN/Tailscale]
+        RemoteLaptop[Laptop via VPN/Tailscale]
+    end
+
+    subgraph Shack["Shack Server"]
+        Server[Log4YM Server<br/>:3000]
+    end
+
+    Phone -->|http://shack.local:3000| Server
+    Tablet -->|http://192.168.1.50:3000| Server
+    Laptop -->|http://localhost:3000| Server
+    RemotePhone -->|https://shack.tailnet:3000| Server
+    RemoteLaptop -->|https://shack.tailnet:3000| Server
+```
+
+**Key Benefits:**
+- **Android/iOS**: Works in any mobile browser - no app store needed
+- **No Installation**: Just bookmark the URL
+- **Responsive Design**: Tailwind CSS ensures mobile-friendly layouts
+- **PWA Option**: Can be "installed" as a home screen app for app-like experience
+- **Offline Support**: Service worker can cache UI for offline viewing (read-only)
+
+**Remote Access Options:**
+1. **Tailscale/ZeroTier**: Easiest - creates secure mesh VPN
+2. **WireGuard VPN**: Self-hosted secure tunnel
+3. **Cloudflare Tunnel**: Expose without port forwarding
+4. **SSH Tunnel**: `ssh -L 3000:localhost:3000 shack-pc`
 
 ## Implementation Plan
 
@@ -1198,11 +1350,11 @@ gantt
     dateFormat  YYYY-MM-DD
     section Phase 1: Foundation
     Monorepo setup (pnpm + Turbo)     :p1a, 2024-01-01, 5d
-    Electron shell + Vite + React     :p1b, after p1a, 7d
-    FlexLayout docking system         :p1c, after p1b, 5d
-    SQLite database layer             :p1d, after p1b, 5d
-    Plugin SDK + Event Bus            :p1e, after p1c, 7d
-    IPC communication layer           :p1f, after p1d, 5d
+    Fastify server + SQLite           :p1b, after p1a, 7d
+    React SPA + Vite setup            :p1c, after p1a, 5d
+    WebSocket integration             :p1d, after p1b, 5d
+    FlexLayout docking system         :p1e, after p1c, 5d
+    Plugin SDK + Event Bus            :p1f, after p1e, 7d
 
     section Phase 2: Core Plugins
     Log Entry plugin                  :p2a, after p1e, 10d
@@ -1227,12 +1379,12 @@ gantt
 ### Phase 1: Foundation
 
 - [ ] Initialize monorepo with pnpm + Turborepo
-- [ ] Create Electron shell with Vite + React
+- [ ] Create Fastify server with SQLite database
+- [ ] Create React SPA with Vite
+- [ ] Implement WebSocket communication layer
 - [ ] Implement FlexLayout docking system
-- [ ] Set up SQLite database layer
 - [ ] Create plugin SDK base classes
-- [ ] Implement typed Event Bus system
-- [ ] Build IPC communication layer
+- [ ] Implement typed Event Bus (client + server)
 
 ### Phase 2: Core Plugins
 
@@ -1251,19 +1403,75 @@ gantt
 
 ### Phase 4: Polish & Distribution
 
-- [ ] Auto-updater (electron-updater)
-- [ ] Installers for Windows/macOS/Linux
-- [ ] Plugin marketplace concept
+- [ ] Docker image for easy deployment
+- [ ] Raspberry Pi ARM image
 - [ ] Documentation site
+- [ ] Plugin marketplace concept
+
+### Deployment Options
+
+```mermaid
+flowchart TB
+    subgraph Options["Deployment Options"]
+        direction TB
+        A["Option 1: Direct Install"]
+        B["Option 2: Docker"]
+        C["Option 3: Docker Compose"]
+    end
+
+    subgraph DirectInstall["Direct Install"]
+        Node[Node.js 20+]
+        NPM[npm install]
+        Run[node server.js]
+    end
+
+    subgraph Docker["Docker Container"]
+        Pull[docker pull log4ym/server]
+        DockerRun[docker run -p 3000:3000<br/>-v ./data:/data<br/>--device /dev/ttyUSB0<br/>log4ym/server]
+    end
+
+    subgraph Compose["Docker Compose"]
+        ComposeFile[docker-compose.yml]
+        ComposeUp[docker-compose up -d]
+    end
+
+    A --> DirectInstall
+    B --> Docker
+    C --> Compose
+```
+
+**Example docker-compose.yml:**
+
+```yaml
+version: '3.8'
+services:
+  log4ym:
+    image: log4ym/server:latest
+    ports:
+      - "3000:3000"
+    volumes:
+      - ./data:/app/data          # SQLite database
+      - ./config:/app/config      # Configuration files
+    devices:
+      - /dev/ttyUSB0:/dev/ttyUSB0 # Rotator serial port
+      - /dev/ttyUSB1:/dev/ttyUSB1 # Radio CAT port
+    environment:
+      - LOG4YM_BIND=0.0.0.0       # Allow LAN access
+      - LOG4YM_PORT=3000
+      - QRZ_USERNAME=${QRZ_USER}
+      - QRZ_PASSWORD=${QRZ_PASS}
+    restart: unless-stopped
+```
 
 ## Risks and Mitigations
 
 | Risk | Impact | Mitigation |
 |------|--------|------------|
-| Electron bundle size | User experience | Use electron-builder optimization, differential updates |
-| Plugin security | Data integrity | Sandboxed plugin execution, permission model |
+| Serial port access in Docker | Hardware control | Use `--device` flag, document permissions |
+| WebSocket disconnects | User experience | Auto-reconnect with backoff, offline queue |
 | Serial port compatibility | Feature completeness | Extensive testing matrix, fallback protocols |
 | QRZ API rate limits | User experience | Local caching, batch lookups |
+| Multi-client conflicts | Data integrity | Optimistic locking, real-time sync via WebSocket |
 
 ## Open Questions
 

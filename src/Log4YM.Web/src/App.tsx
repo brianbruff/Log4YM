@@ -4,7 +4,8 @@ import { X, Radio, Book, Zap, Globe, LayoutGrid } from 'lucide-react';
 import { Header } from './components/Header';
 import { StatusBar } from './components/StatusBar';
 import { useSignalR } from './hooks/useSignalR';
-import { LogEntryPlugin, LogHistoryPlugin, ClusterPlugin, MapGlobePlugin } from './plugins';
+import { LogEntryPlugin, LogHistoryPlugin, ClusterPlugin, MapGlobePlugin, GlobePlugin } from './plugins';
+import { Globe as Globe3D } from 'lucide-react';
 
 import 'flexlayout-react/style/dark.css';
 
@@ -29,6 +30,11 @@ const PLUGINS: Record<string, { name: string; icon: React.ReactNode; component: 
     name: 'Map & Rotator',
     icon: <Globe className="w-4 h-4" />,
     component: MapGlobePlugin,
+  },
+  'globe-3d': {
+    name: '3D Globe',
+    icon: <Globe3D className="w-4 h-4" />,
+    component: GlobePlugin,
   },
 };
 
@@ -56,8 +62,8 @@ const defaultLayout: IJsonModel = {
           },
           {
             type: 'tab',
-            name: 'Map & Rotator',
-            component: 'map-globe',
+            name: '3D Globe',
+            component: 'globe-3d',
           },
         ],
       },

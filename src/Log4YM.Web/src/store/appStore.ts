@@ -46,7 +46,7 @@ export const useAppStore = create<AppState>((set) => ({
   setRigStatus: (status) => set({ rigStatus: status }),
 
   // Station
-  stationCallsign: 'EI2KC',
+  stationCallsign: 'EI6LF',
   stationGrid: 'IO63',
   setStationInfo: (callsign, grid) => set({ stationCallsign: callsign, stationGrid: grid }),
 }));

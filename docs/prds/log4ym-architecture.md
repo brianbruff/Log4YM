@@ -1471,11 +1471,11 @@ MongoDB is ideal for Log4YM because:
 // Collection: settings
 {
   _id: "station",
-  callsign: "EI2KC",
+  callsign: "EI6LF",
   grid: "IO63",
   latitude: 53.3498,
   longitude: -6.2603,
-  qrzUsername: "ei2kc",
+  qrzUsername: "ei6lf",
   // Encrypted or reference to secrets manager
   qrzApiKey: "encrypted:..."
 }

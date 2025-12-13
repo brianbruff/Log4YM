@@ -67,10 +67,63 @@ const DxCallCellRenderer = (props: ICellRendererParams<Spot>) => {
   return <span className="font-mono font-bold text-accent-primary">{props.value}</span>;
 };
 
+// Infer mode from frequency if not provided
+const inferModeFromFrequency = (freq: number): string | null => {
+  // Common FT8 frequencies (in kHz)
+  const ft8Freqs = [1840, 3573, 7074, 10136, 14074, 18100, 21074, 24915, 28074, 50313];
+  // Common FT4 frequencies
+  const ft4Freqs = [3575, 7047, 10140, 14080, 18104, 21140, 24919, 28180];
+  // Check if frequency is within 5 kHz of known digital frequencies
+  for (const f of ft8Freqs) {
+    if (Math.abs(freq - f) <= 5) return 'FT8';
+  }
+  for (const f of ft4Freqs) {
+    if (Math.abs(freq - f) <= 5) return 'FT4';
+  }
+  // CW portions (lower part of bands)
+  if ((freq >= 1800 && freq <= 1840) ||
+      (freq >= 3500 && freq <= 3570) ||
+      (freq >= 7000 && freq <= 7040) ||
+      (freq >= 10100 && freq <= 10130) ||
+      (freq >= 14000 && freq <= 14070) ||
+      (freq >= 18068 && freq <= 18095) ||
+      (freq >= 21000 && freq <= 21070) ||
+      (freq >= 24890 && freq <= 24920) ||
+      (freq >= 28000 && freq <= 28070)) {
+    return 'CW';
+  }
+  // SSB portions (typically above CW/digital)
+  if ((freq >= 1840 && freq <= 2000) ||
+      (freq >= 3600 && freq <= 4000) ||
+      (freq >= 7040 && freq <= 7300) ||
+      (freq >= 14100 && freq <= 14350) ||
+      (freq >= 18110 && freq <= 18168) ||
+      (freq >= 21150 && freq <= 21450) ||
+      (freq >= 24930 && freq <= 24990) ||
+      (freq >= 28300 && freq <= 29700)) {
+    return 'SSB';
+  }
+  return null;
+};
+
 // Custom cell renderer for mode badges
 const ModeCellRenderer = (props: ICellRendererParams<Spot>) => {
-  const mode = props.value;
-  if (!mode) return <span className="text-gray-500">-</span>;
+  let mode = props.value;
+  const freq = props.data?.frequency;
+
+  // Try to infer mode if not provided
+  if (!mode && freq) {
+    mode = inferModeFromFrequency(freq);
+  }
+
+  if (!mode) return <span className="text-gray-500">?</span>;
+
+  // Normalize mode display
+  const displayMode = (m: string) => {
+    const upper = m.toUpperCase();
+    if (upper === 'USB' || upper === 'LSB') return 'SSB';
+    return upper;
+  };
 
   const getModeClass = (mode: string) => {
     switch (mode?.toUpperCase()) {
@@ -85,7 +138,7 @@ const ModeCellRenderer = (props: ICellRendererParams<Spot>) => {
       default: return 'bg-dark-600 text-gray-300';
     }
   };
-  return <span className={`badge text-xs ${getModeClass(mode)}`}>{mode}</span>;
+  return <span className={`badge text-xs ${getModeClass(mode)}`}>{displayMode(mode)}</span>;
 };
 
 // Custom cell renderer for frequency

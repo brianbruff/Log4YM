@@ -20,8 +20,11 @@ public class SmartUnlinkService : BackgroundService
     private readonly ConcurrentDictionary<string, SmartUnlinkRadioEntity> _radios = new();
     private readonly ConcurrentDictionary<string, DateTime> _lastBroadcast = new();
 
-    // FlexRadio VITA-49 streaming port (used for discovery packets)
-    private const int DiscoveryPort = 4991;
+    // FlexRadio discovery ports - broadcast to both for maximum compatibility
+    // UDP 4992 = discovery port (command API port, SmartSDR listens here)
+    // UDP 4991 = VITA-49 streaming port (also receives discovery in newer firmware)
+    private const int DiscoveryPort = 4992;
+    private const int StreamingPort = 4991;
     private const int BroadcastIntervalMs = 3000;
 
     public SmartUnlinkService(
@@ -92,14 +95,17 @@ public class SmartUnlinkService : BackgroundService
                     {
                         var packet = BuildVita49DiscoveryPacket(radio);
 
-                        // Broadcast to 255.255.255.255 on port 4991
-                        var endpoint = new IPEndPoint(IPAddress.Broadcast, DiscoveryPort);
-                        await udpClient.SendAsync(packet, packet.Length, endpoint);
+                        // Broadcast to both ports for maximum compatibility with all SmartSDR versions
+                        var endpoint4992 = new IPEndPoint(IPAddress.Broadcast, DiscoveryPort);
+                        var endpoint4991 = new IPEndPoint(IPAddress.Broadcast, StreamingPort);
+
+                        await udpClient.SendAsync(packet, packet.Length, endpoint4992);
+                        await udpClient.SendAsync(packet, packet.Length, endpoint4991);
 
                         _lastBroadcast[radio.Id!] = DateTime.UtcNow;
 
-                        _logger.LogInformation("Broadcast VITA-49 discovery for {Name} ({Model}) - {Bytes} bytes to port {Port}",
-                            radio.Name, radio.Model, packet.Length, DiscoveryPort);
+                        _logger.LogDebug("Broadcast VITA-49 discovery for {Name} ({Model}) - {Bytes} bytes to ports {Port1}/{Port2}",
+                            radio.Name, radio.Model, packet.Length, DiscoveryPort, StreamingPort);
                     }
                     catch (Exception ex)
                     {
@@ -119,37 +125,66 @@ public class SmartUnlinkService : BackgroundService
         }
     }
 
+    private byte _packetCount = 0;
+
     private byte[] BuildVita49DiscoveryPacket(SmartUnlinkRadioEntity radio)
     {
-        // Build VITA-49 discovery packet as per FlexRadio specification
-        // https://github.com/flexradio/smartsdr-api-docs/wiki/Discovery-protocol
+        // Build VITA-49 discovery packet matching real FlexRadio format
+        // Based on captured packets from real FLEX-8400 radio
 
-        // Build payload string: model=%s serial=%s version=%s name=%s callsign=%s ip=%u.%u.%u.%u port=%u
-        var name = radio.Name.Replace(' ', '_');
+        // Build payload string with all required fields
+        var nickname = radio.Name.Replace(' ', '_');
         var callsign = string.IsNullOrEmpty(radio.Callsign) ? "" : radio.Callsign;
-        var payload = $"model={radio.Model} serial={radio.SerialNumber} version=3.4.35.141 name={name} callsign={callsign} ip={radio.IpAddress} port={DiscoveryPort}";
+
+        // Format matching real FlexRadio discovery packets
+        var payload = $"discovery_protocol_version=3.1.0.2 " +
+                      $"model={radio.Model} " +
+                      $"serial={radio.SerialNumber} " +
+                      $"version=3.4.35.141 " +
+                      $"nickname={nickname} " +
+                      $"callsign={callsign} " +
+                      $"ip={radio.IpAddress} " +
+                      $"port={DiscoveryPort} " +
+                      $"status=Available " +
+                      $"inuse_ip= " +
+                      $"inuse_host= " +
+                      $"max_licensed_version=v3 " +
+                      $"radio_license_id=00-00-00-00-00-00 " +
+                      $"fpc_mac= " +
+                      $"wan_connected=0 " +
+                      $"licensed_clients=2 " +
+                      $"available_clients=2 " +
+                      $"max_panadapters=4 " +
+                      $"available_panadapters=4 " +
+                      $"max_slices=4 " +
+                      $"available_slices=4 ";
+
         var payloadBytes = Encoding.ASCII.GetBytes(payload);
 
+        _logger.LogDebug("SmartUnlink payload: {Payload} ({Length} bytes)", payload, payloadBytes.Length);
+
         // Pad payload to 4-byte alignment (VITA-49 requirement)
-        var paddedLength = (payloadBytes.Length + 4) & ~3; // Round up to next 4-byte boundary + 4 null bytes
+        // Round up to next 4-byte boundary
+        var paddedLength = (payloadBytes.Length + 3) & ~3;
         var paddedPayload = new byte[paddedLength];
         Array.Copy(payloadBytes, paddedPayload, payloadBytes.Length);
 
         // Calculate packet length in 32-bit words (header + stream_id + class_id_h + class_id_l + 3 timestamps + payload)
         var packetLengthWords = 7 + (paddedPayload.Length / 4);
 
-        // Build VITA-49 header
-        // Bits 31-28: Packet Type (0x5 = Extension Data with Stream ID)
+        // Build VITA-49 header matching real FlexRadio format
+        // Bits 31-28: Packet Type (0x3 = Extension Command - same as real radio)
         // Bit 27: Class ID present (1)
         // Bit 26: Trailer present (0)
         // Bit 25: Reserved (0)
         // Bit 24: Reserved (0)
         // Bits 23-22: TSI (0x1 = Other)
         // Bits 21-20: TSF (0x1 = Sample Count)
-        // Bits 19-16: Packet Count (0)
+        // Bits 19-16: Packet Count (incrementing)
         // Bits 15-0: Packet Size in 32-bit words
-        // Header = 0x58500000 | packet_length
-        uint header = 0x58500000 | (uint)(packetLengthWords & 0xFFFF);
+        // Header = 0x38500000 | (packetCount << 16) | packet_length
+        uint header = 0x38500000 | ((uint)_packetCount << 16) | (uint)(packetLengthWords & 0xFFFF);
+        _packetCount++;
 
         // Stream ID for Discovery: 0x00000800
         uint streamId = 0x00000800;
@@ -180,7 +215,13 @@ public class SmartUnlinkService : BackgroundService
         // Write payload (already in correct byte order)
         bw.Write(paddedPayload);
 
-        return ms.ToArray();
+        var packet = ms.ToArray();
+
+        // Log first 32 bytes of packet for debugging
+        _logger.LogDebug("SmartUnlink packet header (first 32 bytes): {Header}",
+            BitConverter.ToString(packet, 0, Math.Min(32, packet.Length)));
+
+        return packet;
     }
 
     private static uint SwapEndian(uint value)

@@ -25,6 +25,12 @@ public interface ILogHubClient
     Task OnPgxlDiscovered(PgxlDiscoveredEvent evt);
     Task OnPgxlDisconnected(PgxlDisconnectedEvent evt);
     Task OnPgxlStatus(PgxlStatusEvent evt);
+
+    // SmartUnlink events
+    Task OnSmartUnlinkRadioAdded(SmartUnlinkRadioAddedEvent evt);
+    Task OnSmartUnlinkRadioUpdated(SmartUnlinkRadioUpdatedEvent evt);
+    Task OnSmartUnlinkRadioRemoved(SmartUnlinkRadioRemovedEvent evt);
+    Task OnSmartUnlinkStatus(SmartUnlinkStatusEvent evt);
 }
 
 public class LogHub : Hub<ILogHubClient>
@@ -32,12 +38,18 @@ public class LogHub : Hub<ILogHubClient>
     private readonly ILogger<LogHub> _logger;
     private readonly AntennaGeniusService _antennaGeniusService;
     private readonly PgxlService _pgxlService;
+    private readonly SmartUnlinkService _smartUnlinkService;
 
-    public LogHub(ILogger<LogHub> logger, AntennaGeniusService antennaGeniusService, PgxlService pgxlService)
+    public LogHub(
+        ILogger<LogHub> logger,
+        AntennaGeniusService antennaGeniusService,
+        PgxlService pgxlService,
+        SmartUnlinkService smartUnlinkService)
     {
         _logger = logger;
         _antennaGeniusService = antennaGeniusService;
         _pgxlService = pgxlService;
+        _smartUnlinkService = smartUnlinkService;
     }
 
     public override async Task OnConnectedAsync()
@@ -121,6 +133,45 @@ public class LogHub : Hub<ILogHubClient>
         {
             await Clients.Caller.OnPgxlStatus(status);
         }
+    }
+
+    // SmartUnlink methods
+
+    public async Task AddSmartUnlinkRadio(SmartUnlinkRadioDto dto)
+    {
+        _logger.LogInformation("Adding SmartUnlink radio: {Name} ({Model}) at {Ip}",
+            dto.Name, dto.Model, dto.IpAddress);
+
+        await _smartUnlinkService.AddRadioAsync(dto);
+    }
+
+    public async Task UpdateSmartUnlinkRadio(SmartUnlinkRadioDto dto)
+    {
+        _logger.LogInformation("Updating SmartUnlink radio: {Id} - {Name}", dto.Id, dto.Name);
+
+        await _smartUnlinkService.UpdateRadioAsync(dto);
+    }
+
+    public async Task RemoveSmartUnlinkRadio(string id)
+    {
+        _logger.LogInformation("Removing SmartUnlink radio: {Id}", id);
+
+        await _smartUnlinkService.RemoveRadioAsync(id);
+    }
+
+    public async Task SetSmartUnlinkRadioEnabled(string id, bool enabled)
+    {
+        _logger.LogInformation("Setting SmartUnlink radio {Id} enabled: {Enabled}", id, enabled);
+
+        await _smartUnlinkService.SetRadioEnabledAsync(id, enabled);
+    }
+
+    public async Task RequestSmartUnlinkStatus()
+    {
+        _logger.LogDebug("Client requested SmartUnlink status");
+
+        var status = _smartUnlinkService.GetAllRadios();
+        await Clients.Caller.OnSmartUnlinkStatus(status);
     }
 }
 

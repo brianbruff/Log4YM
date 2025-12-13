@@ -16,6 +16,9 @@ export function useSignalR() {
     removeAntennaGeniusDevice,
     setPgxlStatus,
     removePgxlDevice,
+    setSmartUnlinkRadio,
+    setSmartUnlinkRadios,
+    removeSmartUnlinkRadio,
   } = useAppStore();
 
   useEffect(() => {
@@ -79,6 +82,23 @@ export function useSignalR() {
           onPgxlStatus: (evt) => {
             setPgxlStatus(evt);
           },
+          // SmartUnlink handlers
+          onSmartUnlinkRadioAdded: (evt) => {
+            console.log('SmartUnlink radio added:', evt.name, evt.ipAddress);
+            setSmartUnlinkRadio(evt);
+          },
+          onSmartUnlinkRadioUpdated: (evt) => {
+            console.log('SmartUnlink radio updated:', evt.name, evt.enabled);
+            setSmartUnlinkRadio(evt);
+          },
+          onSmartUnlinkRadioRemoved: (evt) => {
+            console.log('SmartUnlink radio removed:', evt.id);
+            removeSmartUnlinkRadio(evt.id);
+          },
+          onSmartUnlinkStatus: (evt) => {
+            console.log('SmartUnlink status received:', evt.radios.length, 'radios');
+            setSmartUnlinkRadios(evt.radios);
+          },
         });
 
         await signalRService.connect();
@@ -86,6 +106,7 @@ export function useSignalR() {
         // Request current device statuses after connection
         await signalRService.requestAntennaGeniusStatus();
         await signalRService.requestPgxlStatus();
+        await signalRService.requestSmartUnlinkStatus();
         setConnected(true);
       } catch (error) {
         console.error('Failed to connect to SignalR:', error);
@@ -99,7 +120,7 @@ export function useSignalR() {
       signalRService.disconnect();
       setConnected(false);
     };
-  }, [queryClient, setConnected, setFocusedCallsign, setFocusedCallsignInfo, setRotatorPosition, setRigStatus, setAntennaGeniusStatus, updateAntennaGeniusPort, removeAntennaGeniusDevice, setPgxlStatus, removePgxlDevice]);
+  }, [queryClient, setConnected, setFocusedCallsign, setFocusedCallsignInfo, setRotatorPosition, setRigStatus, setAntennaGeniusStatus, updateAntennaGeniusPort, removeAntennaGeniusDevice, setPgxlStatus, removePgxlDevice, setSmartUnlinkRadio, setSmartUnlinkRadios, removeSmartUnlinkRadio]);
 
   const focusCallsign = useCallback(async (callsign: string, source: string) => {
     setFocusedCallsign(callsign);
@@ -126,6 +147,23 @@ export function useSignalR() {
     await signalRService.setPgxlStandby(serial);
   }, []);
 
+  // SmartUnlink callbacks
+  const addSmartUnlinkRadio = useCallback(async (dto: Parameters<typeof signalRService.addSmartUnlinkRadio>[0]) => {
+    await signalRService.addSmartUnlinkRadio(dto);
+  }, []);
+
+  const updateSmartUnlinkRadio = useCallback(async (dto: Parameters<typeof signalRService.updateSmartUnlinkRadio>[0]) => {
+    await signalRService.updateSmartUnlinkRadio(dto);
+  }, []);
+
+  const removeSmartUnlinkRadioById = useCallback(async (id: string) => {
+    await signalRService.removeSmartUnlinkRadio(id);
+  }, []);
+
+  const setSmartUnlinkRadioEnabled = useCallback(async (id: string, enabled: boolean) => {
+    await signalRService.setSmartUnlinkRadioEnabled(id, enabled);
+  }, []);
+
   return {
     isConnected: signalRService.isConnected,
     focusCallsign,
@@ -134,5 +172,9 @@ export function useSignalR() {
     selectAntenna,
     setPgxlOperate,
     setPgxlStandby,
+    addSmartUnlinkRadio,
+    updateSmartUnlinkRadio,
+    removeSmartUnlinkRadio: removeSmartUnlinkRadioById,
+    setSmartUnlinkRadioEnabled,
   };
 }

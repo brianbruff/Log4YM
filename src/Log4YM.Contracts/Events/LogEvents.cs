@@ -280,3 +280,102 @@ public record SetPgxlOperateCommand(
 public record SetPgxlStandbyCommand(
     string Serial
 );
+
+// ===== SmartUnlink Events =====
+
+/// <summary>
+/// Known FlexRadio models for SmartUnlink
+/// </summary>
+public static class FlexRadioModels
+{
+    public static readonly string[] All = new[]
+    {
+        "FLEX-5100",   // Aurora series
+        "FLEX-5200",   // Aurora series
+        "FLEX-6400",   // Signature series
+        "FLEX-6400M",  // Signature series with ATU
+        "FLEX-6600",   // Signature series
+        "FLEX-6600M",  // Signature series with ATU
+        "FLEX-6700",   // Signature series
+        "FLEX-8400",   // Maestro series
+        "FLEX-8600",   // Maestro series
+        "FlexRadio",   // Generic placeholder
+    };
+}
+
+/// <summary>
+/// SmartUnlink radio configuration
+/// </summary>
+public record SmartUnlinkRadio(
+    string Id,
+    string Name,
+    string IpAddress,
+    string Model,
+    string SerialNumber,
+    string? Callsign,
+    bool Enabled,
+    DateTime CreatedAt,
+    DateTime UpdatedAt
+);
+
+/// <summary>
+/// SmartUnlink radio configuration DTO for API
+/// </summary>
+public record SmartUnlinkRadioDto(
+    string? Id,
+    string Name,
+    string IpAddress,
+    string Model,
+    string SerialNumber,
+    string? Callsign,
+    bool Enabled
+);
+
+/// <summary>
+/// SmartUnlink radio added event
+/// </summary>
+public record SmartUnlinkRadioAddedEvent(
+    string Id,
+    string Name,
+    string IpAddress,
+    string Model,
+    string SerialNumber,
+    string? Callsign,
+    bool Enabled
+);
+
+/// <summary>
+/// SmartUnlink radio updated event
+/// </summary>
+public record SmartUnlinkRadioUpdatedEvent(
+    string Id,
+    string Name,
+    string IpAddress,
+    string Model,
+    string SerialNumber,
+    string? Callsign,
+    bool Enabled
+);
+
+/// <summary>
+/// SmartUnlink radio removed event
+/// </summary>
+public record SmartUnlinkRadioRemovedEvent(
+    string Id
+);
+
+/// <summary>
+/// SmartUnlink broadcast status event
+/// </summary>
+public record SmartUnlinkBroadcastStatusEvent(
+    string RadioId,
+    bool IsBroadcasting,
+    DateTime? LastBroadcast
+);
+
+/// <summary>
+/// Full SmartUnlink status for initial load
+/// </summary>
+public record SmartUnlinkStatusEvent(
+    List<SmartUnlinkRadioAddedEvent> Radios
+);

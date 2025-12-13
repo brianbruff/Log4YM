@@ -64,6 +64,10 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<AntennaGeniusServi
 builder.Services.AddSingleton<PgxlService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<PgxlService>());
 
+// Register SmartUnlink service
+builder.Services.AddSingleton<SmartUnlinkService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<SmartUnlinkService>());
+
 // Register DX Cluster service
 builder.Services.AddHostedService<DxClusterService>();
 

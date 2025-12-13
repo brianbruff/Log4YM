@@ -6,6 +6,7 @@ import type {
   AntennaGeniusStatusEvent,
   AntennaGeniusPortStatus,
   PgxlStatusEvent,
+  SmartUnlinkRadioAddedEvent,
 } from '../api/signalr';
 
 interface AppState {
@@ -42,6 +43,12 @@ interface AppState {
   pgxlDevices: Map<string, PgxlStatusEvent>;
   setPgxlStatus: (status: PgxlStatusEvent) => void;
   removePgxlDevice: (serial: string) => void;
+
+  // SmartUnlink
+  smartUnlinkRadios: Map<string, SmartUnlinkRadioAddedEvent>;
+  setSmartUnlinkRadio: (radio: SmartUnlinkRadioAddedEvent) => void;
+  setSmartUnlinkRadios: (radios: SmartUnlinkRadioAddedEvent[]) => void;
+  removeSmartUnlinkRadio: (id: string) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -110,5 +117,26 @@ export const useAppStore = create<AppState>((set) => ({
       const devices = new Map(state.pgxlDevices);
       devices.delete(serial);
       return { pgxlDevices: devices };
+    }),
+
+  // SmartUnlink
+  smartUnlinkRadios: new Map(),
+  setSmartUnlinkRadio: (radio) =>
+    set((state) => {
+      const radios = new Map(state.smartUnlinkRadios);
+      radios.set(radio.id, radio);
+      return { smartUnlinkRadios: radios };
+    }),
+  setSmartUnlinkRadios: (radios) =>
+    set(() => {
+      const radioMap = new Map<string, SmartUnlinkRadioAddedEvent>();
+      radios.forEach((radio) => radioMap.set(radio.id, radio));
+      return { smartUnlinkRadios: radioMap };
+    }),
+  removeSmartUnlinkRadio: (id) =>
+    set((state) => {
+      const radios = new Map(state.smartUnlinkRadios);
+      radios.delete(id);
+      return { smartUnlinkRadios: radios };
     }),
 }));

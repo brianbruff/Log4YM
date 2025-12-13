@@ -152,8 +152,8 @@ public class SmartUnlinkService : BackgroundService
                       $"radio_license_id=00-00-00-00-00-00 " +
                       $"fpc_mac= " +
                       $"wan_connected=0 " +
-                      $"licensed_clients=2 " +
-                      $"available_clients=2 " +
+                      $"licensed_clients=4 " +
+                      $"available_clients=4 " +
                       $"max_panadapters=4 " +
                       $"available_panadapters=4 " +
                       $"max_slices=4 " +

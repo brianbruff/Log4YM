@@ -14,6 +14,8 @@ export function useSignalR() {
     setAntennaGeniusStatus,
     updateAntennaGeniusPort,
     removeAntennaGeniusDevice,
+    setPgxlStatus,
+    removePgxlDevice,
   } = useAppStore();
 
   useEffect(() => {
@@ -66,12 +68,24 @@ export function useSignalR() {
               isInhibited: evt.isInhibited,
             });
           },
+          // PGXL handlers
+          onPgxlDiscovered: (evt) => {
+            console.log('PGXL discovered:', evt.serial, evt.ipAddress);
+          },
+          onPgxlDisconnected: (evt) => {
+            console.log('PGXL disconnected:', evt.serial);
+            removePgxlDevice(evt.serial);
+          },
+          onPgxlStatus: (evt) => {
+            setPgxlStatus(evt);
+          },
         });
 
         await signalRService.connect();
 
-        // Request current Antenna Genius status after connection
+        // Request current device statuses after connection
         await signalRService.requestAntennaGeniusStatus();
+        await signalRService.requestPgxlStatus();
         setConnected(true);
       } catch (error) {
         console.error('Failed to connect to SignalR:', error);
@@ -85,7 +99,7 @@ export function useSignalR() {
       signalRService.disconnect();
       setConnected(false);
     };
-  }, [queryClient, setConnected, setFocusedCallsign, setFocusedCallsignInfo, setRotatorPosition, setRigStatus, setAntennaGeniusStatus, updateAntennaGeniusPort, removeAntennaGeniusDevice]);
+  }, [queryClient, setConnected, setFocusedCallsign, setFocusedCallsignInfo, setRotatorPosition, setRigStatus, setAntennaGeniusStatus, updateAntennaGeniusPort, removeAntennaGeniusDevice, setPgxlStatus, removePgxlDevice]);
 
   const focusCallsign = useCallback(async (callsign: string, source: string) => {
     setFocusedCallsign(callsign);
@@ -104,11 +118,21 @@ export function useSignalR() {
     await signalRService.selectAntenna(deviceSerial, portId, antennaId);
   }, []);
 
+  const setPgxlOperate = useCallback(async (serial: string) => {
+    await signalRService.setPgxlOperate(serial);
+  }, []);
+
+  const setPgxlStandby = useCallback(async (serial: string) => {
+    await signalRService.setPgxlStandby(serial);
+  }, []);
+
   return {
     isConnected: signalRService.isConnected,
     focusCallsign,
     selectSpot,
     commandRotator,
     selectAntenna,
+    setPgxlOperate,
+    setPgxlStandby,
   };
 }

@@ -150,6 +150,58 @@ export interface SelectAntennaCommand {
   antennaId: number;
 }
 
+// PGXL Amplifier types
+export interface PgxlDiscoveredEvent {
+  ipAddress: string;
+  port: number;
+  serial: string;
+  model: string;
+}
+
+export interface PgxlDisconnectedEvent {
+  serial: string;
+}
+
+export interface PgxlMeters {
+  forwardPowerDbm: number;
+  forwardPowerWatts: number;
+  returnLossDb: number;
+  swrRatio: number;
+  drivePowerDbm: number;
+  paCurrent: number;
+  temperatureC: number;
+}
+
+export interface PgxlSetup {
+  bandSource: string;
+  selectedAntenna: number;
+  attenuatorEnabled: boolean;
+  biasOffset: number;
+  pttDelay: number;
+  keyDelay: number;
+  highSwr: boolean;
+  overTemp: boolean;
+  overCurrent: boolean;
+}
+
+export interface PgxlStatusEvent {
+  serial: string;
+  ipAddress: string;
+  isConnected: boolean;
+  isOperating: boolean;
+  band: string;
+  meters: PgxlMeters;
+  setup: PgxlSetup;
+}
+
+export interface SetPgxlOperateCommand {
+  serial: string;
+}
+
+export interface SetPgxlStandbyCommand {
+  serial: string;
+}
+
 type EventHandlers = {
   onCallsignFocused?: (evt: CallsignFocusedEvent) => void;
   onCallsignLookedUp?: (evt: CallsignLookedUpEvent) => void;
@@ -163,6 +215,10 @@ type EventHandlers = {
   onAntennaGeniusDisconnected?: (evt: AntennaGeniusDisconnectedEvent) => void;
   onAntennaGeniusStatus?: (evt: AntennaGeniusStatusEvent) => void;
   onAntennaGeniusPortChanged?: (evt: AntennaGeniusPortChangedEvent) => void;
+  // PGXL handlers
+  onPgxlDiscovered?: (evt: PgxlDiscoveredEvent) => void;
+  onPgxlDisconnected?: (evt: PgxlDisconnectedEvent) => void;
+  onPgxlStatus?: (evt: PgxlStatusEvent) => void;
 };
 
 class SignalRService {
@@ -258,6 +314,19 @@ class SignalRService {
     this.connection.on('OnAntennaGeniusPortChanged', (evt: AntennaGeniusPortChangedEvent) => {
       this.handlers.onAntennaGeniusPortChanged?.(evt);
     });
+
+    // PGXL events
+    this.connection.on('OnPgxlDiscovered', (evt: PgxlDiscoveredEvent) => {
+      this.handlers.onPgxlDiscovered?.(evt);
+    });
+
+    this.connection.on('OnPgxlDisconnected', (evt: PgxlDisconnectedEvent) => {
+      this.handlers.onPgxlDisconnected?.(evt);
+    });
+
+    this.connection.on('OnPgxlStatus', (evt: PgxlStatusEvent) => {
+      this.handlers.onPgxlStatus?.(evt);
+    });
   }
 
   setHandlers(handlers: EventHandlers): void {
@@ -285,6 +354,21 @@ class SignalRService {
 
   async requestAntennaGeniusStatus(): Promise<void> {
     await this.connection?.invoke('RequestAntennaGeniusStatus');
+  }
+
+  // PGXL methods
+  async setPgxlOperate(serial: string): Promise<void> {
+    const cmd: SetPgxlOperateCommand = { serial };
+    await this.connection?.invoke('SetPgxlOperate', cmd);
+  }
+
+  async setPgxlStandby(serial: string): Promise<void> {
+    const cmd: SetPgxlStandbyCommand = { serial };
+    await this.connection?.invoke('SetPgxlStandby', cmd);
+  }
+
+  async requestPgxlStatus(): Promise<void> {
+    await this.connection?.invoke('RequestPgxlStatus');
   }
 
   get isConnected(): boolean {

@@ -58,6 +58,10 @@ builder.Services.AddSingleton<IEventBus, EventBus>();
 builder.Services.AddSingleton<AntennaGeniusService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<AntennaGeniusService>());
 
+// Register PGXL Amplifier service
+builder.Services.AddSingleton<PgxlService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<PgxlService>());
+
 // Register DX Cluster service
 builder.Services.AddHostedService<DxClusterService>();
 

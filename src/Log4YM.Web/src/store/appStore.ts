@@ -5,6 +5,7 @@ import type {
   RigStatusEvent,
   AntennaGeniusStatusEvent,
   AntennaGeniusPortStatus,
+  PgxlStatusEvent,
 } from '../api/signalr';
 
 interface AppState {
@@ -36,6 +37,11 @@ interface AppState {
   setAntennaGeniusStatus: (status: AntennaGeniusStatusEvent) => void;
   updateAntennaGeniusPort: (serial: string, portStatus: AntennaGeniusPortStatus) => void;
   removeAntennaGeniusDevice: (serial: string) => void;
+
+  // PGXL Amplifier
+  pgxlDevices: Map<string, PgxlStatusEvent>;
+  setPgxlStatus: (status: PgxlStatusEvent) => void;
+  removePgxlDevice: (serial: string) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -89,5 +95,20 @@ export const useAppStore = create<AppState>((set) => ({
       const devices = new Map(state.antennaGeniusDevices);
       devices.delete(serial);
       return { antennaGeniusDevices: devices };
+    }),
+
+  // PGXL Amplifier
+  pgxlDevices: new Map(),
+  setPgxlStatus: (status) =>
+    set((state) => {
+      const devices = new Map(state.pgxlDevices);
+      devices.set(status.serial, status);
+      return { pgxlDevices: devices };
+    }),
+  removePgxlDevice: (serial) =>
+    set((state) => {
+      const devices = new Map(state.pgxlDevices);
+      devices.delete(serial);
+      return { pgxlDevices: devices };
     }),
 }));

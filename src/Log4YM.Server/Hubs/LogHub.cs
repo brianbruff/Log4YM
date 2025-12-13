@@ -20,17 +20,24 @@ public interface ILogHubClient
     Task OnAntennaGeniusDisconnected(AntennaGeniusDisconnectedEvent evt);
     Task OnAntennaGeniusStatus(AntennaGeniusStatusEvent evt);
     Task OnAntennaGeniusPortChanged(AntennaGeniusPortChangedEvent evt);
+
+    // PGXL Amplifier events
+    Task OnPgxlDiscovered(PgxlDiscoveredEvent evt);
+    Task OnPgxlDisconnected(PgxlDisconnectedEvent evt);
+    Task OnPgxlStatus(PgxlStatusEvent evt);
 }
 
 public class LogHub : Hub<ILogHubClient>
 {
     private readonly ILogger<LogHub> _logger;
     private readonly AntennaGeniusService _antennaGeniusService;
+    private readonly PgxlService _pgxlService;
 
-    public LogHub(ILogger<LogHub> logger, AntennaGeniusService antennaGeniusService)
+    public LogHub(ILogger<LogHub> logger, AntennaGeniusService antennaGeniusService, PgxlService pgxlService)
     {
         _logger = logger;
         _antennaGeniusService = antennaGeniusService;
+        _pgxlService = pgxlService;
     }
 
     public override async Task OnConnectedAsync()
@@ -89,6 +96,30 @@ public class LogHub : Hub<ILogHubClient>
         foreach (var status in _antennaGeniusService.GetAllDeviceStatuses())
         {
             await Clients.Caller.OnAntennaGeniusStatus(status);
+        }
+    }
+
+    // PGXL Amplifier methods
+
+    public async Task SetPgxlOperate(SetPgxlOperateCommand cmd)
+    {
+        _logger.LogInformation("Setting PGXL {Serial} to OPERATE", cmd.Serial);
+        await _pgxlService.SetOperateAsync(cmd.Serial);
+    }
+
+    public async Task SetPgxlStandby(SetPgxlStandbyCommand cmd)
+    {
+        _logger.LogInformation("Setting PGXL {Serial} to STANDBY", cmd.Serial);
+        await _pgxlService.SetStandbyAsync(cmd.Serial);
+    }
+
+    public async Task RequestPgxlStatus()
+    {
+        _logger.LogDebug("Client requested PGXL status");
+
+        foreach (var status in _pgxlService.GetAllStatuses())
+        {
+            await Clients.Caller.OnPgxlStatus(status);
         }
     }
 }

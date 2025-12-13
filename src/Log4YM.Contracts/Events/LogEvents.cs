@@ -206,3 +206,77 @@ public record SelectAntennaCommand(
     int PortId,
     int AntennaId
 );
+
+// ===== PGXL Amplifier Events =====
+
+/// <summary>
+/// PGXL amplifier discovered on network
+/// </summary>
+public record PgxlDiscoveredEvent(
+    string IpAddress,
+    int Port,
+    string Serial,
+    string Model
+);
+
+/// <summary>
+/// PGXL amplifier disconnected
+/// </summary>
+public record PgxlDisconnectedEvent(
+    string Serial
+);
+
+/// <summary>
+/// Full status update from PGXL amplifier
+/// </summary>
+public record PgxlStatusEvent(
+    string Serial,
+    string IpAddress,
+    bool IsConnected,
+    bool IsOperating,
+    string Band,
+    PgxlMeters Meters,
+    PgxlSetup Setup
+);
+
+/// <summary>
+/// PGXL meter readings
+/// </summary>
+public record PgxlMeters(
+    double ForwardPowerDbm,
+    double ForwardPowerWatts,
+    double ReturnLossDb,
+    double SwrRatio,
+    double DrivePowerDbm,
+    double PaCurrent,
+    double TemperatureC
+);
+
+/// <summary>
+/// PGXL setup/configuration
+/// </summary>
+public record PgxlSetup(
+    string BandSource,
+    int SelectedAntenna,
+    bool AttenuatorEnabled,
+    int BiasOffset,
+    int PttDelay,
+    int KeyDelay,
+    bool HighSwr,
+    bool OverTemp,
+    bool OverCurrent
+);
+
+/// <summary>
+/// Request to set PGXL operate mode (client to server)
+/// </summary>
+public record SetPgxlOperateCommand(
+    string Serial
+);
+
+/// <summary>
+/// Request to set PGXL standby mode (client to server)
+/// </summary>
+public record SetPgxlStandbyCommand(
+    string Serial
+);

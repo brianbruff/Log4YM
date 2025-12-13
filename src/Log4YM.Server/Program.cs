@@ -64,6 +64,14 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<AntennaGeniusServi
 builder.Services.AddSingleton<PgxlService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<PgxlService>());
 
+// Register FlexRadio CAT service
+builder.Services.AddSingleton<FlexRadioService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<FlexRadioService>());
+
+// Register TCI Radio CAT service
+builder.Services.AddSingleton<TciRadioService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<TciRadioService>());
+
 // Register DX Cluster service
 builder.Services.AddHostedService<DxClusterService>();
 

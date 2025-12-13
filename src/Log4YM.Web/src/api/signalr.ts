@@ -202,6 +202,85 @@ export interface SetPgxlStandbyCommand {
   serial: string;
 }
 
+// Radio CAT Control types
+export type RadioType = 'FlexRadio' | 'Tci';
+
+export type RadioConnectionState =
+  | 'Disconnected'
+  | 'Discovering'
+  | 'Connecting'
+  | 'Connected'
+  | 'Monitoring'
+  | 'Error';
+
+export interface RadioDiscoveredEvent {
+  id: string;
+  type: RadioType;
+  model: string;
+  ipAddress: string;
+  port: number;
+  nickname?: string;
+  slices?: string[];
+}
+
+export interface RadioRemovedEvent {
+  id: string;
+}
+
+export interface RadioConnectionStateChangedEvent {
+  radioId: string;
+  state: RadioConnectionState;
+  errorMessage?: string;
+}
+
+export interface RadioStateChangedEvent {
+  radioId: string;
+  frequencyHz: number;
+  mode: string;
+  isTransmitting: boolean;
+  band: string;
+  sliceOrInstance?: string;
+}
+
+export interface RadioSliceInfo {
+  id: string;
+  letter: string;
+  frequencyHz: number;
+  mode: string;
+  isActive: boolean;
+}
+
+export interface RadioSlicesUpdatedEvent {
+  radioId: string;
+  slices: RadioSliceInfo[];
+}
+
+export interface StartRadioDiscoveryCommand {
+  type: RadioType;
+}
+
+export interface StopRadioDiscoveryCommand {
+  type: RadioType;
+}
+
+export interface ConnectRadioCommand {
+  radioId: string;
+}
+
+export interface DisconnectRadioCommand {
+  radioId: string;
+}
+
+export interface SelectRadioSliceCommand {
+  radioId: string;
+  sliceId: string;
+}
+
+export interface SelectRadioInstanceCommand {
+  radioId: string;
+  instance: number;
+}
+
 type EventHandlers = {
   onCallsignFocused?: (evt: CallsignFocusedEvent) => void;
   onCallsignLookedUp?: (evt: CallsignLookedUpEvent) => void;
@@ -219,6 +298,12 @@ type EventHandlers = {
   onPgxlDiscovered?: (evt: PgxlDiscoveredEvent) => void;
   onPgxlDisconnected?: (evt: PgxlDisconnectedEvent) => void;
   onPgxlStatus?: (evt: PgxlStatusEvent) => void;
+  // Radio CAT Control handlers
+  onRadioDiscovered?: (evt: RadioDiscoveredEvent) => void;
+  onRadioRemoved?: (evt: RadioRemovedEvent) => void;
+  onRadioConnectionStateChanged?: (evt: RadioConnectionStateChangedEvent) => void;
+  onRadioStateChanged?: (evt: RadioStateChangedEvent) => void;
+  onRadioSlicesUpdated?: (evt: RadioSlicesUpdatedEvent) => void;
 };
 
 class SignalRService {
@@ -327,6 +412,27 @@ class SignalRService {
     this.connection.on('OnPgxlStatus', (evt: PgxlStatusEvent) => {
       this.handlers.onPgxlStatus?.(evt);
     });
+
+    // Radio CAT Control events
+    this.connection.on('OnRadioDiscovered', (evt: RadioDiscoveredEvent) => {
+      this.handlers.onRadioDiscovered?.(evt);
+    });
+
+    this.connection.on('OnRadioRemoved', (evt: RadioRemovedEvent) => {
+      this.handlers.onRadioRemoved?.(evt);
+    });
+
+    this.connection.on('OnRadioConnectionStateChanged', (evt: RadioConnectionStateChangedEvent) => {
+      this.handlers.onRadioConnectionStateChanged?.(evt);
+    });
+
+    this.connection.on('OnRadioStateChanged', (evt: RadioStateChangedEvent) => {
+      this.handlers.onRadioStateChanged?.(evt);
+    });
+
+    this.connection.on('OnRadioSlicesUpdated', (evt: RadioSlicesUpdatedEvent) => {
+      this.handlers.onRadioSlicesUpdated?.(evt);
+    });
   }
 
   setHandlers(handlers: EventHandlers): void {
@@ -369,6 +475,41 @@ class SignalRService {
 
   async requestPgxlStatus(): Promise<void> {
     await this.connection?.invoke('RequestPgxlStatus');
+  }
+
+  // Radio CAT Control methods
+  async startRadioDiscovery(type: RadioType): Promise<void> {
+    const cmd: StartRadioDiscoveryCommand = { type };
+    await this.connection?.invoke('StartRadioDiscovery', cmd);
+  }
+
+  async stopRadioDiscovery(type: RadioType): Promise<void> {
+    const cmd: StopRadioDiscoveryCommand = { type };
+    await this.connection?.invoke('StopRadioDiscovery', cmd);
+  }
+
+  async connectRadio(radioId: string): Promise<void> {
+    const cmd: ConnectRadioCommand = { radioId };
+    await this.connection?.invoke('ConnectRadio', cmd);
+  }
+
+  async disconnectRadio(radioId: string): Promise<void> {
+    const cmd: DisconnectRadioCommand = { radioId };
+    await this.connection?.invoke('DisconnectRadio', cmd);
+  }
+
+  async selectRadioSlice(radioId: string, sliceId: string): Promise<void> {
+    const cmd: SelectRadioSliceCommand = { radioId, sliceId };
+    await this.connection?.invoke('SelectRadioSlice', cmd);
+  }
+
+  async selectRadioInstance(radioId: string, instance: number): Promise<void> {
+    const cmd: SelectRadioInstanceCommand = { radioId, instance };
+    await this.connection?.invoke('SelectRadioInstance', cmd);
+  }
+
+  async requestRadioStatus(): Promise<void> {
+    await this.connection?.invoke('RequestRadioStatus');
   }
 
   get isConnected(): boolean {

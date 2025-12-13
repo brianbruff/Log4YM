@@ -6,6 +6,10 @@ import type {
   AntennaGeniusStatusEvent,
   AntennaGeniusPortStatus,
   PgxlStatusEvent,
+  RadioDiscoveredEvent,
+  RadioConnectionState,
+  RadioStateChangedEvent,
+  RadioSliceInfo,
 } from '../api/signalr';
 
 interface AppState {
@@ -42,6 +46,20 @@ interface AppState {
   pgxlDevices: Map<string, PgxlStatusEvent>;
   setPgxlStatus: (status: PgxlStatusEvent) => void;
   removePgxlDevice: (serial: string) => void;
+
+  // Radio CAT Control
+  discoveredRadios: Map<string, RadioDiscoveredEvent>;
+  radioConnectionStates: Map<string, RadioConnectionState>;
+  radioStates: Map<string, RadioStateChangedEvent>;
+  radioSlices: Map<string, RadioSliceInfo[]>;
+  selectedRadioId: string | null;
+  addDiscoveredRadio: (radio: RadioDiscoveredEvent) => void;
+  removeDiscoveredRadio: (radioId: string) => void;
+  setRadioConnectionState: (radioId: string, state: RadioConnectionState) => void;
+  setRadioState: (state: RadioStateChangedEvent) => void;
+  setRadioSlices: (radioId: string, slices: RadioSliceInfo[]) => void;
+  setSelectedRadio: (radioId: string | null) => void;
+  clearDiscoveredRadios: () => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -110,5 +128,55 @@ export const useAppStore = create<AppState>((set) => ({
       const devices = new Map(state.pgxlDevices);
       devices.delete(serial);
       return { pgxlDevices: devices };
+    }),
+
+  // Radio CAT Control
+  discoveredRadios: new Map(),
+  radioConnectionStates: new Map(),
+  radioStates: new Map(),
+  radioSlices: new Map(),
+  selectedRadioId: null,
+  addDiscoveredRadio: (radio) =>
+    set((state) => {
+      const radios = new Map(state.discoveredRadios);
+      radios.set(radio.id, radio);
+      return { discoveredRadios: radios };
+    }),
+  removeDiscoveredRadio: (radioId) =>
+    set((state) => {
+      const radios = new Map(state.discoveredRadios);
+      radios.delete(radioId);
+      const connectionStates = new Map(state.radioConnectionStates);
+      connectionStates.delete(radioId);
+      const radioStates = new Map(state.radioStates);
+      radioStates.delete(radioId);
+      return { discoveredRadios: radios, radioConnectionStates: connectionStates, radioStates };
+    }),
+  setRadioConnectionState: (radioId, connectionState) =>
+    set((state) => {
+      const connectionStates = new Map(state.radioConnectionStates);
+      connectionStates.set(radioId, connectionState);
+      return { radioConnectionStates: connectionStates };
+    }),
+  setRadioState: (radioState) =>
+    set((state) => {
+      const radioStates = new Map(state.radioStates);
+      radioStates.set(radioState.radioId, radioState);
+      return { radioStates };
+    }),
+  setRadioSlices: (radioId, slices) =>
+    set((state) => {
+      const radioSlices = new Map(state.radioSlices);
+      radioSlices.set(radioId, slices);
+      return { radioSlices };
+    }),
+  setSelectedRadio: (radioId) => set({ selectedRadioId: radioId }),
+  clearDiscoveredRadios: () =>
+    set({
+      discoveredRadios: new Map(),
+      radioConnectionStates: new Map(),
+      radioStates: new Map(),
+      radioSlices: new Map(),
+      selectedRadioId: null,
     }),
 }));

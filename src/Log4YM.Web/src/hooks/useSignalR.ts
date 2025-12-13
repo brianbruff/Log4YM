@@ -16,6 +16,11 @@ export function useSignalR() {
     removeAntennaGeniusDevice,
     setPgxlStatus,
     removePgxlDevice,
+    addDiscoveredRadio,
+    removeDiscoveredRadio,
+    setRadioConnectionState,
+    setRadioState,
+    setRadioSlices,
   } = useAppStore();
 
   useEffect(() => {
@@ -79,6 +84,27 @@ export function useSignalR() {
           onPgxlStatus: (evt) => {
             setPgxlStatus(evt);
           },
+          // Radio CAT Control handlers
+          onRadioDiscovered: (evt) => {
+            console.log('Radio discovered:', evt.model, evt.ipAddress);
+            addDiscoveredRadio(evt);
+          },
+          onRadioRemoved: (evt) => {
+            console.log('Radio removed:', evt.id);
+            removeDiscoveredRadio(evt.id);
+          },
+          onRadioConnectionStateChanged: (evt) => {
+            console.log('Radio connection state:', evt.radioId, evt.state);
+            setRadioConnectionState(evt.radioId, evt.state);
+          },
+          onRadioStateChanged: (evt) => {
+            console.log('Radio state:', evt.radioId, evt.frequencyHz, evt.mode);
+            setRadioState(evt);
+          },
+          onRadioSlicesUpdated: (evt) => {
+            console.log('Radio slices updated:', evt.radioId, evt.slices.length);
+            setRadioSlices(evt.radioId, evt.slices);
+          },
         });
 
         await signalRService.connect();
@@ -86,6 +112,7 @@ export function useSignalR() {
         // Request current device statuses after connection
         await signalRService.requestAntennaGeniusStatus();
         await signalRService.requestPgxlStatus();
+        await signalRService.requestRadioStatus();
         setConnected(true);
       } catch (error) {
         console.error('Failed to connect to SignalR:', error);
@@ -99,7 +126,7 @@ export function useSignalR() {
       signalRService.disconnect();
       setConnected(false);
     };
-  }, [queryClient, setConnected, setFocusedCallsign, setFocusedCallsignInfo, setRotatorPosition, setRigStatus, setAntennaGeniusStatus, updateAntennaGeniusPort, removeAntennaGeniusDevice, setPgxlStatus, removePgxlDevice]);
+  }, [queryClient, setConnected, setFocusedCallsign, setFocusedCallsignInfo, setRotatorPosition, setRigStatus, setAntennaGeniusStatus, updateAntennaGeniusPort, removeAntennaGeniusDevice, setPgxlStatus, removePgxlDevice, addDiscoveredRadio, removeDiscoveredRadio, setRadioConnectionState, setRadioState, setRadioSlices]);
 
   const focusCallsign = useCallback(async (callsign: string, source: string) => {
     setFocusedCallsign(callsign);
@@ -126,6 +153,31 @@ export function useSignalR() {
     await signalRService.setPgxlStandby(serial);
   }, []);
 
+  // Radio CAT Control methods
+  const startRadioDiscovery = useCallback(async (type: 'FlexRadio' | 'Tci') => {
+    await signalRService.startRadioDiscovery(type);
+  }, []);
+
+  const stopRadioDiscovery = useCallback(async (type: 'FlexRadio' | 'Tci') => {
+    await signalRService.stopRadioDiscovery(type);
+  }, []);
+
+  const connectRadio = useCallback(async (radioId: string) => {
+    await signalRService.connectRadio(radioId);
+  }, []);
+
+  const disconnectRadio = useCallback(async (radioId: string) => {
+    await signalRService.disconnectRadio(radioId);
+  }, []);
+
+  const selectRadioSlice = useCallback(async (radioId: string, sliceId: string) => {
+    await signalRService.selectRadioSlice(radioId, sliceId);
+  }, []);
+
+  const selectRadioInstance = useCallback(async (radioId: string, instance: number) => {
+    await signalRService.selectRadioInstance(radioId, instance);
+  }, []);
+
   return {
     isConnected: signalRService.isConnected,
     focusCallsign,
@@ -134,5 +186,12 @@ export function useSignalR() {
     selectAntenna,
     setPgxlOperate,
     setPgxlStandby,
+    // Radio CAT Control
+    startRadioDiscovery,
+    stopRadioDiscovery,
+    connectRadio,
+    disconnectRadio,
+    selectRadioSlice,
+    selectRadioInstance,
   };
 }

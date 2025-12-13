@@ -280,3 +280,131 @@ public record SetPgxlOperateCommand(
 public record SetPgxlStandbyCommand(
     string Serial
 );
+
+// ===== Radio CAT Control Events =====
+
+/// <summary>
+/// Type of radio/protocol
+/// </summary>
+public enum RadioType
+{
+    FlexRadio,
+    Tci
+}
+
+/// <summary>
+/// Radio connection state
+/// </summary>
+public enum RadioConnectionState
+{
+    Disconnected,
+    Discovering,
+    Connecting,
+    Connected,
+    Monitoring,
+    Error
+}
+
+/// <summary>
+/// Radio discovered on network
+/// </summary>
+public record RadioDiscoveredEvent(
+    string Id,
+    RadioType Type,
+    string Model,
+    string IpAddress,
+    int Port,
+    string? Nickname,
+    List<string>? Slices  // For FlexRadio - available slices
+);
+
+/// <summary>
+/// Radio no longer available
+/// </summary>
+public record RadioRemovedEvent(
+    string Id
+);
+
+/// <summary>
+/// Radio connection state changed
+/// </summary>
+public record RadioConnectionStateChangedEvent(
+    string RadioId,
+    RadioConnectionState State,
+    string? ErrorMessage = null
+);
+
+/// <summary>
+/// Radio frequency/mode/TX state update
+/// </summary>
+public record RadioStateChangedEvent(
+    string RadioId,
+    long FrequencyHz,
+    string Mode,
+    bool IsTransmitting,
+    string Band,
+    string? SliceOrInstance
+);
+
+/// <summary>
+/// Available slices updated (FlexRadio)
+/// </summary>
+public record RadioSlicesUpdatedEvent(
+    string RadioId,
+    List<RadioSliceInfo> Slices
+);
+
+/// <summary>
+/// Slice information for FlexRadio
+/// </summary>
+public record RadioSliceInfo(
+    string Id,
+    string Letter,      // A, B, C, D
+    long FrequencyHz,
+    string Mode,
+    bool IsActive
+);
+
+/// <summary>
+/// Command to start radio discovery
+/// </summary>
+public record StartRadioDiscoveryCommand(
+    RadioType Type
+);
+
+/// <summary>
+/// Command to stop radio discovery
+/// </summary>
+public record StopRadioDiscoveryCommand(
+    RadioType Type
+);
+
+/// <summary>
+/// Command to connect to a radio
+/// </summary>
+public record ConnectRadioCommand(
+    string RadioId
+);
+
+/// <summary>
+/// Command to disconnect from a radio
+/// </summary>
+public record DisconnectRadioCommand(
+    string RadioId
+);
+
+/// <summary>
+/// Command to select a slice to monitor (FlexRadio)
+/// </summary>
+public record SelectRadioSliceCommand(
+    string RadioId,
+    string SliceId
+);
+
+/// <summary>
+/// Command to select an instance to monitor (TCI)
+/// </summary>
+public record SelectRadioInstanceCommand(
+    string RadioId,
+    int Instance
+);

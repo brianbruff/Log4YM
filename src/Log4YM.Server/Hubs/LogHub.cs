@@ -25,6 +25,13 @@ public interface ILogHubClient
     Task OnPgxlDiscovered(PgxlDiscoveredEvent evt);
     Task OnPgxlDisconnected(PgxlDisconnectedEvent evt);
     Task OnPgxlStatus(PgxlStatusEvent evt);
+
+    // Radio CAT Control events
+    Task OnRadioDiscovered(RadioDiscoveredEvent evt);
+    Task OnRadioRemoved(RadioRemovedEvent evt);
+    Task OnRadioConnectionStateChanged(RadioConnectionStateChangedEvent evt);
+    Task OnRadioStateChanged(RadioStateChangedEvent evt);
+    Task OnRadioSlicesUpdated(RadioSlicesUpdatedEvent evt);
 }
 
 public class LogHub : Hub<ILogHubClient>
@@ -32,12 +39,21 @@ public class LogHub : Hub<ILogHubClient>
     private readonly ILogger<LogHub> _logger;
     private readonly AntennaGeniusService _antennaGeniusService;
     private readonly PgxlService _pgxlService;
+    private readonly FlexRadioService _flexRadioService;
+    private readonly TciRadioService _tciRadioService;
 
-    public LogHub(ILogger<LogHub> logger, AntennaGeniusService antennaGeniusService, PgxlService pgxlService)
+    public LogHub(
+        ILogger<LogHub> logger,
+        AntennaGeniusService antennaGeniusService,
+        PgxlService pgxlService,
+        FlexRadioService flexRadioService,
+        TciRadioService tciRadioService)
     {
         _logger = logger;
         _antennaGeniusService = antennaGeniusService;
         _pgxlService = pgxlService;
+        _flexRadioService = flexRadioService;
+        _tciRadioService = tciRadioService;
     }
 
     public override async Task OnConnectedAsync()
@@ -122,6 +138,108 @@ public class LogHub : Hub<ILogHubClient>
             await Clients.Caller.OnPgxlStatus(status);
         }
     }
+
+    // Radio CAT Control methods
+
+    public async Task StartRadioDiscovery(StartRadioDiscoveryCommand cmd)
+    {
+        _logger.LogInformation("Starting radio discovery for {Type}", cmd.Type);
+
+        if (cmd.Type == RadioType.FlexRadio)
+        {
+            await _flexRadioService.StartDiscoveryAsync();
+        }
+        else if (cmd.Type == RadioType.Tci)
+        {
+            await _tciRadioService.StartDiscoveryAsync();
+        }
+    }
+
+    public async Task StopRadioDiscovery(StopRadioDiscoveryCommand cmd)
+    {
+        _logger.LogInformation("Stopping radio discovery for {Type}", cmd.Type);
+
+        if (cmd.Type == RadioType.FlexRadio)
+        {
+            await _flexRadioService.StopDiscoveryAsync();
+        }
+        else if (cmd.Type == RadioType.Tci)
+        {
+            await _tciRadioService.StopDiscoveryAsync();
+        }
+    }
+
+    public async Task ConnectRadio(ConnectRadioCommand cmd)
+    {
+        _logger.LogInformation("Connecting to radio {RadioId}", cmd.RadioId);
+
+        // Try FlexRadio first, then TCI
+        if (_flexRadioService.HasRadio(cmd.RadioId))
+        {
+            await _flexRadioService.ConnectAsync(cmd.RadioId);
+        }
+        else if (_tciRadioService.HasRadio(cmd.RadioId))
+        {
+            await _tciRadioService.ConnectAsync(cmd.RadioId);
+        }
+        else
+        {
+            _logger.LogWarning("Radio {RadioId} not found", cmd.RadioId);
+        }
+    }
+
+    public async Task DisconnectRadio(DisconnectRadioCommand cmd)
+    {
+        _logger.LogInformation("Disconnecting from radio {RadioId}", cmd.RadioId);
+
+        if (_flexRadioService.HasRadio(cmd.RadioId))
+        {
+            await _flexRadioService.DisconnectAsync(cmd.RadioId);
+        }
+        else if (_tciRadioService.HasRadio(cmd.RadioId))
+        {
+            await _tciRadioService.DisconnectAsync(cmd.RadioId);
+        }
+    }
+
+    public async Task SelectRadioSlice(SelectRadioSliceCommand cmd)
+    {
+        _logger.LogInformation("Selecting slice {SliceId} on radio {RadioId}", cmd.SliceId, cmd.RadioId);
+        await _flexRadioService.SelectSliceAsync(cmd.RadioId, cmd.SliceId);
+    }
+
+    public async Task SelectRadioInstance(SelectRadioInstanceCommand cmd)
+    {
+        _logger.LogInformation("Selecting instance {Instance} on radio {RadioId}", cmd.Instance, cmd.RadioId);
+        await _tciRadioService.SelectInstanceAsync(cmd.RadioId, cmd.Instance);
+    }
+
+    public async Task RequestRadioStatus()
+    {
+        _logger.LogDebug("Client requested radio status");
+
+        // Send all discovered radios
+        foreach (var radio in _flexRadioService.GetDiscoveredRadios())
+        {
+            await Clients.Caller.OnRadioDiscovered(radio);
+        }
+
+        foreach (var radio in _tciRadioService.GetDiscoveredRadios())
+        {
+            await Clients.Caller.OnRadioDiscovered(radio);
+        }
+
+        // Send current radio states
+        foreach (var state in _flexRadioService.GetRadioStates())
+        {
+            await Clients.Caller.OnRadioStateChanged(state);
+        }
+
+        foreach (var state in _tciRadioService.GetRadioStates())
+        {
+            await Clients.Caller.OnRadioStateChanged(state);
+        }
+    }
 }
 
 // Extension method for broadcasting events from services
@@ -145,5 +263,31 @@ public static class LogHubExtensions
     public static async Task BroadcastRotatorPosition(this IHubContext<LogHub, ILogHubClient> hub, RotatorPositionEvent evt)
     {
         await hub.Clients.All.OnRotatorPosition(evt);
+    }
+
+    // Radio CAT Control extensions
+    public static async Task BroadcastRadioDiscovered(this IHubContext<LogHub, ILogHubClient> hub, RadioDiscoveredEvent evt)
+    {
+        await hub.Clients.All.OnRadioDiscovered(evt);
+    }
+
+    public static async Task BroadcastRadioRemoved(this IHubContext<LogHub, ILogHubClient> hub, RadioRemovedEvent evt)
+    {
+        await hub.Clients.All.OnRadioRemoved(evt);
+    }
+
+    public static async Task BroadcastRadioConnectionStateChanged(this IHubContext<LogHub, ILogHubClient> hub, RadioConnectionStateChangedEvent evt)
+    {
+        await hub.Clients.All.OnRadioConnectionStateChanged(evt);
+    }
+
+    public static async Task BroadcastRadioStateChanged(this IHubContext<LogHub, ILogHubClient> hub, RadioStateChangedEvent evt)
+    {
+        await hub.Clients.All.OnRadioStateChanged(evt);
+    }
+
+    public static async Task BroadcastRadioSlicesUpdated(this IHubContext<LogHub, ILogHubClient> hub, RadioSlicesUpdatedEvent evt)
+    {
+        await hub.Clients.All.OnRadioSlicesUpdated(evt);
     }
 }

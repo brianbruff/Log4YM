@@ -72,6 +72,10 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<FlexRadioService>(
 builder.Services.AddSingleton<TciRadioService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<TciRadioService>());
 
+// Register SmartUnlink service
+builder.Services.AddSingleton<SmartUnlinkService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<SmartUnlinkService>());
+
 // Register DX Cluster service
 builder.Services.AddHostedService<DxClusterService>();
 

@@ -10,6 +10,7 @@ import type {
   RadioConnectionState,
   RadioStateChangedEvent,
   RadioSliceInfo,
+  SmartUnlinkRadioAddedEvent,
 } from '../api/signalr';
 
 interface AppState {
@@ -60,6 +61,13 @@ interface AppState {
   setRadioSlices: (radioId: string, slices: RadioSliceInfo[]) => void;
   setSelectedRadio: (radioId: string | null) => void;
   clearDiscoveredRadios: () => void;
+
+  // SmartUnlink
+  smartUnlinkRadios: Map<string, SmartUnlinkRadioAddedEvent>;
+  addSmartUnlinkRadio: (radio: SmartUnlinkRadioAddedEvent) => void;
+  updateSmartUnlinkRadio: (radio: SmartUnlinkRadioAddedEvent) => void;
+  removeSmartUnlinkRadio: (id: string) => void;
+  setSmartUnlinkRadios: (radios: SmartUnlinkRadioAddedEvent[]) => void;
 }
 
 export const useAppStore = create<AppState>((set) => ({
@@ -178,5 +186,32 @@ export const useAppStore = create<AppState>((set) => ({
       radioStates: new Map(),
       radioSlices: new Map(),
       selectedRadioId: null,
+    }),
+
+  // SmartUnlink
+  smartUnlinkRadios: new Map(),
+  addSmartUnlinkRadio: (radio) =>
+    set((state) => {
+      const radios = new Map(state.smartUnlinkRadios);
+      radios.set(radio.id, radio);
+      return { smartUnlinkRadios: radios };
+    }),
+  updateSmartUnlinkRadio: (radio) =>
+    set((state) => {
+      const radios = new Map(state.smartUnlinkRadios);
+      radios.set(radio.id, radio);
+      return { smartUnlinkRadios: radios };
+    }),
+  removeSmartUnlinkRadio: (id) =>
+    set((state) => {
+      const radios = new Map(state.smartUnlinkRadios);
+      radios.delete(id);
+      return { smartUnlinkRadios: radios };
+    }),
+  setSmartUnlinkRadios: (radios) =>
+    set(() => {
+      const map = new Map<string, SmartUnlinkRadioAddedEvent>();
+      radios.forEach((radio) => map.set(radio.id, radio));
+      return { smartUnlinkRadios: map };
     }),
 }));

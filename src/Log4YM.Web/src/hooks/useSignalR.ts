@@ -1,6 +1,6 @@
 import { useEffect, useCallback } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
-import { signalRService } from '../api/signalr';
+import { signalRService, type SmartUnlinkRadioDto } from '../api/signalr';
 import { useAppStore } from '../store/appStore';
 
 export function useSignalR() {
@@ -21,6 +21,10 @@ export function useSignalR() {
     setRadioConnectionState,
     setRadioState,
     setRadioSlices,
+    addSmartUnlinkRadio,
+    updateSmartUnlinkRadio,
+    removeSmartUnlinkRadio,
+    setSmartUnlinkRadios,
   } = useAppStore();
 
   useEffect(() => {
@@ -105,6 +109,23 @@ export function useSignalR() {
             console.log('Radio slices updated:', evt.radioId, evt.slices.length);
             setRadioSlices(evt.radioId, evt.slices);
           },
+          // SmartUnlink handlers
+          onSmartUnlinkRadioAdded: (evt) => {
+            console.log('SmartUnlink radio added:', evt.name, evt.model);
+            addSmartUnlinkRadio(evt);
+          },
+          onSmartUnlinkRadioUpdated: (evt) => {
+            console.log('SmartUnlink radio updated:', evt.name, evt.enabled);
+            updateSmartUnlinkRadio(evt);
+          },
+          onSmartUnlinkRadioRemoved: (evt) => {
+            console.log('SmartUnlink radio removed:', evt.id);
+            removeSmartUnlinkRadio(evt.id);
+          },
+          onSmartUnlinkStatus: (evt) => {
+            console.log('SmartUnlink status:', evt.radios.length, 'radios');
+            setSmartUnlinkRadios(evt.radios);
+          },
         });
 
         await signalRService.connect();
@@ -113,6 +134,7 @@ export function useSignalR() {
         await signalRService.requestAntennaGeniusStatus();
         await signalRService.requestPgxlStatus();
         await signalRService.requestRadioStatus();
+        await signalRService.requestSmartUnlinkStatus();
         setConnected(true);
       } catch (error) {
         console.error('Failed to connect to SignalR:', error);
@@ -126,7 +148,7 @@ export function useSignalR() {
       signalRService.disconnect();
       setConnected(false);
     };
-  }, [queryClient, setConnected, setFocusedCallsign, setFocusedCallsignInfo, setRotatorPosition, setRigStatus, setAntennaGeniusStatus, updateAntennaGeniusPort, removeAntennaGeniusDevice, setPgxlStatus, removePgxlDevice, addDiscoveredRadio, removeDiscoveredRadio, setRadioConnectionState, setRadioState, setRadioSlices]);
+  }, [queryClient, setConnected, setFocusedCallsign, setFocusedCallsignInfo, setRotatorPosition, setRigStatus, setAntennaGeniusStatus, updateAntennaGeniusPort, removeAntennaGeniusDevice, setPgxlStatus, removePgxlDevice, addDiscoveredRadio, removeDiscoveredRadio, setRadioConnectionState, setRadioState, setRadioSlices, addSmartUnlinkRadio, updateSmartUnlinkRadio, removeSmartUnlinkRadio, setSmartUnlinkRadios]);
 
   const focusCallsign = useCallback(async (callsign: string, source: string) => {
     setFocusedCallsign(callsign);
@@ -178,6 +200,23 @@ export function useSignalR() {
     await signalRService.selectRadioInstance(radioId, instance);
   }, []);
 
+  // SmartUnlink methods
+  const addSmartUnlinkRadioFn = useCallback(async (dto: SmartUnlinkRadioDto) => {
+    await signalRService.addSmartUnlinkRadio(dto);
+  }, []);
+
+  const updateSmartUnlinkRadioFn = useCallback(async (dto: SmartUnlinkRadioDto) => {
+    await signalRService.updateSmartUnlinkRadio(dto);
+  }, []);
+
+  const removeSmartUnlinkRadioFn = useCallback(async (id: string) => {
+    await signalRService.removeSmartUnlinkRadio(id);
+  }, []);
+
+  const setSmartUnlinkRadioEnabled = useCallback(async (id: string, enabled: boolean) => {
+    await signalRService.setSmartUnlinkRadioEnabled(id, enabled);
+  }, []);
+
   return {
     isConnected: signalRService.isConnected,
     focusCallsign,
@@ -193,5 +232,10 @@ export function useSignalR() {
     disconnectRadio,
     selectRadioSlice,
     selectRadioInstance,
+    // SmartUnlink
+    addSmartUnlinkRadio: addSmartUnlinkRadioFn,
+    updateSmartUnlinkRadio: updateSmartUnlinkRadioFn,
+    removeSmartUnlinkRadio: removeSmartUnlinkRadioFn,
+    setSmartUnlinkRadioEnabled,
   };
 }

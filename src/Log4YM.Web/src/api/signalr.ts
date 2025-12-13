@@ -281,6 +281,60 @@ export interface SelectRadioInstanceCommand {
   instance: number;
 }
 
+// SmartUnlink types
+export const FLEX_RADIO_MODELS = [
+  'FLEX-5100',   // Aurora series
+  'FLEX-5200',   // Aurora series
+  'FLEX-6400',   // Signature series
+  'FLEX-6400M',  // Signature series with ATU
+  'FLEX-6600',   // Signature series
+  'FLEX-6600M',  // Signature series with ATU
+  'FLEX-6700',   // Signature series
+  'FLEX-8400',   // Maestro series
+  'FLEX-8600',   // Maestro series
+  'FlexRadio',   // Generic placeholder
+] as const;
+
+export type FlexRadioModel = typeof FLEX_RADIO_MODELS[number];
+
+export interface SmartUnlinkRadioDto {
+  id?: string;
+  name: string;
+  ipAddress: string;
+  model: string;
+  serialNumber: string;
+  callsign?: string;
+  enabled: boolean;
+}
+
+export interface SmartUnlinkRadioAddedEvent {
+  id: string;
+  name: string;
+  ipAddress: string;
+  model: string;
+  serialNumber: string;
+  callsign?: string;
+  enabled: boolean;
+}
+
+export interface SmartUnlinkRadioUpdatedEvent {
+  id: string;
+  name: string;
+  ipAddress: string;
+  model: string;
+  serialNumber: string;
+  callsign?: string;
+  enabled: boolean;
+}
+
+export interface SmartUnlinkRadioRemovedEvent {
+  id: string;
+}
+
+export interface SmartUnlinkStatusEvent {
+  radios: SmartUnlinkRadioAddedEvent[];
+}
+
 type EventHandlers = {
   onCallsignFocused?: (evt: CallsignFocusedEvent) => void;
   onCallsignLookedUp?: (evt: CallsignLookedUpEvent) => void;
@@ -304,6 +358,11 @@ type EventHandlers = {
   onRadioConnectionStateChanged?: (evt: RadioConnectionStateChangedEvent) => void;
   onRadioStateChanged?: (evt: RadioStateChangedEvent) => void;
   onRadioSlicesUpdated?: (evt: RadioSlicesUpdatedEvent) => void;
+  // SmartUnlink handlers
+  onSmartUnlinkRadioAdded?: (evt: SmartUnlinkRadioAddedEvent) => void;
+  onSmartUnlinkRadioUpdated?: (evt: SmartUnlinkRadioUpdatedEvent) => void;
+  onSmartUnlinkRadioRemoved?: (evt: SmartUnlinkRadioRemovedEvent) => void;
+  onSmartUnlinkStatus?: (evt: SmartUnlinkStatusEvent) => void;
 };
 
 class SignalRService {
@@ -433,6 +492,23 @@ class SignalRService {
     this.connection.on('OnRadioSlicesUpdated', (evt: RadioSlicesUpdatedEvent) => {
       this.handlers.onRadioSlicesUpdated?.(evt);
     });
+
+    // SmartUnlink events
+    this.connection.on('OnSmartUnlinkRadioAdded', (evt: SmartUnlinkRadioAddedEvent) => {
+      this.handlers.onSmartUnlinkRadioAdded?.(evt);
+    });
+
+    this.connection.on('OnSmartUnlinkRadioUpdated', (evt: SmartUnlinkRadioUpdatedEvent) => {
+      this.handlers.onSmartUnlinkRadioUpdated?.(evt);
+    });
+
+    this.connection.on('OnSmartUnlinkRadioRemoved', (evt: SmartUnlinkRadioRemovedEvent) => {
+      this.handlers.onSmartUnlinkRadioRemoved?.(evt);
+    });
+
+    this.connection.on('OnSmartUnlinkStatus', (evt: SmartUnlinkStatusEvent) => {
+      this.handlers.onSmartUnlinkStatus?.(evt);
+    });
   }
 
   setHandlers(handlers: EventHandlers): void {
@@ -510,6 +586,27 @@ class SignalRService {
 
   async requestRadioStatus(): Promise<void> {
     await this.connection?.invoke('RequestRadioStatus');
+  }
+
+  // SmartUnlink methods
+  async addSmartUnlinkRadio(dto: SmartUnlinkRadioDto): Promise<void> {
+    await this.connection?.invoke('AddSmartUnlinkRadio', dto);
+  }
+
+  async updateSmartUnlinkRadio(dto: SmartUnlinkRadioDto): Promise<void> {
+    await this.connection?.invoke('UpdateSmartUnlinkRadio', dto);
+  }
+
+  async removeSmartUnlinkRadio(id: string): Promise<void> {
+    await this.connection?.invoke('RemoveSmartUnlinkRadio', id);
+  }
+
+  async setSmartUnlinkRadioEnabled(id: string, enabled: boolean): Promise<void> {
+    await this.connection?.invoke('SetSmartUnlinkRadioEnabled', id, enabled);
+  }
+
+  async requestSmartUnlinkStatus(): Promise<void> {
+    await this.connection?.invoke('RequestSmartUnlinkStatus');
   }
 
   get isConnected(): boolean {

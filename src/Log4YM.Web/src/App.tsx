@@ -5,7 +5,7 @@ import { Header } from './components/Header';
 import { StatusBar } from './components/StatusBar';
 import { SettingsPanel } from './components/SettingsPanel';
 import { useSignalR } from './hooks/useSignalR';
-import { LogEntryPlugin, LogHistoryPlugin, ClusterPlugin, MapPlugin, RotatorPlugin, GlobePlugin, AntennaGeniusPlugin, PgxlPlugin } from './plugins';
+import { LogEntryPlugin, LogHistoryPlugin, ClusterPlugin, MapPlugin, RotatorPlugin, GlobePlugin, AntennaGeniusPlugin, PgxlPlugin, SmartUnlinkPlugin } from './plugins';
 import { Globe as Globe3D } from 'lucide-react';
 
 import 'flexlayout-react/style/dark.css';
@@ -51,6 +51,11 @@ const PLUGINS: Record<string, { name: string; icon: React.ReactNode; component: 
     name: 'PGXL Amplifier',
     icon: <Gauge className="w-4 h-4" />,
     component: PgxlPlugin,
+  },
+  'smart-unlink': {
+    name: 'SmartUnlink',
+    icon: <Radio className="w-4 h-4" />,
+    component: SmartUnlinkPlugin,
   },
 };
 

@@ -6,3 +6,4 @@ export { RotatorPlugin } from './RotatorPlugin';
 export { GlobePlugin } from './GlobePlugin';
 export { AntennaGeniusPlugin } from './AntennaGeniusPlugin';
 export { PgxlPlugin } from './PgxlPlugin';
+export { SmartUnlinkPlugin } from './SmartUnlinkPlugin';

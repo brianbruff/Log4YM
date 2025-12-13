@@ -1,5 +1,6 @@
 using MongoDB.Driver;
 using Log4YM.Contracts.Models;
+using Log4YM.Server.Services;
 using Serilog;
 
 namespace Log4YM.Server.Core.Database;
@@ -26,6 +27,7 @@ public class MongoDbContext
     public IMongoCollection<UserSettings> Settings => _database.GetCollection<UserSettings>("settings");
     public IMongoCollection<PluginSettings> PluginSettings => _database.GetCollection<PluginSettings>("pluginSettings");
     public IMongoCollection<Layout> Layouts => _database.GetCollection<Layout>("layouts");
+    public IMongoCollection<SmartUnlinkRadioEntity> SmartUnlinkRadios => _database.GetCollection<SmartUnlinkRadioEntity>("smartunlink_radios");
 
     private void CreateIndexes()
     {

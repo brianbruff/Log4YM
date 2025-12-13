@@ -8,55 +8,49 @@ export default {
   theme: {
     extend: {
       colors: {
-        // Dark glassmorphic palette
+        // VS Code Dark Modern inspired palette
         glass: {
-          50: 'rgba(255, 255, 255, 0.05)',
-          100: 'rgba(255, 255, 255, 0.1)',
-          200: 'rgba(255, 255, 255, 0.15)',
-          300: 'rgba(255, 255, 255, 0.2)',
+          50: 'rgba(255, 255, 255, 0.04)',
+          100: 'rgba(255, 255, 255, 0.06)',
+          200: 'rgba(255, 255, 255, 0.08)',
+          300: 'rgba(255, 255, 255, 0.12)',
         },
         dark: {
-          900: '#0a0a0f',
-          800: '#12121a',
-          700: '#1a1a25',
-          600: '#252532',
-          500: '#32324a',
-          400: '#3d3d5c',
-          300: '#4a4a6a',
+          900: '#1e1e1e',        // VS Code editor background
+          800: '#252526',        // VS Code sidebar background
+          700: '#2d2d2d',        // VS Code hover/selection
+          600: '#3c3c3c',        // VS Code border/divider
+          500: '#4d4d4d',        // Lighter elements
+          400: '#5a5a5a',        // Even lighter
+          300: '#6e6e6e',        // Muted text
         },
         accent: {
-          primary: '#6366f1',    // Indigo
-          secondary: '#8b5cf6',  // Violet
-          success: '#10b981',    // Emerald
-          warning: '#f59e0b',    // Amber
-          danger: '#ef4444',     // Red
-          info: '#3b82f6',       // Blue
+          primary: '#0078d4',    // VS Code blue (focus/selection)
+          secondary: '#3794ff',  // Lighter blue
+          success: '#4ec9b0',    // VS Code teal/cyan
+          warning: '#dcdcaa',    // VS Code yellow
+          danger: '#f14c4c',     // VS Code red
+          info: '#9cdcfe',       // VS Code light blue
         },
         ham: {
-          cw: '#f59e0b',         // Amber for CW
-          ssb: '#10b981',        // Green for SSB
-          ft8: '#3b82f6',        // Blue for FT8
-          rtty: '#8b5cf6',       // Purple for RTTY
+          cw: '#dcdcaa',         // Yellow for CW
+          ssb: '#4ec9b0',        // Teal for SSB
+          ft8: '#569cd6',        // Blue for FT8
+          rtty: '#c586c0',       // Pink/magenta for RTTY
         }
       },
       backdropBlur: {
         xs: '2px',
       },
       boxShadow: {
-        'glass': '0 8px 32px 0 rgba(0, 0, 0, 0.37)',
-        'glass-sm': '0 4px 16px 0 rgba(0, 0, 0, 0.25)',
-        'glow': '0 0 20px rgba(99, 102, 241, 0.3)',
-        'glow-success': '0 0 20px rgba(16, 185, 129, 0.3)',
+        'glass': '0 8px 32px 0 rgba(0, 0, 0, 0.5)',
+        'glass-sm': '0 4px 16px 0 rgba(0, 0, 0, 0.35)',
+        'glow': '0 0 20px rgba(0, 120, 212, 0.3)',
+        'glow-success': '0 0 20px rgba(78, 201, 176, 0.3)',
       },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
-        'mesh': `
-          radial-gradient(at 40% 20%, rgba(99, 102, 241, 0.15) 0px, transparent 50%),
-          radial-gradient(at 80% 0%, rgba(139, 92, 246, 0.1) 0px, transparent 50%),
-          radial-gradient(at 0% 50%, rgba(99, 102, 241, 0.1) 0px, transparent 50%),
-          radial-gradient(at 80% 50%, rgba(139, 92, 246, 0.08) 0px, transparent 50%),
-          radial-gradient(at 0% 100%, rgba(99, 102, 241, 0.1) 0px, transparent 50%)
-        `,
+        'mesh': 'none',
       },
       animation: {
         'pulse-slow': 'pulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite',
@@ -64,8 +58,8 @@ export default {
       },
       keyframes: {
         glow: {
-          '0%': { boxShadow: '0 0 5px rgba(99, 102, 241, 0.2)' },
-          '100%': { boxShadow: '0 0 20px rgba(99, 102, 241, 0.4)' },
+          '0%': { boxShadow: '0 0 5px rgba(0, 120, 212, 0.2)' },
+          '100%': { boxShadow: '0 0 20px rgba(0, 120, 212, 0.4)' },
         }
       }
     },

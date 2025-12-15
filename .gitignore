@@ -81,3 +81,12 @@ coverage/
 # MongoDB
 data/
 .playwright-mcp/
+
+# Electron
+src/Log4YM.Desktop/dist/
+src/Log4YM.Desktop/node_modules/
+*.dmg
+*.exe
+*.AppImage
+*.deb
+*.snap

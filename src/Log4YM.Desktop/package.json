@@ -1,0 +1,34 @@
+{
+  "name": "log4ym-desktop",
+  "version": "1.0.0",
+  "description": "Log4YM - Amateur Radio Logging Desktop Application",
+  "main": "main.js",
+  "author": {
+    "name": "Brian Keating",
+    "email": "ei6lf@example.com"
+  },
+  "license": "MIT",
+  "scripts": {
+    "start": "electron .",
+    "dev": "electron . --dev",
+    "build:frontend": "cd ../Log4YM.Web && npm run build",
+    "build:backend:win": "dotnet publish ../Log4YM.Server -c Release --self-contained -r win-x64 -o ../Log4YM.Server/bin/Release/net8.0/win-x64/publish",
+    "build:backend:mac-x64": "dotnet publish ../Log4YM.Server -c Release --self-contained -r osx-x64 -o ../Log4YM.Server/bin/Release/net8.0/osx-x64/publish",
+    "build:backend:mac-arm64": "dotnet publish ../Log4YM.Server -c Release --self-contained -r osx-arm64 -o ../Log4YM.Server/bin/Release/net8.0/osx-arm64/publish",
+    "build:backend:linux": "dotnet publish ../Log4YM.Server -c Release --self-contained -r linux-x64 -o ../Log4YM.Server/bin/Release/net8.0/linux-x64/publish",
+    "package:win": "npm run build:frontend && npm run build:backend:win && electron-builder --win",
+    "package:mac": "npm run build:frontend && npm run build:backend:mac-x64 && npm run build:backend:mac-arm64 && electron-builder --mac",
+    "package:linux": "npm run build:frontend && npm run build:backend:linux && electron-builder --linux",
+    "package:all": "npm run build:frontend && npm run build:backend:win && npm run build:backend:mac-x64 && npm run build:backend:mac-arm64 && npm run build:backend:linux && electron-builder --win --mac --linux"
+  },
+  "dependencies": {
+    "electron-log": "^5.1.7"
+  },
+  "devDependencies": {
+    "electron": "^33.2.0",
+    "electron-builder": "^25.1.8"
+  },
+  "build": {
+    "extends": "electron-builder.yml"
+  }
+}

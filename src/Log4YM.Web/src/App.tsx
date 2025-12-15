@@ -66,6 +66,7 @@ const defaultLayout: IJsonModel = {
     tabSetMinWidth: 100,
     tabSetMinHeight: 100,
     borderMinSize: 100,
+    tabSetEnableMaximize: false,
   },
   borders: [],
   layout: {

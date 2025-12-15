@@ -4,7 +4,7 @@
 
 *Why "Young Men"? It's a playful nod to Log4OM (Log for Old Men) - we're bringing amateur radio logging into the modern web era.*
 
-![Log4YM 3D Globe](docs/images/log4ym-globe.png)
+![Log4YM 3D Globe](docs/images/log4ym-globe2.png)
 
 ## What is Log4YM?
 

@@ -27,9 +27,13 @@ Log4YM is a fully web-based amateur radio logging platform designed to run on an
 | **Log Entry** | Quick QSO logging with automatic callsign lookup (QRZ, HamQTH) |
 | **DX Cluster** | Real-time spots via UDP multicast with band/mode filtering |
 | **3D Globe** | Interactive globe.gl Earth with beam visualization and click-to-rotate |
+| **2D Map** | Leaflet-based map with beam path overlay |
 | **Log History** | Searchable QSO database with ADIF import/export |
-| **CAT Control** | Rig frequency/mode sync via the server |
-| **Rotator Control** | Azimuth control integrated with callsign lookups |
+| **CAT Control** | FlexRadio and TCI rig frequency/mode sync |
+| **Rotator Control** | Hamlib rotctld integration with real-time azimuth display |
+| **Antenna Genius** | 4O3A Antenna Genius switch control and status |
+| **PGXL Amplifier** | Elecraft PGXL amplifier monitoring and control |
+| **SmartUnlink** | FlexRadio VPN discovery broadcast for remote operation |
 
 ## Architecture Overview
 
@@ -47,14 +51,20 @@ flowchart TB
     Browser <-->|"SignalR WebSocket"| Server
 
     subgraph Server["🖥️ Log4YM Server (.NET 8)"]
-        direction LR
+        direction TB
         QRZ["QRZ/HamQTH\nLookup"]
-        CAT["CAT/Rig\nControl"]
-        Rotator["Rotator\nControl"]
+        CAT["FlexRadio/TCI\nCAT Control"]
+        Rotator["Hamlib\nrotctld"]
         ClusterUDP["Cluster\nUDP Spots"]
+        AG["Antenna Genius\n4O3A"]
+        PGXL["PGXL\nAmplifier"]
     end
 
     Server <--> DB[(MongoDB)]
+    Rotator <-->|"TCP 4533"| RotatorHW["🎯 Rotator"]
+    AG <-->|"TCP"| AGHW["📡 Antenna Switch"]
+    PGXL <-->|"TCP"| PGXLHW["⚡ Amplifier"]
+    CAT <-->|"TCP/API"| Radio["📻 Radio"]
 ```
 
 ## Getting Started
@@ -76,6 +86,10 @@ cd src/Log4YM.Server && dotnet run
 
 ## Roadmap
 
+- [x] Hamlib rotctld integration
+- [x] 4O3A Antenna Genius support
+- [x] Elecraft PGXL amplifier support
+- [x] FlexRadio SmartUnlink VPN discovery
 - [ ] QRZ/HamQTH callsign lookup integration
 - [ ] ADIF import/export
 - [ ] Contest mode with serial number exchange
@@ -86,8 +100,9 @@ cd src/Log4YM.Server && dotnet run
 
 ## Tech Stack
 
-- **Frontend**: React 18, Vite, Tailwind CSS, FlexLayout, globe.gl
+- **Frontend**: React 18, Vite, Tailwind CSS, FlexLayout, globe.gl, Leaflet, Zustand
 - **Backend**: ASP.NET Core 8, SignalR, MongoDB
+- **Hardware**: Hamlib rotctld, 4O3A Antenna Genius, Elecraft PGXL, FlexRadio SmartSDR
 - **Deployment**: Docker, docker-compose
 
 ## Contributing

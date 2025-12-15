@@ -100,11 +100,13 @@ async function startBackend() {
     }
   }
 
+  const backendDir = path.dirname(backendPath);
   backendProcess = spawn(backendPath, [], {
+    cwd: backendDir,
     env: {
       ...process.env,
       ASPNETCORE_URLS: `http://localhost:${backendPort}`,
-      ASPNETCORE_ENVIRONMENT: 'Production'
+      ASPNETCORE_ENVIRONMENT: 'Development'
     },
     stdio: ['ignore', 'pipe', 'pipe']
   });

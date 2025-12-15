@@ -1,4 +1,4 @@
-import { Settings, Layout } from 'lucide-react';
+import { Settings } from 'lucide-react';
 import { useSettingsStore } from '../store/settingsStore';
 
 export function Header() {
@@ -36,10 +36,6 @@ export function Header() {
 
       {/* Actions */}
       <div className="flex items-center gap-2">
-        <button className="glass-button p-2" title="Layout">
-          <Layout className="w-4 h-4" />
-        </button>
-
         <button onClick={openSettings} className="glass-button p-2" title="Settings">
           <Settings className="w-4 h-4" />
         </button>

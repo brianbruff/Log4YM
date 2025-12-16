@@ -1,4 +1,4 @@
-import { useState, useCallback } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { Compass, Navigation, Target, RotateCw, Maximize2 } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import { useSignalR } from '../hooks/useSignalR';
@@ -9,13 +9,62 @@ export function RotatorPlugin() {
   const { commandRotator } = useSignalR();
   const [targetAzimuth, setTargetAzimuth] = useState('');
   const [isRotating, setIsRotating] = useState(false);
+  const [displayAzimuth, setDisplayAzimuth] = useState(0);
 
-  const currentAzimuth = rotatorPosition?.currentAzimuth ?? 0;
+  // Track commanded azimuth and time to prevent flip to 0
+  const lastCommandTimeRef = useRef<number>(0);
+  const commandedAzimuthRef = useRef<number | null>(null);
+  const displayedAzimuthRef = useRef<number>(0);
+
+  // Update display when rotator position changes, with protection against spurious 0 values
+  useEffect(() => {
+    // Use != null to check for both null and undefined
+    if (rotatorPosition?.currentAzimuth != null && typeof rotatorPosition.currentAzimuth === 'number') {
+      const newPosition = rotatorPosition.currentAzimuth;
+      const currentDisplay = displayedAzimuthRef.current;
+
+      // Detect suspicious jump to 0: backend sometimes sends 0 during state transitions
+      const isNearZero = currentDisplay <= 30 || currentDisplay >= 330;
+      const isSuspiciousZero = newPosition === 0 && !isNearZero;
+
+      // Ignore suspicious jumps to 0 - this is the main fix for the flip-to-0 issue
+      // The backend sometimes sends 0 during state transitions, regardless of isMoving status
+      if (isSuspiciousZero) {
+        return;
+      }
+
+      const timeSinceCommand = Date.now() - lastCommandTimeRef.current;
+      const commanded = commandedAzimuthRef.current;
+
+      // If we recently sent a command, be selective about which updates we accept
+      if (timeSinceCommand < 1000 && commanded !== null) {
+        // Only accept updates if the rotator position is close to what we commanded
+        const diff = Math.abs(newPosition - commanded);
+        const wrappedDiff = Math.min(diff, 360 - diff);
+        if (wrappedDiff <= 15) {
+          displayedAzimuthRef.current = newPosition;
+          setDisplayAzimuth(newPosition);
+        }
+        // Otherwise ignore this update - keep displaying the commanded azimuth
+      } else {
+        // Enough time has passed, trust the rotator position
+        commandedAzimuthRef.current = null;
+        displayedAzimuthRef.current = newPosition;
+        setDisplayAzimuth(newPosition);
+      }
+    }
+  }, [rotatorPosition]);
+
+  const currentAzimuth = displayAzimuth;
 
   const handleRotate = useCallback(async () => {
     const azimuth = parseFloat(targetAzimuth);
     if (isNaN(azimuth) || azimuth < 0 || azimuth > 360) return;
 
+    lastCommandTimeRef.current = Date.now();
+    commandedAzimuthRef.current = azimuth;
+    displayedAzimuthRef.current = azimuth;
+    setDisplayAzimuth(azimuth);
     setIsRotating(true);
     try {
       await commandRotator(azimuth, 'rotator');
@@ -26,6 +75,11 @@ export function RotatorPlugin() {
 
   const handleRotateToTarget = useCallback(async () => {
     if (!focusedCallsignInfo?.bearing) return;
+
+    lastCommandTimeRef.current = Date.now();
+    commandedAzimuthRef.current = focusedCallsignInfo.bearing;
+    displayedAzimuthRef.current = focusedCallsignInfo.bearing;
+    setDisplayAzimuth(focusedCallsignInfo.bearing);
     setIsRotating(true);
     try {
       await commandRotator(focusedCallsignInfo.bearing, 'rotator');
@@ -35,6 +89,10 @@ export function RotatorPlugin() {
   }, [focusedCallsignInfo?.bearing, commandRotator]);
 
   const handleQuickRotate = useCallback(async (deg: number) => {
+    lastCommandTimeRef.current = Date.now();
+    commandedAzimuthRef.current = deg;
+    displayedAzimuthRef.current = deg;
+    setDisplayAzimuth(deg);
     setTargetAzimuth(deg.toString());
     setIsRotating(true);
     try {
@@ -259,7 +317,7 @@ export function RotatorPlugin() {
           {/* Status */}
           <div className="flex items-center justify-between text-xs text-gray-500 pt-2 border-t border-glass-50">
             <span>Current: {currentAzimuth.toFixed(1)}°</span>
-            {rotatorPosition?.targetAzimuth !== undefined && rotatorPosition.isMoving && (
+            {rotatorPosition?.targetAzimuth != null && rotatorPosition.isMoving && (
               <span className="text-accent-warning flex items-center gap-1">
                 <RotateCw className="w-3 h-3 animate-spin" />
                 Target: {rotatorPosition.targetAzimuth.toFixed(1)}°

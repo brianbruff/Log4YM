@@ -180,6 +180,7 @@ export function GlobePlugin() {
   // Track last command time and commanded azimuth to avoid rotator position overwriting clicked value
   const lastCommandTimeRef = useRef<number>(0);
   const commandedAzimuthRef = useRef<number | null>(null);
+  const displayedAzimuthRef = useRef<number>(0);
 
   const animateBeam = useCallback(() => {
     renderBeam(currentAzimuthRef.current);
@@ -236,6 +237,7 @@ export function GlobePlugin() {
         const azimuth = calculateAzimuthRef.current(stationLat, stationLon, coords.lat, coords.lng);
         lastCommandTimeRef.current = Date.now();
         commandedAzimuthRef.current = azimuth;
+        displayedAzimuthRef.current = azimuth;
         setCurrentAzimuth(azimuth);
         commandRotatorRef.current(azimuth, 'globe');
       }
@@ -271,28 +273,40 @@ export function GlobePlugin() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stationLat, stationLon, stationGrid]);
 
-  // Update beam when rotator position changes
-  // Ignore updates briefly after a command to prevent snapping back to old/stale position
+  // Update beam when rotator position changes, with protection against spurious 0 values
   useEffect(() => {
-    if (rotatorPosition?.currentAzimuth !== undefined) {
+    if (rotatorPosition?.currentAzimuth != null && typeof rotatorPosition.currentAzimuth === 'number') {
+      const newPosition = rotatorPosition.currentAzimuth;
+      const currentDisplay = displayedAzimuthRef.current;
+
+      // Detect suspicious jump to 0: backend sometimes sends 0 during state transitions
+      const isNearZero = currentDisplay <= 30 || currentDisplay >= 330;
+      const isSuspiciousZero = newPosition === 0 && !isNearZero;
+
+      // Ignore suspicious jumps to 0 - this is the main fix for the flip-to-0 issue
+      // The backend sometimes sends 0 during state transitions, regardless of isMoving status
+      if (isSuspiciousZero) {
+        return;
+      }
+
       const timeSinceCommand = Date.now() - lastCommandTimeRef.current;
       const commanded = commandedAzimuthRef.current;
 
       // If we recently sent a command, be selective about which updates we accept
       if (timeSinceCommand < 1000 && commanded !== null) {
         // Only accept updates if the rotator position is close to what we commanded
-        // This prevents brief flips to 0 or stale positions
-        const diff = Math.abs(rotatorPosition.currentAzimuth - commanded);
-        const wrappedDiff = Math.min(diff, 360 - diff); // Handle wrap-around (e.g., 350° to 10°)
+        const diff = Math.abs(newPosition - commanded);
+        const wrappedDiff = Math.min(diff, 360 - diff);
         if (wrappedDiff <= 15) {
-          // Position is close to commanded - accept it
-          setCurrentAzimuth(rotatorPosition.currentAzimuth);
+          displayedAzimuthRef.current = newPosition;
+          setCurrentAzimuth(newPosition);
         }
         // Otherwise ignore this update - keep displaying the commanded azimuth
       } else {
         // Enough time has passed, trust the rotator position
         commandedAzimuthRef.current = null;
-        setCurrentAzimuth(rotatorPosition.currentAzimuth);
+        displayedAzimuthRef.current = newPosition;
+        setCurrentAzimuth(newPosition);
       }
     }
   }, [rotatorPosition]);
@@ -300,6 +314,7 @@ export function GlobePlugin() {
   // Update beam when focused callsign has bearing info
   useEffect(() => {
     if (focusedCallsignInfo?.bearing !== undefined) {
+      displayedAzimuthRef.current = focusedCallsignInfo.bearing;
       setCurrentAzimuth(focusedCallsignInfo.bearing);
     }
   }, [focusedCallsignInfo]);
@@ -403,6 +418,7 @@ export function GlobePlugin() {
               onClick={() => {
                 lastCommandTimeRef.current = Date.now();
                 commandedAzimuthRef.current = deg;
+                displayedAzimuthRef.current = deg;
                 setCurrentAzimuth(deg);
                 commandRotator(deg, 'globe');
               }}

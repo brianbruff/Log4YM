@@ -167,13 +167,25 @@ export function GlobePlugin() {
       .ringsData([]);
   }, [stationLat, stationLon, getDestinationPoint]);
 
-  // Animation loop
-  const animateBeam = useCallback(() => {
-    renderBeam(currentAzimuth);
-    animationRef.current = requestAnimationFrame(animateBeam);
-  }, [currentAzimuth, renderBeam]);
+  // Animation loop - use ref to avoid dependency on currentAzimuth
+  const currentAzimuthRef = useRef(currentAzimuth);
+  currentAzimuthRef.current = currentAzimuth;
 
-  // Initialize globe
+  // Store callbacks in refs to avoid re-initializing globe
+  const commandRotatorRef = useRef(commandRotator);
+  commandRotatorRef.current = commandRotator;
+  const calculateAzimuthRef = useRef(calculateAzimuth);
+  calculateAzimuthRef.current = calculateAzimuth;
+
+  // Track last command time to avoid rotator position overwriting clicked value
+  const lastCommandTimeRef = useRef<number>(0);
+
+  const animateBeam = useCallback(() => {
+    renderBeam(currentAzimuthRef.current);
+    animationRef.current = requestAnimationFrame(animateBeam);
+  }, [renderBeam]);
+
+  // Initialize globe - only runs once on mount
   useEffect(() => {
     if (!containerRef.current) return;
 
@@ -217,12 +229,12 @@ export function GlobePlugin() {
         </div>`;
       });
 
-    // Handle globe clicks to set azimuth
+    // Handle globe clicks to set azimuth - use refs to avoid stale closures
     globe.onGlobeClick((coords) => {
       if (coords && coords.lat !== undefined && coords.lng !== undefined) {
-        const azimuth = calculateAzimuth(stationLat, stationLon, coords.lat, coords.lng);
+        const azimuth = calculateAzimuthRef.current(stationLat, stationLon, coords.lat, coords.lng);
         setCurrentAzimuth(azimuth);
-        commandRotator(azimuth, 'globe');
+        commandRotatorRef.current(azimuth, 'globe');
       }
     });
 
@@ -253,7 +265,8 @@ export function GlobePlugin() {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [stationLat, stationLon, stationGrid, calculateAzimuth, commandRotator, animateBeam]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [stationLat, stationLon, stationGrid]);
 
   // Update beam when rotator position changes
   useEffect(() => {

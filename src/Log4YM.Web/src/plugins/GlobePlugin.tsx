@@ -177,8 +177,9 @@ export function GlobePlugin() {
   const calculateAzimuthRef = useRef(calculateAzimuth);
   calculateAzimuthRef.current = calculateAzimuth;
 
-  // Track last command time to avoid rotator position overwriting clicked value
+  // Track last command time and commanded azimuth to avoid rotator position overwriting clicked value
   const lastCommandTimeRef = useRef<number>(0);
+  const commandedAzimuthRef = useRef<number | null>(null);
 
   const animateBeam = useCallback(() => {
     renderBeam(currentAzimuthRef.current);
@@ -233,6 +234,8 @@ export function GlobePlugin() {
     globe.onGlobeClick((coords) => {
       if (coords && coords.lat !== undefined && coords.lng !== undefined) {
         const azimuth = calculateAzimuthRef.current(stationLat, stationLon, coords.lat, coords.lng);
+        lastCommandTimeRef.current = Date.now();
+        commandedAzimuthRef.current = azimuth;
         setCurrentAzimuth(azimuth);
         commandRotatorRef.current(azimuth, 'globe');
       }
@@ -269,9 +272,28 @@ export function GlobePlugin() {
   }, [stationLat, stationLon, stationGrid]);
 
   // Update beam when rotator position changes
+  // Ignore updates briefly after a command to prevent snapping back to old/stale position
   useEffect(() => {
     if (rotatorPosition?.currentAzimuth !== undefined) {
-      setCurrentAzimuth(rotatorPosition.currentAzimuth);
+      const timeSinceCommand = Date.now() - lastCommandTimeRef.current;
+      const commanded = commandedAzimuthRef.current;
+
+      // If we recently sent a command, be selective about which updates we accept
+      if (timeSinceCommand < 1000 && commanded !== null) {
+        // Only accept updates if the rotator position is close to what we commanded
+        // This prevents brief flips to 0 or stale positions
+        const diff = Math.abs(rotatorPosition.currentAzimuth - commanded);
+        const wrappedDiff = Math.min(diff, 360 - diff); // Handle wrap-around (e.g., 350° to 10°)
+        if (wrappedDiff <= 15) {
+          // Position is close to commanded - accept it
+          setCurrentAzimuth(rotatorPosition.currentAzimuth);
+        }
+        // Otherwise ignore this update - keep displaying the commanded azimuth
+      } else {
+        // Enough time has passed, trust the rotator position
+        commandedAzimuthRef.current = null;
+        setCurrentAzimuth(rotatorPosition.currentAzimuth);
+      }
     }
   }, [rotatorPosition]);
 
@@ -379,6 +401,8 @@ export function GlobePlugin() {
             <button
               key={deg}
               onClick={() => {
+                lastCommandTimeRef.current = Date.now();
+                commandedAzimuthRef.current = deg;
                 setCurrentAzimuth(deg);
                 commandRotator(deg, 'globe');
               }}

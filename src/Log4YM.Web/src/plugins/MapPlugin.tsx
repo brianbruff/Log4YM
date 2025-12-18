@@ -3,6 +3,7 @@ import { Map as MapIcon, MapPin, Target, Maximize2, ZoomIn, ZoomOut, Layers } fr
 import { MapContainer, TileLayer, Marker, Popup, useMap, useMapEvents, Circle, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import { useAppStore } from '../store/appStore';
+import { useSettingsStore } from '../store/settingsStore';
 import { useSignalR } from '../hooks/useSignalR';
 import { GlassPanel } from '../components/GlassPanel';
 
@@ -204,10 +205,14 @@ export function MapPlugin() {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const { stationGrid, rotatorPosition, focusedCallsignInfo } = useAppStore();
+  const { settings } = useSettingsStore();
   const { commandRotator } = useSignalR();
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [tileLayer, setTileLayer] = useState<TileLayerKey>('dark');
   const [currentAzimuth, setCurrentAzimuth] = useState(0);
+
+  // Rotator is enabled in settings
+  const rotatorEnabled = settings.rotator.enabled;
 
   // Station coordinates
   const stationLat = DEFAULT_LAT;
@@ -227,11 +232,12 @@ export function MapPlugin() {
     }
   }, [focusedCallsignInfo]);
 
-  // Handle click on map to set bearing
+  // Handle click on map to set bearing (only when rotator enabled)
   const handleBearingClick = useCallback((azimuth: number) => {
+    if (!rotatorEnabled) return; // Ignore clicks when rotator disabled
     setCurrentAzimuth(azimuth);
     commandRotator(azimuth, 'map');
-  }, [commandRotator]);
+  }, [commandRotator, rotatorEnabled]);
 
   // Toggle fullscreen
   const toggleFullscreen = useCallback(() => {
@@ -262,7 +268,11 @@ export function MapPlugin() {
       icon={<MapIcon className="w-5 h-5" />}
       actions={
         <div className="flex items-center gap-2">
-          <span className="text-sm font-mono text-accent-primary">{currentAzimuth}°</span>
+          {rotatorEnabled ? (
+            <span className="text-sm font-mono text-accent-primary">{currentAzimuth}°</span>
+          ) : (
+            <span className="text-sm text-gray-500">No Rotator</span>
+          )}
           <button
             onClick={toggleFullscreen}
             className="glass-button p-1.5"
@@ -321,16 +331,18 @@ export function MapPlugin() {
             }}
           />
 
-          {/* Beam direction line */}
-          <Polyline
-            positions={beamLinePoints}
-            pathOptions={{
-              color: '#6366f1',
-              weight: 3,
-              opacity: 0.7,
-              dashArray: '10, 5',
-            }}
-          />
+          {/* Beam direction line - only show when rotator enabled */}
+          {rotatorEnabled && (
+            <Polyline
+              positions={beamLinePoints}
+              pathOptions={{
+                color: '#6366f1',
+                weight: 3,
+                opacity: 0.7,
+                dashArray: '10, 5',
+              }}
+            />
+          )}
 
           {/* Target marker if we have focused callsign with coordinates */}
           {targetLat !== undefined && targetLon !== undefined && (
@@ -391,7 +403,7 @@ export function MapPlugin() {
 
         {/* Instructions overlay */}
         <div className="absolute bottom-4 right-4 glass-panel px-3 py-2 z-[1000] text-xs text-gray-400">
-          Click on map to set bearing
+          {rotatorEnabled ? 'Click on map to set bearing' : 'Rotator disabled'}
         </div>
       </div>
     </GlassPanel>

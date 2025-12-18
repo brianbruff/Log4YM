@@ -14,6 +14,9 @@ export function RotatorPlugin() {
   const [displayAzimuth, setDisplayAzimuth] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
 
+  // Rotator is enabled in settings
+  const rotatorEnabled = settings.rotator.enabled;
+
   // Get presets from settings, with fallback to defaults
   const presets = settings.rotator.presets || [
     { name: 'N', azimuth: 0 },
@@ -218,19 +221,38 @@ export function RotatorPlugin() {
       icon={<Compass className="w-5 h-5" />}
       actions={
         <div className="flex items-center gap-1">
-          <button
-            className="glass-button p-1.5"
-            title="Preset Settings"
-            onClick={() => setShowSettings(true)}
-          >
-            <Settings className="w-4 h-4" />
-          </button>
-          <button className="glass-button p-1.5" title="Fullscreen">
-            <Maximize2 className="w-4 h-4" />
-          </button>
+          {rotatorEnabled ? (
+            <>
+              <button
+                className="glass-button p-1.5"
+                title="Preset Settings"
+                onClick={() => setShowSettings(true)}
+              >
+                <Settings className="w-4 h-4" />
+              </button>
+              <button className="glass-button p-1.5" title="Fullscreen">
+                <Maximize2 className="w-4 h-4" />
+              </button>
+            </>
+          ) : (
+            <span className="text-sm text-gray-500">Disabled</span>
+          )}
         </div>
       }
     >
+      {/* Disabled state */}
+      {!rotatorEnabled && (
+        <div className="p-8 flex flex-col items-center justify-center text-center">
+          <Compass className="w-16 h-16 text-gray-600 mb-4" />
+          <p className="text-gray-400 text-lg font-medium mb-2">Rotator Disabled</p>
+          <p className="text-gray-500 text-sm">
+            Enable rotator in Settings to control antenna direction.
+          </p>
+        </div>
+      )}
+
+      {/* Enabled state */}
+      {rotatorEnabled && (
       <div className="p-4 space-y-4">
         {/* Compass Rose */}
         <div className="py-4">
@@ -350,6 +372,7 @@ export function RotatorPlugin() {
           </div>
         </div>
       </div>
+      )}
 
       {/* Settings Modal */}
       {showSettings && (

@@ -1,6 +1,7 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { Globe as GlobeIcon, Navigation, Target, Maximize2 } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
+import { useSettingsStore } from '../store/settingsStore';
 import { useSignalR } from '../hooks/useSignalR';
 import { GlassPanel } from '../components/GlassPanel';
 import Globe from 'globe.gl';
@@ -51,9 +52,13 @@ export function GlobePlugin() {
   const animationRef = useRef<number | null>(null);
 
   const { stationGrid, rotatorPosition, focusedCallsignInfo } = useAppStore();
+  const { settings } = useSettingsStore();
   const { commandRotator } = useSignalR();
 
   const [currentAzimuth, setCurrentAzimuth] = useState(0);
+
+  // Rotator is enabled in settings
+  const rotatorEnabled = settings.rotator.enabled;
   const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Get station coordinates from grid or use defaults
@@ -106,9 +111,17 @@ export function GlobePlugin() {
     };
   }, []);
 
-  // Render the beam visualization
-  const renderBeam = useCallback((azimuth: number) => {
+  // Render the beam visualization (only when rotator is connected)
+  const renderBeam = useCallback((azimuth: number, isConnected: boolean) => {
     if (!globeRef.current) return;
+
+    // If rotator is not connected, clear any existing beam visualization
+    if (!isConnected) {
+      globeRef.current
+        .pathsData([])
+        .ringsData([]);
+      return;
+    }
 
     const pathsData: { path: [number, number, number][]; color: string; stroke: number }[] = [];
     const numSegments = 50;
@@ -171,6 +184,10 @@ export function GlobePlugin() {
   const currentAzimuthRef = useRef(currentAzimuth);
   currentAzimuthRef.current = currentAzimuth;
 
+  // Track rotator enabled status in ref for animation loop
+  const rotatorEnabledRef = useRef(rotatorEnabled);
+  rotatorEnabledRef.current = rotatorEnabled;
+
   // Store callbacks in refs to avoid re-initializing globe
   const commandRotatorRef = useRef(commandRotator);
   commandRotatorRef.current = commandRotator;
@@ -183,7 +200,7 @@ export function GlobePlugin() {
   const displayedAzimuthRef = useRef<number>(0);
 
   const animateBeam = useCallback(() => {
-    renderBeam(currentAzimuthRef.current);
+    renderBeam(currentAzimuthRef.current, rotatorEnabledRef.current);
     animationRef.current = requestAnimationFrame(animateBeam);
   }, [renderBeam]);
 
@@ -232,7 +249,9 @@ export function GlobePlugin() {
       });
 
     // Handle globe clicks to set azimuth - use refs to avoid stale closures
+    // Only allow commanding rotator when enabled
     globe.onGlobeClick((coords) => {
+      if (!rotatorEnabledRef.current) return; // Ignore clicks when rotator disabled
       if (coords && coords.lat !== undefined && coords.lng !== undefined) {
         const azimuth = calculateAzimuthRef.current(stationLat, stationLon, coords.lat, coords.lng);
         lastCommandTimeRef.current = Date.now();
@@ -375,7 +394,11 @@ export function GlobePlugin() {
       icon={<GlobeIcon className="w-5 h-5" />}
       actions={
         <div className="flex items-center gap-2">
-          <span className="text-sm font-mono text-accent-primary">{currentAzimuth}°</span>
+          {rotatorEnabled ? (
+            <span className="text-sm font-mono text-accent-primary">{currentAzimuth}°</span>
+          ) : (
+            <span className="text-sm text-gray-500">No Rotator</span>
+          )}
           <button
             onClick={toggleFullscreen}
             className="glass-button p-1.5"
@@ -391,38 +414,40 @@ export function GlobePlugin() {
         <div
           ref={containerRef}
           className="w-full h-full"
-          style={{ cursor: 'crosshair' }}
+          style={{ cursor: rotatorEnabled ? 'crosshair' : 'default' }}
         />
 
-        {/* Compass overlay */}
-        <div className="absolute top-4 right-4 w-32 h-32 bg-dark-800/90 backdrop-blur-sm rounded-full border-2 border-glass-200 flex items-center justify-center">
-          <span className="absolute top-1 text-xs font-bold text-accent-danger">N</span>
-          <span className="absolute bottom-1 text-xs font-bold text-gray-500">S</span>
-          <span className="absolute left-1 text-xs font-bold text-gray-500">W</span>
-          <span className="absolute right-1 text-xs font-bold text-gray-500">E</span>
+        {/* Compass overlay - only show when rotator enabled */}
+        {rotatorEnabled && (
+          <div className="absolute top-4 right-4 w-32 h-32 bg-dark-800/90 backdrop-blur-sm rounded-full border-2 border-glass-200 flex items-center justify-center">
+            <span className="absolute top-1 text-xs font-bold text-accent-danger">N</span>
+            <span className="absolute bottom-1 text-xs font-bold text-gray-500">S</span>
+            <span className="absolute left-1 text-xs font-bold text-gray-500">W</span>
+            <span className="absolute right-1 text-xs font-bold text-gray-500">E</span>
 
-          {/* Compass needle */}
-          <div
-            className="absolute w-1 h-12 origin-bottom transition-transform duration-300"
-            style={{
-              transform: `rotate(${currentAzimuth}deg)`,
-              background: 'linear-gradient(to top, transparent, #fbbf24)',
-              top: 'calc(50% - 48px)',
-            }}
-          />
+            {/* Compass needle */}
+            <div
+              className="absolute w-1 h-12 origin-bottom transition-transform duration-300"
+              style={{
+                transform: `rotate(${currentAzimuth}deg)`,
+                background: 'linear-gradient(to top, transparent, #fbbf24)',
+                top: 'calc(50% - 48px)',
+              }}
+            />
 
-          {/* Center display */}
-          <div className="text-center z-10">
-            <div className="text-xl font-bold text-accent-primary">{currentAzimuth}°</div>
-            <div className="text-xs text-gray-500">Azimuth</div>
+            {/* Center display */}
+            <div className="text-center z-10">
+              <div className="text-xl font-bold text-accent-primary">{currentAzimuth}°</div>
+              <div className="text-xs text-gray-500">Azimuth</div>
+            </div>
           </div>
-        </div>
+        )}
 
         {/* Info overlay */}
         <div className="absolute bottom-4 left-4 glass-panel px-3 py-2 text-xs">
           <div className="flex items-center gap-2 text-gray-400">
             <Navigation className="w-3 h-3" />
-            <span>Click on globe to set bearing</span>
+            <span>{rotatorEnabled ? 'Click on globe to set bearing' : 'Rotator disabled'}</span>
           </div>
         </div>
 

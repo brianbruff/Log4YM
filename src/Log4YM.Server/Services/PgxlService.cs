@@ -503,31 +503,20 @@ internal class PgxlConnection
     {
         _logger.LogDebug("PGXL async status: {Message}", message);
 
-        // PGXL state meanings:
-        //   IDLE = In operate mode but not transmitting (operating)
-        //   STANDBY = In standby mode (not operating)
-        //   TRANSMIT = Actively transmitting (operating)
-        //   OPERATE = In operate mode (operating)
-        //   FAULT = Fault condition (not operating)
-        if (message.Contains("state=IDLE", StringComparison.OrdinalIgnoreCase))
+        // Parse vdd from async message if present - vdd indicates actual operating state
+        var vddMatch = System.Text.RegularExpressions.Regex.Match(message, @"vdd=(\d+\.?\d*)");
+        if (vddMatch.Success && double.TryParse(vddMatch.Groups[1].Value, out var vdd))
         {
-            _logger.LogInformation("PGXL state: IDLE (operating, not transmitting)");
-            IsOperating = true;
+            var wasOperating = IsOperating;
+            IsOperating = vdd > 1.0;
+            if (wasOperating != IsOperating)
+            {
+                _logger.LogInformation("PGXL vdd={Vdd}, IsOperating changed to {IsOperating}", vdd, IsOperating);
+            }
         }
-        else if (message.Contains("state=OPERATE", StringComparison.OrdinalIgnoreCase) ||
-                 message.Contains("state=TRANSMIT", StringComparison.OrdinalIgnoreCase) ||
-                 message.Contains("state=TX", StringComparison.OrdinalIgnoreCase))
-        {
-            _logger.LogInformation("PGXL state changed to OPERATE/TRANSMIT");
-            IsOperating = true;
-        }
-        else if (message.Contains("state=STANDBY", StringComparison.OrdinalIgnoreCase) ||
-                 message.Contains("state=STBY", StringComparison.OrdinalIgnoreCase))
-        {
-            _logger.LogInformation("PGXL state changed to STANDBY");
-            IsOperating = false;
-        }
-        else if (message.Contains("state=FAULT", StringComparison.OrdinalIgnoreCase))
+
+        // Also handle explicit FAULT state
+        if (message.Contains("state=FAULT", StringComparison.OrdinalIgnoreCase))
         {
             _logger.LogWarning("PGXL entered FAULT state");
             IsOperating = false;
@@ -541,24 +530,31 @@ internal class PgxlConnection
         _logger.LogDebug("Parsing status response: {Response}", response);
 
         // Status response format varies by firmware:
-        // state=STANDBY|OPERATE|OPERATING|STBY|FAULT|IDLE|TRANSMIT
-        // PGXL state meanings:
-        //   IDLE = Amp is in OPERATE mode, ready but not transmitting
-        //   STANDBY = Amp is in STANDBY mode
-        //   TRANSMIT = Amp is actively transmitting
-        //   OPERATE = Amp is in operate mode
-        //   FAULT = Amp has a fault
+        // The 'state' field indicates TX state (IDLE/TRANSMIT), not operate/standby mode
+        // The 'vdd' field indicates actual operating mode:
+        //   vdd > 0 = Amp is in OPERATE mode (power supply active)
+        //   vdd = 0 = Amp is in STANDBY mode (power supply off)
         var values = ParseKeyValuePairs(response);
 
-        // Check 'state' field - the primary indicator of operating state
-        if (values.TryGetValue("state", out var state))
+        // Use vdd (drain voltage) as the primary indicator of operating state
+        // When amp is in operate mode, vdd is ~50V; in standby, vdd is 0
+        if (values.TryGetValue("vdd", out var vddStr) && double.TryParse(vddStr, out var vdd))
         {
-            // IDLE means "in operate mode but idle" (not transmitting), so it's operating
-            // STANDBY/STBY means actually in standby mode
-            IsOperating = state.Equals("IDLE", StringComparison.OrdinalIgnoreCase) ||
-                          state.Equals("OPERATE", StringComparison.OrdinalIgnoreCase) ||
-                          state.Equals("TRANSMIT", StringComparison.OrdinalIgnoreCase) ||
-                          state.Equals("TX", StringComparison.OrdinalIgnoreCase);
+            IsOperating = vdd > 1.0; // Threshold to account for noise
+            _logger.LogDebug("PGXL vdd={Vdd}, IsOperating={IsOperating}", vdd, IsOperating);
+        }
+        // Fallback: check state field for explicit STANDBY
+        else if (values.TryGetValue("state", out var state))
+        {
+            if (state.Equals("STANDBY", StringComparison.OrdinalIgnoreCase) ||
+                state.Equals("STBY", StringComparison.OrdinalIgnoreCase))
+            {
+                IsOperating = false;
+            }
+            else if (state.Equals("FAULT", StringComparison.OrdinalIgnoreCase))
+            {
+                IsOperating = false;
+            }
             _logger.LogDebug("PGXL state={State}, IsOperating={IsOperating}", state, IsOperating);
         }
 

@@ -564,8 +564,10 @@ internal class PgxlConnection
         // Meters
         if (values.TryGetValue("fwd", out var fwd) && double.TryParse(fwd, out var fwdVal))
             _forwardPowerDbm = fwdVal;
-        if (values.TryGetValue("rl", out var rl) && double.TryParse(rl, out var rlVal))
-            _returnLossDb = rlVal;
+        // PGXL sends return loss in a field confusingly named "swr" - it's in dB as negative values
+        // e.g., -17.3 means 17.3 dB return loss, -60.0 when idle means no valid reading
+        if (values.TryGetValue("swr", out var swrRl) && double.TryParse(swrRl, out var swrRlVal))
+            _returnLossDb = Math.Abs(swrRlVal);
         if (values.TryGetValue("drv", out var drv) && double.TryParse(drv, out var drvVal))
             _drivePowerDbm = drvVal;
         if (values.TryGetValue("id", out var id) && double.TryParse(id, out var idVal))
@@ -658,11 +660,14 @@ internal class PgxlConnection
 
     public PgxlStatusEvent GetStatus()
     {
+        // Only calculate SWR when transmitting - when not TX, return loss is 0 which gives invalid SWR
+        var swrRatio = IsTransmitting ? ReturnLossToSwr(_returnLossDb) : 0;
+
         var meters = new PgxlMeters(
             ForwardPowerDbm: _forwardPowerDbm,
             ForwardPowerWatts: DbmToWatts(_forwardPowerDbm),
             ReturnLossDb: _returnLossDb,
-            SwrRatio: ReturnLossToSwr(_returnLossDb),
+            SwrRatio: swrRatio,
             DrivePowerDbm: _drivePowerDbm,
             PaCurrent: _paCurrent,
             TemperatureC: _temperatureC

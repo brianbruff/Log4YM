@@ -250,20 +250,30 @@ export function GlobePlugin() {
     globeRef.current = globe;
 
     // Handle resize - use ResizeObserver for container size changes (FlexLayout panels)
-    let resizeTimeout: NodeJS.Timeout | null = null;
+    let resizeTimeout: ReturnType<typeof setTimeout> | null = null;
     let lastWidth = 0;
     let lastHeight = 0;
+    let isResizing = false;
 
     const handleResize = () => {
-      if (containerRef.current && globeRef.current) {
-        const width = containerRef.current.offsetWidth;
-        const height = containerRef.current.offsetHeight;
-        // Only update if size actually changed (avoid feedback loops)
-        if (width > 0 && height > 0 && (width !== lastWidth || height !== lastHeight)) {
-          lastWidth = width;
-          lastHeight = height;
-          globeRef.current.width(width).height(height);
-        }
+      if (isResizing || !containerRef.current || !globeRef.current) return;
+
+      // Use getBoundingClientRect for more stable measurements
+      const rect = containerRef.current.getBoundingClientRect();
+      const width = Math.floor(rect.width);
+      const height = Math.floor(rect.height);
+
+      // Only update if size changed by more than 5px (avoid micro-fluctuations)
+      const widthDiff = Math.abs(width - lastWidth);
+      const heightDiff = Math.abs(height - lastHeight);
+
+      if (width > 0 && height > 0 && (widthDiff > 5 || heightDiff > 5)) {
+        isResizing = true;
+        lastWidth = width;
+        lastHeight = height;
+        globeRef.current.width(width).height(height);
+        // Release lock after a short delay to prevent feedback loops
+        setTimeout(() => { isResizing = false; }, 100);
       }
     };
 
@@ -272,7 +282,7 @@ export function GlobePlugin() {
       if (resizeTimeout) {
         clearTimeout(resizeTimeout);
       }
-      resizeTimeout = setTimeout(handleResize, 200);
+      resizeTimeout = setTimeout(handleResize, 300);
     };
 
     // ResizeObserver detects container size changes from FlexLayout
@@ -283,8 +293,8 @@ export function GlobePlugin() {
     // Also handle window resize for fullscreen etc
     window.addEventListener('resize', debouncedResize);
 
-    // Initial size (immediate, no debounce)
-    handleResize();
+    // Initial size after a brief delay to let layout settle
+    setTimeout(handleResize, 100);
 
     // Start animation
     animationRef.current = requestAnimationFrame(animateBeam);

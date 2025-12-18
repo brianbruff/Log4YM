@@ -47,7 +47,7 @@ export function LogEntryPlugin() {
   const [timeLocked, setTimeLocked] = useState(true);
   const [qsoDate, setQsoDate] = useState(() => formatDateForInput(new Date()));
   const [qsoTime, setQsoTime] = useState(() => formatTimeForInput(new Date()));
-  const timeIntervalRef = useRef<NodeJS.Timeout | null>(null);
+  const timeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
   // Update time every second when locked
   useEffect(() => {

@@ -1,11 +1,21 @@
-import { Wifi, WifiOff, Power, PowerOff, Thermometer, Zap } from 'lucide-react';
+import { useState } from 'react';
+import { Wifi, WifiOff, Settings, Zap } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import { useSignalR } from '../hooks/useSignalR';
 import { GlassPanel } from '../components/GlassPanel';
 
+// Types for A/B slice configuration (future backend support)
+interface SliceConfig {
+  pttActive: boolean;
+  band: string;
+  mode: 'AAB' | 'AB' | 'A' | 'B';
+  radioName: string;
+}
+
 export function PgxlPlugin() {
   const { pgxlDevices } = useAppStore();
   const { setPgxlOperate, setPgxlStandby } = useSignalR();
+  const [showSettings, setShowSettings] = useState(false);
 
   // Convert Map to array for rendering
   const devices = Array.from(pgxlDevices.values());
@@ -13,14 +23,14 @@ export function PgxlPlugin() {
   if (devices.length === 0) {
     return (
       <GlassPanel
-        title="PGXL Amplifier"
+        title="PowerGeniusXL"
         icon={<Zap className="w-5 h-5" />}
       >
         <div className="flex flex-col items-center justify-center h-full p-8 text-gray-500">
           <WifiOff className="w-12 h-12 mb-4 opacity-50" />
           <p className="text-center">No PGXL amplifiers found</p>
           <p className="text-sm text-gray-600 mt-2 text-center">
-            Configure Pgxl:Addresses in appsettings.json
+            Waiting for PGXL discovery on port 9008
           </p>
         </div>
       </GlassPanel>
@@ -30,9 +40,30 @@ export function PgxlPlugin() {
   // For now, show the first device
   const device = devices[0];
 
+  // Simulated A/B slice config (will come from backend in future)
+  const sliceA: SliceConfig = {
+    pttActive: device.isOperating,
+    band: device.band?.replace('m', '') || 'N/A',
+    mode: 'AAB',
+    radioName: 'MyFlex',
+  };
+
+  const sliceB: SliceConfig = {
+    pttActive: false,
+    band: 'N/A',
+    mode: 'AB',
+    radioName: 'MANUAL',
+  };
+
+  // Simulated voltage readings (will come from backend in future)
+  const vdd = device.isOperating ? 52.0 : 0.0;
+  const vac = 238;
+  const tempA = device.meters.temperatureC;
+  const tempB = device.meters.temperatureC + 1.2; // Simulated second temp
+
   return (
     <GlassPanel
-      title="PGXL Amplifier"
+      title="PowerGeniusXL"
       icon={<Zap className="w-5 h-5" />}
       actions={
         <div className="flex items-center gap-2">
@@ -50,73 +81,80 @@ export function PgxlPlugin() {
         </div>
       }
     >
-      <div className="p-4 space-y-4">
-        {/* Device Info & Operate/Standby Toggle */}
-        <div className="flex items-center justify-between">
-          <div className="text-sm text-gray-400">
-            <span className="font-medium text-gray-200">{device.serial}</span>
-            <span className="mx-2">|</span>
-            <span className="font-mono text-xs">{device.ipAddress}</span>
+      <div className="flex flex-col h-full">
+        {/* Main Display Area */}
+        <div className="flex-1 bg-dark-800 rounded-lg mx-3 mt-3 overflow-hidden">
+          {device.isOperating ? (
+            <OperatingDisplay
+              forwardPower={device.meters.forwardPowerWatts}
+              swr={device.meters.swrRatio}
+              paCurrent={device.meters.paCurrent}
+            />
+          ) : (
+            <StandbyDisplay />
+          )}
+        </div>
+
+        {/* A/B Slice Status and Readings */}
+        <div className="flex gap-3 px-3 py-3">
+          {/* A/B Slice Rows */}
+          <div className="flex-1 space-y-1.5">
+            <SliceStatusRow label="A" config={sliceA} />
+            <SliceStatusRow label="B" config={sliceB} />
           </div>
 
-          <OperateStandbyToggle
-            isOperating={device.isOperating}
-            onOperate={() => setPgxlOperate(device.serial)}
-            onStandby={() => setPgxlStandby(device.serial)}
-          />
+          {/* Voltage/Temp Readings */}
+          <div className="text-right text-sm space-y-0.5 min-w-[100px]">
+            <div className="text-gray-400">
+              <span className="text-gray-200">{tempA.toFixed(1)}</span>
+              <span className="text-gray-500"> / </span>
+              <span className="text-gray-200">{tempB.toFixed(1)}</span>
+              <span className="text-gray-500"> °C</span>
+            </div>
+            <div className="text-gray-400">
+              <span className="text-gray-500">Vdd </span>
+              <span className="text-gray-200">{vdd.toFixed(1)}</span>
+              <span className="text-gray-500"> V</span>
+            </div>
+            <div className="text-gray-400">
+              <span className="text-gray-500">Vac </span>
+              <span className="text-gray-200">{vac}</span>
+              <span className="text-gray-500"> V</span>
+            </div>
+          </div>
         </div>
 
-        {/* Band Display */}
-        <div className="bg-dark-700/50 rounded-lg p-3 border border-glass-100">
-          <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Band</div>
-          <div className="text-2xl font-bold text-accent-primary">{device.band}</div>
+        {/* Bottom Buttons */}
+        <div className="flex gap-2 px-3 pb-3">
+          <button
+            onClick={() => setShowSettings(true)}
+            className="px-4 py-2 text-sm font-medium bg-dark-700 text-gray-300 rounded-lg hover:bg-dark-600 transition-all border border-glass-100 flex items-center gap-2"
+          >
+            <Settings className="w-4 h-4" />
+            Settings
+          </button>
+          <div className="flex-1" />
+          <button
+            onClick={() => {
+              if (device.isOperating) {
+                setPgxlStandby(device.serial);
+              } else {
+                setPgxlOperate(device.serial);
+              }
+            }}
+            className={`px-6 py-2 text-sm font-bold rounded-lg transition-all ${
+              device.isOperating
+                ? 'bg-green-600 text-white hover:bg-green-700'
+                : 'bg-blue-600 text-white hover:bg-blue-700'
+            }`}
+          >
+            {device.isOperating ? 'Standby' : 'Operate'}
+          </button>
         </div>
 
-        {/* Power Meters */}
-        <div className="grid grid-cols-2 gap-3">
-          <MeterDisplay
-            label="Output Power"
-            value={device.meters.forwardPowerWatts}
-            unit="W"
-            max={1500}
-            color="accent-primary"
-            showBar
-          />
-          <MeterDisplay
-            label="SWR"
-            value={device.meters.swrRatio}
-            unit=":1"
-            max={3}
-            color={device.meters.swrRatio > 2 ? 'accent-danger' : 'accent-success'}
-            showBar
-            precision={1}
-          />
-        </div>
-
-        {/* Secondary Meters */}
-        <div className="grid grid-cols-3 gap-2">
-          <SmallMeter
-            label="Drive"
-            value={device.meters.drivePowerDbm}
-            unit="dBm"
-          />
-          <SmallMeter
-            label="PA Current"
-            value={device.meters.paCurrent}
-            unit="A"
-          />
-          <SmallMeter
-            label="Temp"
-            value={device.meters.temperatureC}
-            unit="°C"
-            icon={<Thermometer className="w-3 h-3" />}
-            warning={device.meters.temperatureC > 50}
-          />
-        </div>
-
-        {/* Status Indicators */}
+        {/* Status Alerts */}
         {(device.setup.highSwr || device.setup.overTemp || device.setup.overCurrent) && (
-          <div className="flex gap-2">
+          <div className="flex gap-2 px-3 pb-3 flex-wrap">
             {device.setup.highSwr && (
               <StatusBadge label="HIGH SWR" variant="danger" />
             )}
@@ -129,104 +167,249 @@ export function PgxlPlugin() {
           </div>
         )}
       </div>
+
+      {/* Settings Modal */}
+      {showSettings && (
+        <SettingsModal
+          device={device}
+          onClose={() => setShowSettings(false)}
+        />
+      )}
     </GlassPanel>
   );
 }
 
-interface OperateStandbyToggleProps {
-  isOperating: boolean;
-  onOperate: () => void;
-  onStandby: () => void;
-}
-
-function OperateStandbyToggle({ isOperating, onOperate, onStandby }: OperateStandbyToggleProps) {
+function StandbyDisplay() {
   return (
-    <div className="flex rounded-lg overflow-hidden border border-glass-100">
-      <button
-        onClick={onStandby}
-        className={`
-          px-3 py-1.5 text-xs font-medium flex items-center gap-1.5 transition-all
-          ${!isOperating
-            ? 'bg-amber-500/20 text-amber-400 border-r border-amber-500/30'
-            : 'bg-dark-700 text-gray-500 hover:bg-dark-600 border-r border-glass-100'
-          }
-        `}
-      >
-        <PowerOff className="w-3.5 h-3.5" />
-        STBY
-      </button>
-      <button
-        onClick={onOperate}
-        className={`
-          px-3 py-1.5 text-xs font-medium flex items-center gap-1.5 transition-all
-          ${isOperating
-            ? 'bg-green-500/20 text-green-400'
-            : 'bg-dark-700 text-gray-500 hover:bg-dark-600'
-          }
-        `}
-      >
-        <Power className="w-3.5 h-3.5" />
-        OPER
-      </button>
+    <div className="flex items-center justify-center h-full min-h-[120px]">
+      <span className="text-4xl font-bold text-yellow-400 italic tracking-wider">
+        STANDBY
+      </span>
     </div>
   );
 }
 
-interface MeterDisplayProps {
-  label: string;
-  value: number;
-  unit: string;
-  max: number;
+interface OperatingDisplayProps {
+  forwardPower: number;
+  swr: number;
+  paCurrent: number;
+}
+
+function OperatingDisplay({ forwardPower, swr, paCurrent }: OperatingDisplayProps) {
+  return (
+    <div className="p-3 space-y-2">
+      {/* Forward Power Meter */}
+      <SegmentedMeter
+        label="Fwd Pwr"
+        value={forwardPower}
+        segments={[
+          { start: 0, end: 500, color: 'bg-green-500' },
+          { start: 500, end: 1500, color: 'bg-yellow-500' },
+          { start: 1500, end: 2000, color: 'bg-red-500' },
+        ]}
+        markers={[
+          { value: 0, label: '0' },
+          { value: 500, label: '500' },
+          { value: 1500, label: '1.5k' },
+          { value: 2000, label: '2k' },
+        ]}
+        max={2000}
+      />
+
+      {/* SWR Meter */}
+      <SegmentedMeter
+        label="SWR"
+        value={swr}
+        segments={[
+          { start: 1, end: 1.5, color: 'bg-green-500' },
+          { start: 1.5, end: 2.5, color: 'bg-yellow-500' },
+          { start: 2.5, end: 3, color: 'bg-red-500' },
+        ]}
+        markers={[
+          { value: 1, label: '1' },
+          { value: 1.5, label: '1.5' },
+          { value: 2.5, label: '2.5' },
+          { value: 3, label: '3' },
+        ]}
+        min={1}
+        max={3}
+      />
+
+      {/* PA Current Meter */}
+      <SegmentedMeter
+        label="Id"
+        value={paCurrent}
+        segments={[
+          { start: 0, end: 40, color: 'bg-green-500' },
+          { start: 40, end: 60, color: 'bg-yellow-500' },
+          { start: 60, end: 70, color: 'bg-red-500' },
+        ]}
+        markers={[
+          { value: 10, label: '10' },
+          { value: 20, label: '20' },
+          { value: 30, label: '30' },
+          { value: 40, label: '40' },
+          { value: 50, label: '50' },
+          { value: 60, label: '60' },
+          { value: 70, label: '70' },
+        ]}
+        max={70}
+        valueDisplay={`${paCurrent.toFixed(1)} A`}
+      />
+    </div>
+  );
+}
+
+interface Segment {
+  start: number;
+  end: number;
   color: string;
-  showBar?: boolean;
-  precision?: number;
 }
 
-function MeterDisplay({ label, value, unit, max, color, showBar, precision = 0 }: MeterDisplayProps) {
-  const percentage = Math.min((value / max) * 100, 100);
-  const displayValue = precision > 0 ? value.toFixed(precision) : Math.round(value);
+interface Marker {
+  value: number;
+  label: string;
+}
+
+interface SegmentedMeterProps {
+  label: string;
+  value: number;
+  segments: Segment[];
+  markers: Marker[];
+  min?: number;
+  max: number;
+  valueDisplay?: string;
+}
+
+function SegmentedMeter({
+  label,
+  value,
+  segments,
+  markers,
+  min = 0,
+  max,
+  valueDisplay,
+}: SegmentedMeterProps) {
+  const range = max - min;
 
   return (
-    <div className="bg-dark-700/50 rounded-lg p-3 border border-glass-100">
-      <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">{label}</div>
-      <div className={`text-xl font-bold text-${color}`}>
-        {displayValue}
-        <span className="text-sm font-normal text-gray-500 ml-1">{unit}</span>
-      </div>
-      {showBar && (
-        <div className="mt-2 h-1.5 bg-dark-600 rounded-full overflow-hidden">
-          <div
-            className={`h-full bg-${color} transition-all duration-300`}
-            style={{ width: `${percentage}%` }}
-          />
+    <div className="relative">
+      {/* Label and Markers Row */}
+      <div className="flex items-center justify-between mb-1">
+        <span className="text-xs text-gray-400 w-16">{label}</span>
+        <div className="flex-1 relative h-4">
+          {markers.map((marker) => (
+            <span
+              key={marker.value}
+              className="absolute text-[10px] text-gray-500 transform -translate-x-1/2"
+              style={{ left: `${((marker.value - min) / range) * 100}%` }}
+            >
+              {marker.label}
+            </span>
+          ))}
         </div>
-      )}
+        {valueDisplay && (
+          <span className="text-xs text-blue-400 font-mono min-w-[50px] text-right">
+            {valueDisplay}
+          </span>
+        )}
+      </div>
+
+      {/* Segmented Bar */}
+      <div className="flex h-3 bg-dark-700 rounded overflow-hidden">
+        {segments.map((segment, idx) => {
+          const segmentStart = ((segment.start - min) / range) * 100;
+          const segmentEnd = ((segment.end - min) / range) * 100;
+          const segmentWidth = segmentEnd - segmentStart;
+
+          // Calculate how much of this segment is filled
+          const valuePercent = ((Math.max(min, Math.min(value, max)) - min) / range) * 100;
+          const fillStart = Math.max(0, valuePercent - segmentStart);
+          const fillWidth = Math.min(fillStart, segmentWidth);
+          const fillPercent = segmentWidth > 0 ? (fillWidth / segmentWidth) * 100 : 0;
+
+          return (
+            <div
+              key={idx}
+              className="relative h-full"
+              style={{ width: `${segmentWidth}%` }}
+            >
+              {/* Background segment outline */}
+              <div className={`absolute inset-0 ${segment.color} opacity-20`} />
+              {/* Filled portion */}
+              {fillPercent > 0 && (
+                <div
+                  className={`absolute inset-y-0 left-0 ${segment.color}`}
+                  style={{ width: `${fillPercent}%` }}
+                />
+              )}
+            </div>
+          );
+        })}
+      </div>
     </div>
   );
 }
 
-interface SmallMeterProps {
+interface SliceStatusRowProps {
   label: string;
-  value: number;
-  unit: string;
-  icon?: React.ReactNode;
-  warning?: boolean;
+  config: SliceConfig;
 }
 
-function SmallMeter({ label, value, unit, icon, warning }: SmallMeterProps) {
+function SliceStatusRow({ label, config }: SliceStatusRowProps) {
+  const getModeColor = (mode: string) => {
+    switch (mode) {
+      case 'AAB':
+        return 'bg-green-600 text-white';
+      case 'AB':
+        return 'bg-blue-600 text-white';
+      case 'A':
+        return 'bg-green-600/70 text-white';
+      case 'B':
+        return 'bg-blue-600/70 text-white';
+      default:
+        return 'bg-gray-600 text-white';
+    }
+  };
+
   return (
-    <div className={`
-      bg-dark-700/30 rounded-lg p-2 border border-glass-100
-      ${warning ? 'border-amber-500/50' : ''}
-    `}>
-      <div className="flex items-center gap-1 text-xs text-gray-500 mb-0.5">
-        {icon}
-        {label}
-      </div>
-      <div className={`text-sm font-medium ${warning ? 'text-amber-400' : 'text-gray-300'}`}>
-        {value.toFixed(1)}
-        <span className="text-xs text-gray-500 ml-0.5">{unit}</span>
-      </div>
+    <div className="flex items-center gap-2 text-sm">
+      {/* Slice Label */}
+      <span className="text-gray-400 font-medium w-4">{label}</span>
+
+      {/* PTT Indicator */}
+      <span
+        className={`px-2 py-0.5 rounded text-xs font-medium ${
+          config.pttActive
+            ? 'bg-red-600 text-white'
+            : 'bg-dark-700 text-gray-500'
+        }`}
+      >
+        PTT
+      </span>
+
+      {/* Band */}
+      <span
+        className={`px-2 py-0.5 rounded text-xs font-mono min-w-[32px] text-center ${
+          config.band !== 'N/A'
+            ? 'bg-blue-600 text-white'
+            : 'bg-dark-700 text-gray-500'
+        }`}
+      >
+        {config.band}
+      </span>
+
+      {/* Mode */}
+      <span
+        className={`px-2 py-0.5 rounded text-xs font-medium min-w-[36px] text-center ${getModeColor(
+          config.mode
+        )}`}
+      >
+        {config.mode}
+      </span>
+
+      {/* Radio Name */}
+      <span className="text-gray-300 flex-1 truncate">{config.radioName}</span>
     </div>
   );
 }
@@ -244,8 +427,83 @@ function StatusBadge({ label, variant }: StatusBadgeProps) {
   };
 
   return (
-    <span className={`px-2 py-0.5 text-xs font-medium rounded border ${colors[variant]} animate-pulse`}>
+    <span
+      className={`px-2 py-0.5 text-xs font-medium rounded border ${colors[variant]} animate-pulse`}
+    >
       {label}
     </span>
+  );
+}
+
+interface SettingsModalProps {
+  device: {
+    serial: string;
+    ipAddress: string;
+    isOperating: boolean;
+    setup: {
+      bandSource: string;
+      selectedAntenna: number;
+      attenuatorEnabled: boolean;
+    };
+  };
+  onClose: () => void;
+}
+
+function SettingsModal({ device, onClose }: SettingsModalProps) {
+  return (
+    <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
+      <div className="bg-dark-800 rounded-xl border border-glass-100 shadow-2xl w-full max-w-md mx-4">
+        <div className="flex items-center justify-between px-4 py-3 border-b border-glass-100">
+          <h3 className="text-lg font-semibold text-gray-200">PGXL Settings</h3>
+          <button
+            onClick={onClose}
+            className="text-gray-400 hover:text-gray-200 transition-colors"
+          >
+            ✕
+          </button>
+        </div>
+
+        <div className="p-4 space-y-4">
+          {/* Device Info */}
+          <div className="bg-dark-700/50 rounded-lg p-3 border border-glass-100">
+            <div className="text-xs text-gray-500 uppercase tracking-wider mb-2">
+              Device Info
+            </div>
+            <div className="space-y-1 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-400">Serial:</span>
+                <span className="text-gray-200 font-mono">{device.serial}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">IP Address:</span>
+                <span className="text-gray-200 font-mono">{device.ipAddress}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Band Source:</span>
+                <span className="text-gray-200">{device.setup.bandSource}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">Antenna:</span>
+                <span className="text-gray-200">ANT{device.setup.selectedAntenna}</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Future: Add configurable settings here */}
+          <div className="text-xs text-gray-500 text-center py-2">
+            Additional settings coming soon
+          </div>
+        </div>
+
+        <div className="flex justify-end gap-2 px-4 py-3 border-t border-glass-100">
+          <button
+            onClick={onClose}
+            className="px-4 py-2 text-sm font-medium bg-dark-700 text-gray-300 rounded-lg hover:bg-dark-600 transition-all border border-glass-100"
+          >
+            Close
+          </button>
+        </div>
+      </div>
+    </div>
   );
 }

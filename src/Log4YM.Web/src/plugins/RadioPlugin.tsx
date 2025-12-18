@@ -1,9 +1,9 @@
-import { useState } from 'react';
-import { Radio, Wifi, WifiOff, Search, Power, PowerOff } from 'lucide-react';
-import { useAppStore } from '../store/appStore';
-import { useSignalR } from '../hooks/useSignalR';
-import { GlassPanel } from '../components/GlassPanel';
-import type { RadioType, RadioConnectionState } from '../api/signalr';
+import { useState } from "react";
+import { Radio, Wifi, WifiOff, Search, Power, PowerOff } from "lucide-react";
+import { useAppStore } from "../store/appStore";
+import { useSignalR } from "../hooks/useSignalR";
+import { GlassPanel } from "../components/GlassPanel";
+import type { RadioType, RadioConnectionState } from "../api/signalr";
 
 export function RadioPlugin() {
   const {
@@ -27,9 +27,15 @@ export function RadioPlugin() {
 
   // Convert Map to array for rendering
   const radios = Array.from(discoveredRadios.values());
-  const selectedRadio = selectedRadioId ? discoveredRadios.get(selectedRadioId) : null;
-  const selectedConnectionState = selectedRadioId ? radioConnectionStates.get(selectedRadioId) : null;
-  const selectedRadioState = selectedRadioId ? radioStates.get(selectedRadioId) : null;
+  const selectedRadio = selectedRadioId
+    ? discoveredRadios.get(selectedRadioId)
+    : null;
+  const selectedConnectionState = selectedRadioId
+    ? radioConnectionStates.get(selectedRadioId)
+    : null;
+  const selectedRadioState = selectedRadioId
+    ? radioStates.get(selectedRadioId)
+    : null;
 
   const handleStartDiscovery = async (type: RadioType) => {
     setSelectedType(type);
@@ -63,32 +69,40 @@ export function RadioPlugin() {
 
   const getConnectionStateColor = (state?: RadioConnectionState): string => {
     switch (state) {
-      case 'Connected':
-      case 'Monitoring':
-        return 'text-green-400';
-      case 'Connecting':
-      case 'Discovering':
-        return 'text-yellow-400';
-      case 'Error':
-        return 'text-red-400';
+      case "Connected":
+      case "Monitoring":
+        return "text-green-400";
+      case "Connecting":
+      case "Discovering":
+        return "text-yellow-400";
+      case "Error":
+        return "text-red-400";
       default:
-        return 'text-gray-500';
+        return "text-gray-500";
     }
   };
 
   const getConnectionStateText = (state?: RadioConnectionState): string => {
-    return state || 'Disconnected';
+    return state || "Disconnected";
   };
 
   // If we have an active radio connection, show the status display
-  if (selectedRadio && selectedConnectionState && ['Connected', 'Monitoring'].includes(selectedConnectionState)) {
+  if (
+    selectedRadio &&
+    selectedConnectionState &&
+    ["Connected", "Monitoring"].includes(selectedConnectionState)
+  ) {
     return (
       <GlassPanel
         title="Radio"
         icon={<Radio className="w-5 h-5" />}
         actions={
           <div className="flex items-center gap-2">
-            <span className={`flex items-center gap-1.5 text-xs ${getConnectionStateColor(selectedConnectionState)}`}>
+            <span
+              className={`flex items-center gap-1.5 text-xs ${getConnectionStateColor(
+                selectedConnectionState
+              )}`}
+            >
               <Wifi className="w-3.5 h-3.5" />
               {getConnectionStateText(selectedConnectionState)}
             </span>
@@ -99,9 +113,13 @@ export function RadioPlugin() {
           {/* Radio Info */}
           <div className="flex items-center justify-between">
             <div className="text-sm text-gray-400">
-              <span className="font-medium text-gray-200">{selectedRadio.model}</span>
+              <span className="font-medium text-gray-200">
+                {selectedRadio.model}
+              </span>
               <span className="mx-2">|</span>
-              <span className="font-mono text-xs">{selectedRadio.ipAddress}</span>
+              <span className="font-mono text-xs">
+                {selectedRadio.ipAddress}
+              </span>
             </div>
             <button
               onClick={handleDisconnect}
@@ -114,60 +132,79 @@ export function RadioPlugin() {
 
           {/* Frequency Display */}
           <div className="bg-dark-700/50 rounded-lg p-4 border border-glass-100">
-            <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Frequency</div>
+            <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">
+              Frequency
+            </div>
             <div className="text-3xl font-bold text-accent-primary font-mono">
-              {selectedRadioState ? formatFrequency(selectedRadioState.frequencyHz) : '---'}
-              <span className="text-lg font-normal text-gray-500 ml-2">MHz</span>
+              {selectedRadioState
+                ? formatFrequency(selectedRadioState.frequencyHz)
+                : "---"}
+              <span className="text-lg font-normal text-gray-500 ml-2">
+                MHz
+              </span>
             </div>
           </div>
 
           {/* Mode and Band */}
           <div className="grid grid-cols-2 gap-3">
             <div className="bg-dark-700/50 rounded-lg p-3 border border-glass-100">
-              <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Mode</div>
+              <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">
+                Mode
+              </div>
               <div className="text-xl font-bold text-accent-secondary">
-                {selectedRadioState?.mode || '---'}
+                {selectedRadioState?.mode || "---"}
               </div>
             </div>
             <div className="bg-dark-700/50 rounded-lg p-3 border border-glass-100">
-              <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">Band</div>
+              <div className="text-xs text-gray-500 uppercase tracking-wider mb-1">
+                Band
+              </div>
               <div className="text-xl font-bold text-accent-primary">
-                {selectedRadioState?.band || '---'}
+                {selectedRadioState?.band || "---"}
               </div>
             </div>
           </div>
 
           {/* TX/RX Status */}
           <div className="flex items-center gap-3">
-            <TxRxIndicator isTransmitting={selectedRadioState?.isTransmitting ?? false} />
+            <TxRxIndicator
+              isTransmitting={selectedRadioState?.isTransmitting ?? false}
+            />
             {selectedRadioState?.sliceOrInstance && (
               <span className="text-sm text-gray-400">
-                Slice: <span className="text-gray-200">{selectedRadioState.sliceOrInstance}</span>
+                Slice:{" "}
+                <span className="text-gray-200">
+                  {selectedRadioState.sliceOrInstance}
+                </span>
               </span>
             )}
           </div>
 
           {/* Slice Selection for FlexRadio */}
-          {selectedRadio.type === 'FlexRadio' && selectedRadio.slices && selectedRadio.slices.length > 0 && (
-            <div className="mt-4">
-              <div className="text-xs text-gray-500 uppercase tracking-wider mb-2">Select Slice</div>
-              <div className="flex gap-2">
-                {selectedRadio.slices.map((slice) => (
-                  <button
-                    key={slice}
-                    onClick={() => selectRadioSlice(selectedRadio.id, slice)}
-                    className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
-                      selectedRadioState?.sliceOrInstance === slice
-                        ? 'bg-accent-primary/20 text-accent-primary border border-accent-primary/30'
-                        : 'bg-dark-700 text-gray-400 hover:bg-dark-600 border border-glass-100'
-                    }`}
-                  >
-                    Slice {slice}
-                  </button>
-                ))}
+          {selectedRadio.type === "FlexRadio" &&
+            selectedRadio.slices &&
+            selectedRadio.slices.length > 0 && (
+              <div className="mt-4">
+                <div className="text-xs text-gray-500 uppercase tracking-wider mb-2">
+                  Select Slice
+                </div>
+                <div className="flex gap-2">
+                  {selectedRadio.slices.map((slice) => (
+                    <button
+                      key={slice}
+                      onClick={() => selectRadioSlice(selectedRadio.id, slice)}
+                      className={`px-4 py-2 rounded-lg text-sm font-medium transition-all ${
+                        selectedRadioState?.sliceOrInstance === slice
+                          ? "bg-accent-primary/20 text-accent-primary border border-accent-primary/30"
+                          : "bg-dark-700 text-gray-400 hover:bg-dark-600 border border-glass-100"
+                      }`}
+                    >
+                      Slice {slice}
+                    </button>
+                  ))}
+                </div>
               </div>
-            </div>
-          )}
+            )}
         </div>
       </GlassPanel>
     );
@@ -193,15 +230,17 @@ export function RadioPlugin() {
       <div className="p-4 space-y-4">
         {/* Radio Type Selection */}
         <div>
-          <div className="text-xs text-gray-500 uppercase tracking-wider mb-2">Radio Type</div>
+          <div className="text-xs text-gray-500 uppercase tracking-wider mb-2">
+            Radio Type
+          </div>
           <div className="grid grid-cols-2 gap-2">
             <button
-              onClick={() => handleStartDiscovery('FlexRadio')}
+              onClick={() => handleStartDiscovery("FlexRadio")}
               disabled={isDiscovering}
               className={`px-4 py-3 rounded-lg text-sm font-medium transition-all border ${
-                selectedType === 'FlexRadio' && isDiscovering
-                  ? 'bg-accent-primary/20 text-accent-primary border-accent-primary/30'
-                  : 'bg-dark-700 text-gray-300 hover:bg-dark-600 border-glass-100 disabled:opacity-50'
+                selectedType === "FlexRadio" && isDiscovering
+                  ? "bg-accent-primary/20 text-accent-primary border-accent-primary/30"
+                  : "bg-dark-700 text-gray-300 hover:bg-dark-600 border-glass-100 disabled:opacity-50"
               }`}
             >
               <div className="flex flex-col items-center gap-1">
@@ -210,17 +249,17 @@ export function RadioPlugin() {
               </div>
             </button>
             <button
-              onClick={() => handleStartDiscovery('Tci')}
+              onClick={() => handleStartDiscovery("Tci")}
               disabled={isDiscovering}
               className={`px-4 py-3 rounded-lg text-sm font-medium transition-all border ${
-                selectedType === 'Tci' && isDiscovering
-                  ? 'bg-accent-primary/20 text-accent-primary border-accent-primary/30'
-                  : 'bg-dark-700 text-gray-300 hover:bg-dark-600 border-glass-100 disabled:opacity-50'
+                selectedType === "Tci" && isDiscovering
+                  ? "bg-accent-primary/20 text-accent-primary border-accent-primary/30"
+                  : "bg-dark-700 text-gray-300 hover:bg-dark-600 border-glass-100 disabled:opacity-50"
               }`}
             >
               <div className="flex flex-col items-center gap-1">
                 <Radio className="w-5 h-5" />
-                <span>TCI / Hermes</span>
+                <span>Anan | HL2 | Sunsdr</span>
               </div>
             </button>
           </div>
@@ -235,7 +274,7 @@ export function RadioPlugin() {
             <div className="space-y-2">
               {radios.map((radio) => {
                 const connectionState = radioConnectionStates.get(radio.id);
-                const isConnecting = connectionState === 'Connecting';
+                const isConnecting = connectionState === "Connecting";
 
                 return (
                   <div
@@ -243,12 +282,20 @@ export function RadioPlugin() {
                     className="flex items-center justify-between p-3 bg-dark-700/50 rounded-lg border border-glass-100"
                   >
                     <div className="flex items-center gap-3">
-                      <div className={`p-2 rounded-lg ${
-                        radio.type === 'FlexRadio' ? 'bg-blue-500/20' : 'bg-purple-500/20'
-                      }`}>
-                        <Radio className={`w-4 h-4 ${
-                          radio.type === 'FlexRadio' ? 'text-blue-400' : 'text-purple-400'
-                        }`} />
+                      <div
+                        className={`p-2 rounded-lg ${
+                          radio.type === "FlexRadio"
+                            ? "bg-blue-500/20"
+                            : "bg-purple-500/20"
+                        }`}
+                      >
+                        <Radio
+                          className={`w-4 h-4 ${
+                            radio.type === "FlexRadio"
+                              ? "text-blue-400"
+                              : "text-purple-400"
+                          }`}
+                        />
                       </div>
                       <div>
                         <div className="text-sm font-medium text-gray-200">
@@ -286,7 +333,7 @@ export function RadioPlugin() {
             <Search className="w-8 h-8 mb-3 animate-pulse" />
             <p className="text-sm">Searching for {selectedType} radios...</p>
             <p className="text-xs text-gray-600 mt-1">
-              {selectedType === 'FlexRadio' ? 'UDP port 4992' : 'UDP port 1024'}
+              {selectedType === "FlexRadio" ? "UDP port 4992" : "UDP port 1024"}
             </p>
           </div>
         ) : (
@@ -313,8 +360,8 @@ function TxRxIndicator({ isTransmitting }: TxRxIndicatorProps) {
       <div
         className={`px-3 py-1.5 text-xs font-bold transition-all ${
           !isTransmitting
-            ? 'bg-green-500/30 text-green-400 border-r border-green-500/30'
-            : 'bg-dark-700 text-gray-600 border-r border-glass-100'
+            ? "bg-green-500/30 text-green-400 border-r border-green-500/30"
+            : "bg-dark-700 text-gray-600 border-r border-glass-100"
         }`}
       >
         RX
@@ -322,8 +369,8 @@ function TxRxIndicator({ isTransmitting }: TxRxIndicatorProps) {
       <div
         className={`px-3 py-1.5 text-xs font-bold transition-all ${
           isTransmitting
-            ? 'bg-red-500/30 text-red-400 animate-pulse'
-            : 'bg-dark-700 text-gray-600'
+            ? "bg-red-500/30 text-red-400 animate-pulse"
+            : "bg-dark-700 text-gray-600"
         }`}
       >
         TX

@@ -1,12 +1,22 @@
-import { useState, useCallback, useEffect } from 'react';
+import { useState, useCallback, useEffect, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Send, Search, User, MapPin, Radio, Link, Unlink } from 'lucide-react';
+import { Send, Search, User, MapPin, Radio, Link, Unlink, Clock, Lock, LockOpen } from 'lucide-react';
 import { api, CreateQsoRequest } from '../api/client';
 import { useSignalR } from '../hooks/useSignalR';
 import { useAppStore } from '../store/appStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { GlassPanel } from '../components/GlassPanel';
 import { getCountryFlag } from '../core/countryFlags';
+
+// Helper to format date for input
+const formatDateForInput = (date: Date): string => {
+  return date.toISOString().slice(0, 10);
+};
+
+// Helper to format time for input (UTC)
+const formatTimeForInput = (date: Date): string => {
+  return date.toISOString().slice(11, 16);
+};
 
 const BANDS = ['160m', '80m', '40m', '30m', '20m', '17m', '15m', '12m', '10m', '6m', '2m', '70cm'];
 const MODES = ['SSB', 'CW', 'FT8', 'FT4', 'RTTY', 'PSK31', 'AM', 'FM'];
@@ -32,6 +42,30 @@ export function LogEntryPlugin() {
     comment: '',
     notes: '',
   });
+
+  // Timestamp state - locked means it follows system time
+  const [timeLocked, setTimeLocked] = useState(true);
+  const [qsoDate, setQsoDate] = useState(() => formatDateForInput(new Date()));
+  const [qsoTime, setQsoTime] = useState(() => formatTimeForInput(new Date()));
+  const timeIntervalRef = useRef<NodeJS.Timeout | null>(null);
+
+  // Update time every second when locked
+  useEffect(() => {
+    if (timeLocked) {
+      const updateTime = () => {
+        const now = new Date();
+        setQsoDate(formatDateForInput(now));
+        setQsoTime(formatTimeForInput(now));
+      };
+      updateTime();
+      timeIntervalRef.current = setInterval(updateTime, 1000);
+      return () => {
+        if (timeIntervalRef.current) {
+          clearInterval(timeIntervalRef.current);
+        }
+      };
+    }
+  }, [timeLocked]);
 
   // Get current radio state
   const currentRadioState = selectedRadioId ? radioStates.get(selectedRadioId) : null;
@@ -110,11 +144,12 @@ export function LogEntryPlugin() {
       ? `${formData.rstRcvd}+${formData.rstRcvdPlus}`
       : formData.rstRcvd;
 
-    const now = new Date();
+    // Use the timestamp from state (either live or manual)
+    const qsoDateTime = new Date(`${qsoDate}T${qsoTime}:00.000Z`);
     createQso.mutate({
       callsign: formData.callsign,
-      qsoDate: now.toISOString(),
-      timeOn: now.toISOString().slice(11, 19).replace(/:/g, ''),
+      qsoDate: qsoDateTime.toISOString(),
+      timeOn: qsoTime.replace(':', '') + '00',
       band: formData.band,
       mode: formData.mode,
       frequency: formData.frequency ? parseFloat(formData.frequency) : undefined,
@@ -364,6 +399,50 @@ export function LogEntryPlugin() {
             placeholder="Personal notes..."
             className="glass-input w-full text-sm"
           />
+        </div>
+
+        {/* Timestamp - compact display with optional edit */}
+        <div className="flex items-center gap-2 text-xs text-gray-400">
+          <Clock className="w-3 h-3" />
+          {timeLocked ? (
+            <>
+              <span className="font-mono">{qsoDate} {qsoTime} UTC</span>
+              <button
+                type="button"
+                onClick={() => setTimeLocked(false)}
+                className="text-gray-500 hover:text-gray-300 transition-colors"
+                title="Edit timestamp"
+                tabIndex={-1}
+              >
+                <LockOpen className="w-3 h-3" />
+              </button>
+            </>
+          ) : (
+            <>
+              <input
+                type="date"
+                value={qsoDate}
+                onChange={(e) => setQsoDate(e.target.value)}
+                className="glass-input px-1 py-0.5 font-mono text-xs w-28"
+              />
+              <input
+                type="time"
+                value={qsoTime}
+                onChange={(e) => setQsoTime(e.target.value)}
+                className="glass-input px-1 py-0.5 font-mono text-xs w-20"
+              />
+              <span>UTC</span>
+              <button
+                type="button"
+                onClick={() => setTimeLocked(true)}
+                className="text-amber-400 hover:text-amber-300 transition-colors"
+                title="Lock to system time"
+                tabIndex={-1}
+              >
+                <Lock className="w-3 h-3" />
+              </button>
+            </>
+          )}
         </div>
 
         {/* Submit */}

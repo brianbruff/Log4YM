@@ -264,13 +264,13 @@ function QrzSettingsSection() {
         </div>
         <button
           onClick={() => updateQrzSettings({ enabled: !qrz.enabled })}
-          className={`relative w-12 h-6 rounded-full transition-colors ${
-            qrz.enabled ? 'bg-accent-success' : 'bg-dark-500'
+          className={`relative w-11 h-6 rounded-full transition-colors ${
+            qrz.enabled ? 'bg-accent-success' : 'bg-dark-600 border border-dark-400'
           }`}
         >
           <span
-            className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${
-              qrz.enabled ? 'translate-x-7' : 'translate-x-1'
+            className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 ${
+              qrz.enabled ? 'translate-x-5' : 'translate-x-0'
             }`}
           />
         </button>
@@ -444,13 +444,13 @@ function RotatorSettingsSection() {
         </div>
         <button
           onClick={() => updateRotatorSettings({ enabled: !rotator.enabled })}
-          className={`relative w-12 h-6 rounded-full transition-colors ${
-            rotator.enabled ? 'bg-accent-success' : 'bg-dark-500'
+          className={`relative w-11 h-6 rounded-full transition-colors ${
+            rotator.enabled ? 'bg-accent-success' : 'bg-dark-600 border border-dark-400'
           }`}
         >
           <span
-            className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${
-              rotator.enabled ? 'translate-x-7' : 'translate-x-1'
+            className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 ${
+              rotator.enabled ? 'translate-x-5' : 'translate-x-0'
             }`}
           />
         </button>
@@ -808,13 +808,13 @@ function AppearanceSettingsSection() {
         </div>
         <button
           onClick={() => updateAppearanceSettings({ compactMode: !appearance.compactMode })}
-          className={`relative w-12 h-6 rounded-full transition-colors ${
-            appearance.compactMode ? 'bg-accent-success' : 'bg-dark-500'
+          className={`relative w-11 h-6 rounded-full transition-colors ${
+            appearance.compactMode ? 'bg-accent-success' : 'bg-dark-600 border border-dark-400'
           }`}
         >
           <span
-            className={`absolute top-1 w-4 h-4 rounded-full bg-white transition-transform ${
-              appearance.compactMode ? 'translate-x-7' : 'translate-x-1'
+            className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 ${
+              appearance.compactMode ? 'translate-x-5' : 'translate-x-0'
             }`}
           />
         </button>

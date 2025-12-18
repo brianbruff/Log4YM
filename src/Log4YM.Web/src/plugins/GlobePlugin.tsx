@@ -249,23 +249,52 @@ export function GlobePlugin() {
 
     globeRef.current = globe;
 
-    // Handle resize
+    // Handle resize - use ResizeObserver for container size changes (FlexLayout panels)
+    let resizeTimeout: NodeJS.Timeout | null = null;
+    let lastWidth = 0;
+    let lastHeight = 0;
+
     const handleResize = () => {
       if (containerRef.current && globeRef.current) {
         const width = containerRef.current.offsetWidth;
         const height = containerRef.current.offsetHeight;
-        globeRef.current.width(width).height(height);
+        // Only update if size actually changed (avoid feedback loops)
+        if (width > 0 && height > 0 && (width !== lastWidth || height !== lastHeight)) {
+          lastWidth = width;
+          lastHeight = height;
+          globeRef.current.width(width).height(height);
+        }
       }
     };
 
-    window.addEventListener('resize', handleResize);
+    // Debounced resize handler to prevent rapid re-renders
+    const debouncedResize = () => {
+      if (resizeTimeout) {
+        clearTimeout(resizeTimeout);
+      }
+      resizeTimeout = setTimeout(handleResize, 200);
+    };
+
+    // ResizeObserver detects container size changes from FlexLayout
+    const resizeObserver = new ResizeObserver(debouncedResize);
+
+    resizeObserver.observe(containerRef.current);
+
+    // Also handle window resize for fullscreen etc
+    window.addEventListener('resize', debouncedResize);
+
+    // Initial size (immediate, no debounce)
     handleResize();
 
     // Start animation
     animationRef.current = requestAnimationFrame(animateBeam);
 
     return () => {
-      window.removeEventListener('resize', handleResize);
+      resizeObserver.disconnect();
+      window.removeEventListener('resize', debouncedResize);
+      if (resizeTimeout) {
+        clearTimeout(resizeTimeout);
+      }
       if (animationRef.current) {
         cancelAnimationFrame(animationRef.current);
       }

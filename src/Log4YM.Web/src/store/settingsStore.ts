@@ -59,7 +59,7 @@ export interface Settings {
   radio: RadioSettings;
 }
 
-export type SettingsSection = 'station' | 'qrz' | 'rotator' | 'appearance' | 'about';
+export type SettingsSection = 'station' | 'qrz' | 'rotator' | 'logbook' | 'appearance' | 'about';
 
 interface SettingsState {
   // Settings data

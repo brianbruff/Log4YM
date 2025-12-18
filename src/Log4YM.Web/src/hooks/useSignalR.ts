@@ -87,6 +87,7 @@ export function useSignalR() {
             removePgxlDevice(evt.serial);
           },
           onPgxlStatus: (evt) => {
+            console.log('PGXL status:', evt.serial, 'isOperating:', evt.isOperating, 'isTransmitting:', evt.isTransmitting);
             setPgxlStatus(evt);
           },
           // Radio CAT Control handlers
@@ -131,15 +132,21 @@ export function useSignalR() {
 
         await signalRService.connect();
 
-        // Request current device statuses after connection
-        await signalRService.requestAntennaGeniusStatus();
-        await signalRService.requestPgxlStatus();
-        await signalRService.requestRadioStatus();
-        await signalRService.requestSmartUnlinkStatus();
-        await signalRService.requestRotatorStatus();
-        setConnected(true);
+        // Only request statuses if actually connected
+        if (signalRService.isConnected) {
+          // Request current device statuses after connection
+          await signalRService.requestAntennaGeniusStatus();
+          await signalRService.requestPgxlStatus();
+          await signalRService.requestRadioStatus();
+          await signalRService.requestSmartUnlinkStatus();
+          await signalRService.requestRotatorStatus();
+          setConnected(true);
+        }
       } catch (error) {
-        console.error('Failed to connect to SignalR:', error);
+        // Only log if it's not an abort error (which happens during HMR)
+        if (!(error instanceof Error && error.name === 'AbortError')) {
+          console.error('Failed to connect to SignalR:', error);
+        }
         setConnected(false);
       }
     };

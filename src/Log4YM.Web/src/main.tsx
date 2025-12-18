@@ -13,6 +13,8 @@ const queryClient = new QueryClient({
     queries: {
       staleTime: 1000 * 60, // 1 minute
       refetchOnWindowFocus: false,
+      retry: 3, // Limit retries to prevent resource exhaustion
+      retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 30000), // Exponential backoff
     },
   },
 })

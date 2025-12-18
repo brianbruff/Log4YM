@@ -189,6 +189,7 @@ export interface PgxlStatusEvent {
   ipAddress: string;
   isConnected: boolean;
   isOperating: boolean;
+  isTransmitting: boolean;
   band: string;
   meters: PgxlMeters;
   setup: PgxlSetup;
@@ -372,46 +373,81 @@ class SignalRService {
   private connection: signalR.HubConnection | null = null;
   private handlers: EventHandlers = {};
   private maxReconnectAttempts = 10;
+  private connectPromise: Promise<void> | null = null;
+  private disconnectPending = false;
 
   async connect(): Promise<void> {
+    // Cancel any pending disconnect (handles React StrictMode double-render)
+    this.disconnectPending = false;
+
+    // If already connected, return immediately
     if (this.connection?.state === signalR.HubConnectionState.Connected) {
       return;
     }
 
-    this.connection = new signalR.HubConnectionBuilder()
-      .withUrl('/hubs/log')
-      .withAutomaticReconnect({
-        nextRetryDelayInMilliseconds: (retryContext) => {
-          if (retryContext.previousRetryCount >= this.maxReconnectAttempts) {
-            return null;
-          }
-          return Math.min(1000 * Math.pow(2, retryContext.previousRetryCount), 30000);
-        }
-      })
-      .configureLogging(signalR.LogLevel.Information)
-      .build();
-
-    this.setupEventHandlers();
-
-    this.connection.onreconnecting(() => {
-      console.log('SignalR reconnecting...');
-    });
-
-    this.connection.onreconnected(() => {
-      console.log('SignalR reconnected');
-    });
-
-    this.connection.onclose(() => {
-      console.log('SignalR connection closed');
-    });
-
-    try {
-      await this.connection.start();
-      console.log('SignalR connected');
-    } catch (err) {
-      console.error('SignalR connection error:', err);
-      throw err;
+    // If currently connecting, wait for that attempt to complete
+    if (this.connectPromise) {
+      return this.connectPromise;
     }
+
+    // If there's an existing connection in a bad state, clean it up
+    if (this.connection &&
+        this.connection.state !== signalR.HubConnectionState.Disconnected &&
+        this.connection.state !== signalR.HubConnectionState.Connecting) {
+      try {
+        await this.connection.stop();
+      } catch {
+        // Ignore stop errors
+      }
+      this.connection = null;
+    }
+
+    // Only create new connection if we don't have one
+    if (!this.connection) {
+      this.connection = new signalR.HubConnectionBuilder()
+        .withUrl('/hubs/log')
+        .withAutomaticReconnect({
+          nextRetryDelayInMilliseconds: (retryContext) => {
+            if (retryContext.previousRetryCount >= this.maxReconnectAttempts) {
+              return null;
+            }
+            return Math.min(1000 * Math.pow(2, retryContext.previousRetryCount), 30000);
+          }
+        })
+        .configureLogging(signalR.LogLevel.Warning) // Reduce log noise
+        .build();
+
+      this.setupEventHandlers();
+
+      this.connection.onreconnecting(() => {
+        console.log('SignalR reconnecting...');
+      });
+
+      this.connection.onreconnected(() => {
+        console.log('SignalR reconnected');
+      });
+
+      this.connection.onclose(() => {
+        console.log('SignalR connection closed');
+        this.connectPromise = null;
+      });
+    }
+
+    // Store the connection promise so concurrent calls can wait on it
+    this.connectPromise = this.connection.start()
+      .then(() => {
+        console.log('SignalR connected');
+      })
+      .catch((err) => {
+        // Only log non-abort errors (aborts happen during HMR/StrictMode)
+        if (!(err instanceof Error && err.name === 'AbortError')) {
+          console.error('SignalR connection error:', err);
+        }
+        this.connectPromise = null;
+        throw err;
+      });
+
+    return this.connectPromise;
   }
 
   private setupEventHandlers(): void {
@@ -622,7 +658,28 @@ class SignalRService {
   }
 
   async disconnect(): Promise<void> {
-    await this.connection?.stop();
+    // Set pending flag - if connect() is called before timeout, it will cancel
+    this.disconnectPending = true;
+
+    // Small delay to allow React StrictMode's immediate re-mount
+    await new Promise(resolve => setTimeout(resolve, 100));
+
+    // If connect() was called during the delay, don't disconnect
+    if (!this.disconnectPending) {
+      return;
+    }
+
+    this.disconnectPending = false;
+    this.connectPromise = null;
+
+    if (this.connection) {
+      try {
+        await this.connection.stop();
+      } catch {
+        // Ignore errors when stopping (might already be disconnected)
+      }
+      this.connection = null;
+    }
   }
 }
 

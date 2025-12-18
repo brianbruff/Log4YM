@@ -42,7 +42,7 @@ export function PgxlPlugin() {
 
   // Simulated A/B slice config (will come from backend in future)
   const sliceA: SliceConfig = {
-    pttActive: device.isOperating,
+    pttActive: device.isTransmitting,
     band: device.band?.replace('m', '') || 'N/A',
     mode: 'AAB',
     radioName: 'MyFlex',

@@ -237,6 +237,7 @@ internal class PgxlConnection
     public string IpAddress => _device.IpAddress;
     public bool IsConnected => _tcpClient?.Connected ?? false;
     public bool IsOperating { get; private set; }
+    public bool IsTransmitting { get; private set; }
     public string Band { get; private set; } = "Unknown";
     public string FirmwareVersion { get; private set; } = "";
 
@@ -503,15 +504,16 @@ internal class PgxlConnection
     {
         _logger.LogDebug("PGXL async status: {Message}", message);
 
-        // Parse vdd from async message if present - vdd indicates actual operating state
-        var vddMatch = System.Text.RegularExpressions.Regex.Match(message, @"vdd=(\d+\.?\d*)");
-        if (vddMatch.Success && double.TryParse(vddMatch.Groups[1].Value, out var vdd))
+        // Parse meffa from async message - meffa=ACTIVE means operating, meffa=STANDBY means standby
+        var meffaMatch = System.Text.RegularExpressions.Regex.Match(message, @"meffa=(\w+)");
+        if (meffaMatch.Success)
         {
+            var meffa = meffaMatch.Groups[1].Value;
             var wasOperating = IsOperating;
-            IsOperating = vdd > 1.0;
+            IsOperating = meffa.Equals("ACTIVE", StringComparison.OrdinalIgnoreCase);
             if (wasOperating != IsOperating)
             {
-                _logger.LogInformation("PGXL vdd={Vdd}, IsOperating changed to {IsOperating}", vdd, IsOperating);
+                _logger.LogInformation("PGXL meffa={Meffa}, IsOperating changed to {IsOperating}", meffa, IsOperating);
             }
         }
 
@@ -529,33 +531,23 @@ internal class PgxlConnection
 
         _logger.LogDebug("Parsing status response: {Response}", response);
 
-        // Status response format varies by firmware:
-        // The 'state' field indicates TX state (IDLE/TRANSMIT), not operate/standby mode
-        // The 'vdd' field indicates actual operating mode:
-        //   vdd > 0 = Amp is in OPERATE mode (power supply active)
-        //   vdd = 0 = Amp is in STANDBY mode (power supply off)
         var values = ParseKeyValuePairs(response);
 
-        // Use vdd (drain voltage) as the primary indicator of operating state
-        // When amp is in operate mode, vdd is ~50V; in standby, vdd is 0
-        if (values.TryGetValue("vdd", out var vddStr) && double.TryParse(vddStr, out var vdd))
+        // The 'meffa' field indicates the operating mode:
+        //   meffa=ACTIVE  = Amp is in OPERATE mode
+        //   meffa=STANDBY = Amp is in STANDBY mode
+        // Note: vdd only shows voltage during transmit, so we use meffa instead
+        if (values.TryGetValue("meffa", out var meffa))
         {
-            IsOperating = vdd > 1.0; // Threshold to account for noise
-            _logger.LogDebug("PGXL vdd={Vdd}, IsOperating={IsOperating}", vdd, IsOperating);
+            IsOperating = meffa.Equals("ACTIVE", StringComparison.OrdinalIgnoreCase);
+            _logger.LogDebug("PGXL meffa={Meffa}, IsOperating={IsOperating}", meffa, IsOperating);
         }
-        // Fallback: check state field for explicit STANDBY
-        else if (values.TryGetValue("state", out var state))
+
+        // Parse state field for transmit status (TRANSMIT_A, TRANSMIT_B = transmitting)
+        if (values.TryGetValue("state", out var state))
         {
-            if (state.Equals("STANDBY", StringComparison.OrdinalIgnoreCase) ||
-                state.Equals("STBY", StringComparison.OrdinalIgnoreCase))
-            {
-                IsOperating = false;
-            }
-            else if (state.Equals("FAULT", StringComparison.OrdinalIgnoreCase))
-            {
-                IsOperating = false;
-            }
-            _logger.LogDebug("PGXL state={State}, IsOperating={IsOperating}", state, IsOperating);
+            IsTransmitting = state.StartsWith("TRANSMIT", StringComparison.OrdinalIgnoreCase);
+            _logger.LogDebug("PGXL state={State}, IsTransmitting={IsTransmitting}", state, IsTransmitting);
         }
 
         // Band
@@ -576,12 +568,12 @@ internal class PgxlConnection
         if (values.TryGetValue("temp", out var temp) && double.TryParse(temp, out var tempVal))
             _temperatureC = tempVal;
 
-        // Fault flags
-        if (values.TryGetValue("meffa", out var meffa))
+        // Fault flags - check meffa for fault keywords
+        if (values.TryGetValue("meffa", out var meffaFaults))
         {
-            _highSwr = meffa.Contains("SWR", StringComparison.OrdinalIgnoreCase);
-            _overTemp = meffa.Contains("TEMP", StringComparison.OrdinalIgnoreCase);
-            _overCurrent = meffa.Contains("CURRENT", StringComparison.OrdinalIgnoreCase);
+            _highSwr = meffaFaults.Contains("SWR", StringComparison.OrdinalIgnoreCase);
+            _overTemp = meffaFaults.Contains("TEMP", StringComparison.OrdinalIgnoreCase);
+            _overCurrent = meffaFaults.Contains("CURRENT", StringComparison.OrdinalIgnoreCase);
         }
     }
 
@@ -688,6 +680,7 @@ internal class PgxlConnection
             IpAddress: _device.IpAddress,
             IsConnected: IsConnected,
             IsOperating: IsOperating,
+            IsTransmitting: IsTransmitting,
             Band: Band,
             Meters: meters,
             Setup: setup

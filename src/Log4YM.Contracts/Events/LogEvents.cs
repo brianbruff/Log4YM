@@ -234,6 +234,7 @@ public record PgxlStatusEvent(
     string IpAddress,
     bool IsConnected,
     bool IsOperating,
+    bool IsTransmitting,
     string Band,
     PgxlMeters Meters,
     PgxlSetup Setup

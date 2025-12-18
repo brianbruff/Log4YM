@@ -236,6 +236,8 @@ public record PgxlStatusEvent(
     bool IsOperating,
     bool IsTransmitting,
     string Band,
+    string BiasA,
+    string BiasB,
     PgxlMeters Meters,
     PgxlSetup Setup
 );

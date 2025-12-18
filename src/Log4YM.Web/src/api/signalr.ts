@@ -191,6 +191,8 @@ export interface PgxlStatusEvent {
   isOperating: boolean;
   isTransmitting: boolean;
   band: string;
+  biasA: string;
+  biasB: string;
   meters: PgxlMeters;
   setup: PgxlSetup;
 }

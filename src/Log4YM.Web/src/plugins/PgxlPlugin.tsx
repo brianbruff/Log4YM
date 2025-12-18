@@ -4,11 +4,11 @@ import { useAppStore } from '../store/appStore';
 import { useSignalR } from '../hooks/useSignalR';
 import { GlassPanel } from '../components/GlassPanel';
 
-// Types for A/B slice configuration (future backend support)
+// Types for A/B slice configuration
 interface SliceConfig {
   pttActive: boolean;
   band: string;
-  mode: 'AAB' | 'AB' | 'A' | 'B';
+  mode: string;  // Bias mode from PGXL (e.g., "AB", "AAB", "A", "B")
   radioName: string;
 }
 
@@ -40,19 +40,19 @@ export function PgxlPlugin() {
   // For now, show the first device
   const device = devices[0];
 
-  // Simulated A/B slice config (will come from backend in future)
+  // A/B slice config from actual device status
   const sliceA: SliceConfig = {
     pttActive: device.isTransmitting,
     band: device.band?.replace('m', '') || 'N/A',
-    mode: 'AAB',
-    radioName: 'MyFlex',
+    mode: device.biasA || 'N/A',
+    radioName: 'Slice A',
   };
 
   const sliceB: SliceConfig = {
     pttActive: false,
     band: 'N/A',
-    mode: 'AB',
-    radioName: 'MANUAL',
+    mode: device.biasB || 'N/A',
+    radioName: 'Slice B',
   };
 
   // Simulated voltage readings (will come from backend in future)
@@ -358,17 +358,18 @@ interface SliceStatusRowProps {
 
 function SliceStatusRow({ label, config }: SliceStatusRowProps) {
   const getModeColor = (mode: string) => {
-    switch (mode) {
-      case 'AAB':
-        return 'bg-green-600 text-white';
-      case 'AB':
-        return 'bg-blue-600 text-white';
-      case 'A':
-        return 'bg-green-600/70 text-white';
-      case 'B':
-        return 'bg-blue-600/70 text-white';
-      default:
-        return 'bg-gray-600 text-white';
+    // Handle bias modes from PGXL (AB, AAB, A, B, or N/A)
+    const modeUpper = mode.toUpperCase();
+    if (modeUpper === 'AAB') {
+      return 'bg-green-600 text-white';
+    } else if (modeUpper === 'AB') {
+      return 'bg-blue-600 text-white';
+    } else if (modeUpper === 'A') {
+      return 'bg-green-600/70 text-white';
+    } else if (modeUpper === 'B') {
+      return 'bg-blue-600/70 text-white';
+    } else {
+      return 'bg-gray-600 text-white';
     }
   };
 

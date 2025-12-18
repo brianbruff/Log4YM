@@ -239,6 +239,8 @@ internal class PgxlConnection
     public bool IsOperating { get; private set; }
     public bool IsTransmitting { get; private set; }
     public string Band { get; private set; } = "Unknown";
+    public string BiasA { get; private set; } = "";
+    public string BiasB { get; private set; } = "";
     public string FirmwareVersion { get; private set; } = "";
 
     // Meters
@@ -561,6 +563,16 @@ internal class PgxlConnection
             Band = FormatBand(bandA);
         }
 
+        // Bias modes - PGXL sends biasA and biasB (e.g., "RADIO_AB", "AUTO_AB")
+        if (values.TryGetValue("biasA", out var biasA))
+        {
+            BiasA = FormatBiasMode(biasA);
+        }
+        if (values.TryGetValue("biasB", out var biasB))
+        {
+            BiasB = FormatBiasMode(biasB);
+        }
+
         // Meters
         if (values.TryGetValue("fwd", out var fwd) && double.TryParse(fwd, out var fwdVal))
             _forwardPowerDbm = fwdVal;
@@ -631,6 +643,26 @@ internal class PgxlConnection
         };
     }
 
+    /// <summary>
+    /// Format bias mode from PGXL format (e.g., "RADIO_AB" -> "AB", "AUTO_AAB" -> "AAB")
+    /// </summary>
+    private static string FormatBiasMode(string biasValue)
+    {
+        if (string.IsNullOrEmpty(biasValue))
+            return "";
+
+        // PGXL sends bias as "SOURCE_MODE" format (e.g., RADIO_AB, AUTO_AAB, MANUAL_A)
+        // Extract just the mode part after the underscore
+        var underscoreIndex = biasValue.LastIndexOf('_');
+        if (underscoreIndex >= 0 && underscoreIndex < biasValue.Length - 1)
+        {
+            return biasValue.Substring(underscoreIndex + 1);
+        }
+
+        // If no underscore, return as-is
+        return biasValue;
+    }
+
     public async Task SetOperateAsync()
     {
         _logger.LogInformation("Setting PGXL {Serial} to OPERATE mode", _device.Serial);
@@ -693,6 +725,8 @@ internal class PgxlConnection
             IsOperating: IsOperating,
             IsTransmitting: IsTransmitting,
             Band: Band,
+            BiasA: BiasA,
+            BiasB: BiasB,
             Meters: meters,
             Setup: setup
         );

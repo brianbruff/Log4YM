@@ -20,6 +20,9 @@ public class UserSettings
     [BsonElement("rotator")]
     public RotatorSettings Rotator { get; set; } = new();
 
+    [BsonElement("radio")]
+    public RadioSettings Radio { get; set; } = new();
+
     [BsonElement("updatedAt")]
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }
@@ -78,6 +81,15 @@ public class AppearanceSettings
     public bool CompactMode { get; set; }
 }
 
+public class RotatorPreset
+{
+    [BsonElement("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [BsonElement("azimuth")]
+    public int Azimuth { get; set; }
+}
+
 public class RotatorSettings
 {
     [BsonElement("enabled")]
@@ -94,6 +106,21 @@ public class RotatorSettings
 
     [BsonElement("rotatorId")]
     public string RotatorId { get; set; } = "default";
+
+    [BsonElement("presets")]
+    public List<RotatorPreset> Presets { get; set; } = new()
+    {
+        new RotatorPreset { Name = "N", Azimuth = 0 },
+        new RotatorPreset { Name = "E", Azimuth = 90 },
+        new RotatorPreset { Name = "S", Azimuth = 180 },
+        new RotatorPreset { Name = "W", Azimuth = 270 },
+    };
+}
+
+public class RadioSettings
+{
+    [BsonElement("followRadio")]
+    public bool FollowRadio { get; set; } = true;
 }
 
 public class PluginSettings

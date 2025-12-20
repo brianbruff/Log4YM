@@ -23,6 +23,9 @@ public class UserSettings
     [BsonElement("radio")]
     public RadioSettings Radio { get; set; } = new();
 
+    [BsonElement("layoutJson")]
+    public string? LayoutJson { get; set; }
+
     [BsonElement("updatedAt")]
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }

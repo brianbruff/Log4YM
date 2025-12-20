@@ -111,62 +111,76 @@ export function GlobePlugin() {
     };
   }, []);
 
-  // Render the beam visualization (only when rotator is connected)
-  const renderBeam = useCallback((azimuth: number, isConnected: boolean) => {
-    if (!globeRef.current) return;
+  // Track target bearing separately from rotator azimuth
+  const targetBearingRef = useRef<number | null>(null);
 
-    // If rotator is not connected, clear any existing beam visualization
-    if (!isConnected) {
-      globeRef.current
-        .pathsData([])
-        .ringsData([]);
-      return;
-    }
+  // Render the beam visualization (rotator beam + target line)
+  const renderBeam = useCallback((azimuth: number, isConnected: boolean, targetBearing: number | null) => {
+    if (!globeRef.current) return;
 
     const pathsData: { path: [number, number, number][]; color: string; stroke: number }[] = [];
     const numSegments = 50;
     const maxDistance = 18000;
 
-    // Subtle pulse effect
+    // Subtle pulse effect for rotator beam
     const pulseTime = Date.now() / 3000;
     const pulseFactor = 0.6 + Math.sin(pulseTime * Math.PI * 2) * 0.1;
 
-    // Create left and right edge paths
-    for (const edge of ['left', 'right']) {
-      const pathPoints: [number, number, number][] = [];
+    // Render rotator beam only when connected
+    if (isConnected) {
+      // Create left and right edge paths (yellow/amber)
+      for (const edge of ['left', 'right']) {
+        const pathPoints: [number, number, number][] = [];
 
+        for (let i = 0; i <= numSegments; i++) {
+          const distance = (maxDistance / numSegments) * i;
+          const beamWidth = 1 + (19 * (i / numSegments));
+
+          const edgeAzimuth = edge === 'left'
+            ? (azimuth - beamWidth / 2 + 360) % 360
+            : (azimuth + beamWidth / 2) % 360;
+
+          const point = getDestinationPoint(stationLat, stationLon, edgeAzimuth, distance);
+          pathPoints.push([point.lat, point.lng, 0.01]);
+        }
+
+        pathsData.push({
+          path: pathPoints,
+          color: `rgba(251, 191, 36, ${pulseFactor})`, // Yellow/amber for edges
+          stroke: 3
+        });
+      }
+
+      // Rotator center line (yellow/amber)
+      const centerPath: [number, number, number][] = [];
       for (let i = 0; i <= numSegments; i++) {
         const distance = (maxDistance / numSegments) * i;
-        const beamWidth = 1 + (19 * (i / numSegments));
-
-        const edgeAzimuth = edge === 'left'
-          ? (azimuth - beamWidth / 2 + 360) % 360
-          : (azimuth + beamWidth / 2) % 360;
-
-        const point = getDestinationPoint(stationLat, stationLon, edgeAzimuth, distance);
-        pathPoints.push([point.lat, point.lng, 0.01]);
+        const point = getDestinationPoint(stationLat, stationLon, azimuth, distance);
+        centerPath.push([point.lat, point.lng, 0.015]);
       }
 
       pathsData.push({
-        path: pathPoints,
-        color: `rgba(251, 191, 36, ${pulseFactor})`, // Yellow/amber for edges
-        stroke: 3
+        path: centerPath,
+        color: 'rgba(251, 191, 36, 0.7)', // Yellow/amber center line
+        stroke: 2.5
       });
     }
 
-    // Center line
-    const centerPath: [number, number, number][] = [];
-    for (let i = 0; i <= numSegments; i++) {
-      const distance = (maxDistance / numSegments) * i;
-      const point = getDestinationPoint(stationLat, stationLon, azimuth, distance);
-      centerPath.push([point.lat, point.lng, 0.015]);
-    }
+    // Render target heading line (orange) - always show when we have a target
+    if (targetBearing !== null) {
+      const targetPath: [number, number, number][] = [];
+      for (let i = 0; i <= numSegments; i++) {
+        const distance = (maxDistance / numSegments) * i;
+        const point = getDestinationPoint(stationLat, stationLon, targetBearing, distance);
+        targetPath.push([point.lat, point.lng, 0.02]);
+      }
 
-    pathsData.push({
-      path: centerPath,
-      color: 'rgba(251, 191, 36, 0.7)', // Yellow/amber center line
-      stroke: 2.5
-    });
+      pathsData.push({
+        path: targetPath,
+        color: 'rgba(249, 115, 22, 0.8)', // Orange (#f97316) for target
+        stroke: 2
+      });
+    }
 
     globeRef.current
       .pathsData(pathsData)
@@ -200,7 +214,7 @@ export function GlobePlugin() {
   const displayedAzimuthRef = useRef<number>(0);
 
   const animateBeam = useCallback(() => {
-    renderBeam(currentAzimuthRef.current, rotatorEnabledRef.current);
+    renderBeam(currentAzimuthRef.current, rotatorEnabledRef.current, targetBearingRef.current);
     animationRef.current = requestAnimationFrame(animateBeam);
   }, [renderBeam]);
 
@@ -369,11 +383,12 @@ export function GlobePlugin() {
     }
   }, [rotatorPosition]);
 
-  // Update beam when focused callsign has bearing info
+  // Update target bearing when focused callsign has bearing info
   useEffect(() => {
-    if (focusedCallsignInfo?.bearing !== undefined) {
-      displayedAzimuthRef.current = focusedCallsignInfo.bearing;
-      setCurrentAzimuth(focusedCallsignInfo.bearing);
+    if (focusedCallsignInfo?.bearing != null) {
+      targetBearingRef.current = focusedCallsignInfo.bearing;
+    } else {
+      targetBearingRef.current = null;
     }
   }, [focusedCallsignInfo]);
 
@@ -463,10 +478,10 @@ export function GlobePlugin() {
                 {focusedCallsignInfo.grid && (
                   <p className="text-xs text-gray-400">{focusedCallsignInfo.grid}</p>
                 )}
-                {focusedCallsignInfo.bearing !== undefined && (
+                {focusedCallsignInfo.bearing != null && (
                   <p className="text-xs text-accent-info">
-                    {focusedCallsignInfo.bearing}°
-                    {focusedCallsignInfo.distance && ` / ${Math.round(focusedCallsignInfo.distance)} km`}
+                    {focusedCallsignInfo.bearing.toFixed(0)}°
+                    {focusedCallsignInfo.distance != null && ` / ${Math.round(focusedCallsignInfo.distance)} km`}
                   </p>
                 )}
               </div>

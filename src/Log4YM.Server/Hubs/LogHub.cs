@@ -1,6 +1,7 @@
 using Microsoft.AspNetCore.SignalR;
 using Log4YM.Contracts.Events;
 using Log4YM.Server.Services;
+using Log4YM.Server.Core.Database;
 
 namespace Log4YM.Server.Hubs;
 
@@ -49,6 +50,8 @@ public class LogHub : Hub<ILogHubClient>
     private readonly TciRadioService _tciRadioService;
     private readonly SmartUnlinkService _smartUnlinkService;
     private readonly RotatorService _rotatorService;
+    private readonly IQrzService _qrzService;
+    private readonly ISettingsRepository _settingsRepository;
 
     public LogHub(
         ILogger<LogHub> logger,
@@ -57,7 +60,9 @@ public class LogHub : Hub<ILogHubClient>
         FlexRadioService flexRadioService,
         TciRadioService tciRadioService,
         SmartUnlinkService smartUnlinkService,
-        RotatorService rotatorService)
+        RotatorService rotatorService,
+        IQrzService qrzService,
+        ISettingsRepository settingsRepository)
     {
         _logger = logger;
         _antennaGeniusService = antennaGeniusService;
@@ -66,6 +71,8 @@ public class LogHub : Hub<ILogHubClient>
         _tciRadioService = tciRadioService;
         _smartUnlinkService = smartUnlinkService;
         _rotatorService = rotatorService;
+        _qrzService = qrzService;
+        _settingsRepository = settingsRepository;
     }
 
     public override async Task OnConnectedAsync()
@@ -86,7 +93,98 @@ public class LogHub : Hub<ILogHubClient>
     {
         _logger.LogDebug("Callsign focused: {Callsign} from {Source}", evt.Callsign, evt.Source);
         await Clients.Others.OnCallsignFocused(evt);
+
+        // Perform QRZ lookup
+        try
+        {
+            var info = await _qrzService.LookupCallsignAsync(evt.Callsign);
+            if (info != null)
+            {
+                // Calculate bearing from station location
+                double? bearing = null;
+                double? distance = null;
+
+                var settings = await _settingsRepository.GetAsync();
+                if (settings?.Station != null && info.Latitude.HasValue && info.Longitude.HasValue
+                    && settings.Station.Latitude.HasValue && settings.Station.Longitude.HasValue)
+                {
+                    var stationLat = settings.Station.Latitude.Value;
+                    var stationLon = settings.Station.Longitude.Value;
+                    if (stationLat != 0 && stationLon != 0)
+                    {
+                        bearing = CalculateBearing(stationLat, stationLon, info.Latitude.Value, info.Longitude.Value);
+                        distance = CalculateDistance(stationLat, stationLon, info.Latitude.Value, info.Longitude.Value);
+                    }
+                }
+
+                var lookedUpEvent = new CallsignLookedUpEvent(
+                    Callsign: info.Callsign,
+                    Name: info.Name ?? info.FirstName,
+                    Grid: info.Grid,
+                    Latitude: info.Latitude,
+                    Longitude: info.Longitude,
+                    Country: info.Country,
+                    Dxcc: info.Dxcc,
+                    CqZone: info.CqZone,
+                    ItuZone: info.ItuZone,
+                    State: info.State,
+                    ImageUrl: info.ImageUrl,
+                    Bearing: bearing,
+                    Distance: distance
+                );
+
+                _logger.LogDebug("Callsign looked up: {Callsign} -> {Name}, {Country}, Bearing: {Bearing}°",
+                    info.Callsign, info.Name, info.Country, bearing?.ToString("F0") ?? "N/A");
+
+                await Clients.All.OnCallsignLookedUp(lookedUpEvent);
+            }
+            else
+            {
+                // Send empty lookup result to clear loading state
+                await Clients.Caller.OnCallsignLookedUp(new CallsignLookedUpEvent(
+                    Callsign: evt.Callsign, Name: null, Grid: null, Latitude: null, Longitude: null,
+                    Country: null, Dxcc: null, CqZone: null, ItuZone: null, State: null, ImageUrl: null));
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to lookup callsign {Callsign}", evt.Callsign);
+            // Send empty result to clear loading state
+            await Clients.Caller.OnCallsignLookedUp(new CallsignLookedUpEvent(
+                Callsign: evt.Callsign, Name: null, Grid: null, Latitude: null, Longitude: null,
+                Country: null, Dxcc: null, CqZone: null, ItuZone: null, State: null, ImageUrl: null));
+        }
     }
+
+    private static double CalculateBearing(double lat1, double lon1, double lat2, double lon2)
+    {
+        var dLon = ToRadians(lon2 - lon1);
+        var lat1Rad = ToRadians(lat1);
+        var lat2Rad = ToRadians(lat2);
+
+        var y = Math.Sin(dLon) * Math.Cos(lat2Rad);
+        var x = Math.Cos(lat1Rad) * Math.Sin(lat2Rad) - Math.Sin(lat1Rad) * Math.Cos(lat2Rad) * Math.Cos(dLon);
+
+        var bearing = Math.Atan2(y, x);
+        return (ToDegrees(bearing) + 360) % 360;
+    }
+
+    private static double CalculateDistance(double lat1, double lon1, double lat2, double lon2)
+    {
+        const double EarthRadiusKm = 6371;
+        var dLat = ToRadians(lat2 - lat1);
+        var dLon = ToRadians(lon2 - lon1);
+
+        var a = Math.Sin(dLat / 2) * Math.Sin(dLat / 2) +
+                Math.Cos(ToRadians(lat1)) * Math.Cos(ToRadians(lat2)) *
+                Math.Sin(dLon / 2) * Math.Sin(dLon / 2);
+
+        var c = 2 * Math.Atan2(Math.Sqrt(a), Math.Sqrt(1 - a));
+        return EarthRadiusKm * c;
+    }
+
+    private static double ToRadians(double degrees) => degrees * Math.PI / 180;
+    private static double ToDegrees(double radians) => radians * 180 / Math.PI;
 
     public async Task SelectSpot(SpotSelectedEvent evt)
     {

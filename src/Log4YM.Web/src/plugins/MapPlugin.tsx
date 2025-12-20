@@ -218,19 +218,12 @@ export function MapPlugin() {
   const stationLat = DEFAULT_LAT;
   const stationLon = DEFAULT_LON;
 
-  // Update azimuth from rotator position
+  // Update azimuth from rotator position only
   useEffect(() => {
     if (rotatorPosition?.currentAzimuth !== undefined) {
       setCurrentAzimuth(rotatorPosition.currentAzimuth);
     }
   }, [rotatorPosition]);
-
-  // Update azimuth from focused callsign
-  useEffect(() => {
-    if (focusedCallsignInfo?.bearing !== undefined) {
-      setCurrentAzimuth(focusedCallsignInfo.bearing);
-    }
-  }, [focusedCallsignInfo]);
 
   // Handle click on map to set bearing (only when rotator enabled)
   const handleBearingClick = useCallback((azimuth: number) => {
@@ -251,11 +244,20 @@ export function MapPlugin() {
     setIsFullscreen(!isFullscreen);
   }, [isFullscreen]);
 
-  // Generate beam visualization line
+  // Generate rotator beam visualization line (indigo)
   const beamLinePoints: [number, number][] = [];
   const beamDistance = 5000; // 5000km beam visualization
   for (let d = 0; d <= beamDistance; d += 100) {
     beamLinePoints.push(getDestinationPoint(stationLat, stationLon, currentAzimuth, d));
+  }
+
+  // Generate target heading line (orange) - separate from rotator beam
+  const targetBearing = focusedCallsignInfo?.bearing;
+  const targetLinePoints: [number, number][] = [];
+  if (targetBearing != null) {
+    for (let d = 0; d <= beamDistance; d += 100) {
+      targetLinePoints.push(getDestinationPoint(stationLat, stationLon, targetBearing, d));
+    }
   }
 
   // Target location from focused callsign
@@ -331,7 +333,7 @@ export function MapPlugin() {
             }}
           />
 
-          {/* Beam direction line - only show when rotator enabled */}
+          {/* Rotator beam direction line - only show when rotator enabled (indigo) */}
           {rotatorEnabled && (
             <Polyline
               positions={beamLinePoints}
@@ -344,8 +346,21 @@ export function MapPlugin() {
             />
           )}
 
+          {/* Target heading line - show when we have a focused callsign with bearing (orange) */}
+          {targetLinePoints.length > 0 && (
+            <Polyline
+              positions={targetLinePoints}
+              pathOptions={{
+                color: '#f97316',
+                weight: 2,
+                opacity: 0.8,
+                dashArray: '5, 10',
+              }}
+            />
+          )}
+
           {/* Target marker if we have focused callsign with coordinates */}
-          {targetLat !== undefined && targetLon !== undefined && (
+          {targetLat != null && targetLon != null && (
             <Marker position={[targetLat, targetLon]} icon={targetIcon}>
               <Popup>
                 <div className="text-center">
@@ -354,11 +369,11 @@ export function MapPlugin() {
                   {focusedCallsignInfo?.grid && (
                     <span className="text-xs">{focusedCallsignInfo.grid}</span>
                   )}
-                  {focusedCallsignInfo?.bearing !== undefined && (
+                  {focusedCallsignInfo?.bearing != null && (
                     <>
                       <br />
                       <span className="text-xs text-accent-info">
-                        {focusedCallsignInfo.bearing}° / {Math.round(focusedCallsignInfo.distance || 0)} km
+                        {focusedCallsignInfo.bearing.toFixed(0)}° / {Math.round(focusedCallsignInfo.distance ?? 0)} km
                       </span>
                     </>
                   )}
@@ -390,10 +405,10 @@ export function MapPlugin() {
                 {focusedCallsignInfo.grid && (
                   <p className="text-xs text-gray-400">{focusedCallsignInfo.grid}</p>
                 )}
-                {focusedCallsignInfo.bearing !== undefined && (
+                {focusedCallsignInfo.bearing != null && (
                   <p className="text-xs text-accent-info">
-                    {focusedCallsignInfo.bearing}°
-                    {focusedCallsignInfo.distance && ` / ${Math.round(focusedCallsignInfo.distance)} km`}
+                    {focusedCallsignInfo.bearing.toFixed(0)}°
+                    {focusedCallsignInfo.distance != null && ` / ${Math.round(focusedCallsignInfo.distance)} km`}
                   </p>
                 )}
               </div>

@@ -25,7 +25,9 @@ public record CallsignLookedUpEvent(
     int? CqZone,
     int? ItuZone,
     string? State,
-    string? ImageUrl
+    string? ImageUrl,
+    double? Bearing = null,
+    double? Distance = null
 );
 
 /// <summary>

@@ -21,8 +21,10 @@ interface AppState {
   // Current focused callsign
   focusedCallsign: string | null;
   focusedCallsignInfo: CallsignLookedUpEvent | null;
+  isLookingUpCallsign: boolean;
   setFocusedCallsign: (callsign: string | null) => void;
   setFocusedCallsignInfo: (info: CallsignLookedUpEvent | null) => void;
+  setLookingUpCallsign: (loading: boolean) => void;
 
   // Rotator
   rotatorPosition: RotatorPositionEvent | null;
@@ -78,8 +80,10 @@ export const useAppStore = create<AppState>((set) => ({
   // Focused callsign
   focusedCallsign: null,
   focusedCallsignInfo: null,
+  isLookingUpCallsign: false,
   setFocusedCallsign: (callsign) => set({ focusedCallsign: callsign }),
-  setFocusedCallsignInfo: (info) => set({ focusedCallsignInfo: info }),
+  setFocusedCallsignInfo: (info) => set({ focusedCallsignInfo: info, isLookingUpCallsign: false }),
+  setLookingUpCallsign: (loading) => set({ isLookingUpCallsign: loading }),
 
   // Rotator
   rotatorPosition: null,

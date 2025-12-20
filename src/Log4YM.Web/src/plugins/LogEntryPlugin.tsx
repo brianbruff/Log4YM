@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Send, Search, User, MapPin, Radio, Link, Unlink, Clock, Lock, LockOpen } from 'lucide-react';
+import { Send, Search, User, MapPin, Radio, Link, Unlink, Clock, Lock, LockOpen, Loader2 } from 'lucide-react';
 import { api, CreateQsoRequest } from '../api/client';
 import { useSignalR } from '../hooks/useSignalR';
 import { useAppStore } from '../store/appStore';
@@ -24,7 +24,7 @@ const MODES = ['SSB', 'CW', 'FT8', 'FT4', 'RTTY', 'PSK31', 'AM', 'FM'];
 export function LogEntryPlugin() {
   const queryClient = useQueryClient();
   const { focusCallsign } = useSignalR();
-  const { focusedCallsignInfo, radioStates, selectedRadioId } = useAppStore();
+  const { focusedCallsignInfo, radioStates, selectedRadioId, isLookingUpCallsign, setFocusedCallsign, setFocusedCallsignInfo } = useAppStore();
   const { settings, updateRadioSettings } = useSettingsStore();
   const followRadio = settings.radio.followRadio;
 
@@ -48,6 +48,9 @@ export function LogEntryPlugin() {
   const [qsoDate, setQsoDate] = useState(() => formatDateForInput(new Date()));
   const [qsoTime, setQsoTime] = useState(() => formatTimeForInput(new Date()));
   const timeIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
+
+  // Name state - locked means it auto-fills from QRZ
+  const [nameLocked, setNameLocked] = useState(true);
 
   // Update time every second when locked
   useEffect(() => {
@@ -82,6 +85,16 @@ export function LogEntryPlugin() {
       }));
     }
   }, [followRadio, currentRadioState?.frequencyHz, currentRadioState?.band, currentRadioState?.mode]);
+
+  // Auto-populate name from QRZ when nameLocked is true
+  useEffect(() => {
+    if (nameLocked && focusedCallsignInfo?.name) {
+      setFormData(prev => ({
+        ...prev,
+        name: focusedCallsignInfo.name || '',
+      }));
+    }
+  }, [nameLocked, focusedCallsignInfo?.name]);
 
   // Normalize mode names from radio to match our MODES list
   const normalizeMode = (mode: string): string => {
@@ -129,8 +142,12 @@ export function LogEntryPlugin() {
 
     if (callsign.length >= 3) {
       await focusCallsign(callsign, 'log-entry');
+    } else {
+      // Clear the focused callsign info when callsign is cleared or too short
+      setFocusedCallsign(null);
+      setFocusedCallsignInfo(null);
     }
-  }, [focusCallsign]);
+  }, [focusCallsign, setFocusedCallsign, setFocusedCallsignInfo]);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -197,8 +214,15 @@ export function LogEntryPlugin() {
         <div className="flex gap-2 items-end">
           <div className="flex-1">
             <label className="text-xs text-gray-400 flex items-center gap-1 mb-1">
-              <Search className="w-3 h-3" />
+              {isLookingUpCallsign ? (
+                <Loader2 className="w-3 h-3 animate-spin text-accent-primary" />
+              ) : (
+                <Search className="w-3 h-3" />
+              )}
               Callsign
+              {isLookingUpCallsign && (
+                <span className="text-accent-primary text-[10px]">Looking up...</span>
+              )}
             </label>
             <input
               type="text"
@@ -285,6 +309,42 @@ export function LogEntryPlugin() {
             </div>
           </div>
         )}
+
+        {/* Name field with lock pattern */}
+        <div>
+          <label className="text-xs text-gray-400 mb-1 flex items-center gap-1">
+            <User className="w-3 h-3" />
+            Name
+            {nameLocked && focusedCallsignInfo?.name && (
+              <span className="w-1.5 h-1.5 rounded-full bg-accent-primary" title="From QRZ" />
+            )}
+          </label>
+          <div className="flex items-center gap-2">
+            <input
+              type="text"
+              value={formData.name}
+              onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+              placeholder={nameLocked && focusedCallsignInfo?.name ? focusedCallsignInfo.name : 'Operator name...'}
+              className={`glass-input flex-1 text-sm ${
+                nameLocked && focusedCallsignInfo?.name ? 'border-accent-primary/30' : ''
+              }`}
+              readOnly={nameLocked && !!focusedCallsignInfo?.name}
+            />
+            <button
+              type="button"
+              onClick={() => setNameLocked(!nameLocked)}
+              className={`p-1.5 rounded transition-colors ${
+                nameLocked
+                  ? 'text-gray-500 hover:text-gray-300'
+                  : 'text-amber-400 hover:text-amber-300'
+              }`}
+              title={nameLocked ? 'Unlock to edit name' : 'Lock to auto-fill from QRZ'}
+              tabIndex={-1}
+            >
+              {nameLocked ? <LockOpen className="w-3.5 h-3.5" /> : <Lock className="w-3.5 h-3.5" />}
+            </button>
+          </div>
+        </div>
 
         {/* Frequency, RST Sent, RST Rcvd on one line */}
         <div className="flex gap-3 items-end">

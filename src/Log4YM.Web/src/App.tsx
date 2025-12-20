@@ -1,11 +1,11 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { Layout, Model, TabNode, TabSetNode, BorderNode, IJsonModel, ITabSetRenderValues, Actions, DockLocation } from 'flexlayout-react';
-import { X, Radio, Book, Zap, LayoutGrid, Antenna, Plus, Map, Compass, Gauge } from 'lucide-react';
+import { X, Radio, Book, Zap, LayoutGrid, Antenna, Plus, Map, Compass, Gauge, User, Globe } from 'lucide-react';
 import { Header } from './components/Header';
 import { StatusBar } from './components/StatusBar';
 import { SettingsPanel } from './components/SettingsPanel';
 import { useSignalR } from './hooks/useSignalR';
-import { LogEntryPlugin, LogHistoryPlugin, ClusterPlugin, MapPlugin, RotatorPlugin, GlobePlugin, AntennaGeniusPlugin, PgxlPlugin, SmartUnlinkPlugin, RadioPlugin } from './plugins';
+import { LogEntryPlugin, LogHistoryPlugin, ClusterPlugin, MapPlugin, RotatorPlugin, GlobePlugin, AntennaGeniusPlugin, PgxlPlugin, SmartUnlinkPlugin, RadioPlugin, QrzProfilePlugin, QrzPagePlugin } from './plugins';
 import { Globe as Globe3D } from 'lucide-react';
 
 import 'flexlayout-react/style/dark.css';
@@ -61,6 +61,16 @@ const PLUGINS: Record<string, { name: string; icon: React.ReactNode; component: 
     name: 'Radio',
     icon: <Radio className="w-4 h-4" />,
     component: RadioPlugin,
+  },
+  'qrz-profile': {
+    name: 'QRZ Profile',
+    icon: <User className="w-4 h-4" />,
+    component: QrzProfilePlugin,
+  },
+  'qrz-page': {
+    name: 'QRZ Page',
+    icon: <Globe className="w-4 h-4" />,
+    component: QrzPagePlugin,
   },
 };
 
@@ -149,24 +159,62 @@ export function App() {
     return existing;
   }, [model]);
 
-  // Load saved layout from localStorage
+  // Load saved layout from MongoDB via API
   useEffect(() => {
-    const savedLayout = localStorage.getItem('log4ym-layout');
-    if (savedLayout) {
+    const loadLayout = async () => {
       try {
-        const parsed = JSON.parse(savedLayout);
-        setModel(Model.fromJson(parsed));
+        const response = await fetch('/api/settings');
+        if (response.ok) {
+          const settings = await response.json();
+          if (settings.layoutJson) {
+            console.log('Loading layout from MongoDB');
+            const layoutObj = JSON.parse(settings.layoutJson);
+            setModel(Model.fromJson(layoutObj));
+          }
+        }
       } catch (e) {
         console.error('Failed to load saved layout:', e);
       }
+    };
+    loadLayout();
+  }, []);
+
+  // Debounced save to MongoDB
+  const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const saveLayoutToMongo = useCallback(async (layoutObj: IJsonModel) => {
+    try {
+      // First get current settings
+      const response = await fetch('/api/settings');
+      if (response.ok) {
+        const settings = await response.json();
+        // Update with new layout (stringify for MongoDB storage)
+        settings.layoutJson = JSON.stringify(layoutObj);
+        // Save back
+        await fetch('/api/settings', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify(settings),
+        });
+        console.log('Layout saved to MongoDB');
+      }
+    } catch (e) {
+      console.error('Failed to save layout:', e);
     }
   }, []);
 
-  // Save layout changes
+  // Save layout changes (debounced to avoid too many API calls)
   const handleModelChange = useCallback((newModel: Model) => {
     setModel(newModel);
-    localStorage.setItem('log4ym-layout', JSON.stringify(newModel.toJson()));
-  }, []);
+
+    // Debounce the save - wait 1 second after last change
+    if (saveTimeoutRef.current) {
+      clearTimeout(saveTimeoutRef.current);
+    }
+    saveTimeoutRef.current = setTimeout(() => {
+      saveLayoutToMongo(newModel.toJson());
+    }, 1000);
+  }, [saveLayoutToMongo]);
 
   // Factory function to render components
   const factory = useCallback((node: TabNode) => {
@@ -242,8 +290,8 @@ export function App() {
   // Reset layout to default
   const handleResetLayout = useCallback(() => {
     setModel(Model.fromJson(defaultLayout));
-    localStorage.removeItem('log4ym-layout');
-  }, []);
+    saveLayoutToMongo(defaultLayout);
+  }, [saveLayoutToMongo]);
 
   return (
     <div className="h-screen flex flex-col bg-dark-900 text-gray-100">

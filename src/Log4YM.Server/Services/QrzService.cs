@@ -140,30 +140,33 @@ public class QrzService : IQrzService
             var response = await _httpClient.GetStringAsync(url);
             var doc = XDocument.Parse(response);
 
-            var callsignElement = doc.Descendants("Callsign").FirstOrDefault();
+            // Try with namespace first, then without
+            var callsignElement = doc.Descendants(QrzNamespace + "Callsign").FirstOrDefault()
+                ?? doc.Descendants("Callsign").FirstOrDefault();
             if (callsignElement == null)
             {
+                _logger.LogWarning("QRZ response has no Callsign element for {Callsign}", callsign);
                 return null;
             }
 
             return new QrzCallsignInfo(
-                Callsign: GetElementValue(callsignElement, "call") ?? callsign,
-                Name: GetElementValue(callsignElement, "name"),
-                FirstName: GetElementValue(callsignElement, "fname"),
-                Address: GetElementValue(callsignElement, "addr1"),
-                City: GetElementValue(callsignElement, "addr2"),
-                State: GetElementValue(callsignElement, "state"),
-                Country: GetElementValue(callsignElement, "country"),
-                Grid: GetElementValue(callsignElement, "grid"),
-                Latitude: ParseDouble(GetElementValue(callsignElement, "lat")),
-                Longitude: ParseDouble(GetElementValue(callsignElement, "lon")),
-                Dxcc: ParseInt(GetElementValue(callsignElement, "dxcc")),
-                CqZone: ParseInt(GetElementValue(callsignElement, "cqzone")),
-                ItuZone: ParseInt(GetElementValue(callsignElement, "ituzone")),
-                Email: GetElementValue(callsignElement, "email"),
-                QslManager: GetElementValue(callsignElement, "qslmgr"),
-                ImageUrl: GetElementValue(callsignElement, "image"),
-                LicenseExpiration: ParseDate(GetElementValue(callsignElement, "expdate"))
+                Callsign: GetElementValueNs(callsignElement, "call") ?? callsign,
+                Name: GetElementValueNs(callsignElement, "name"),
+                FirstName: GetElementValueNs(callsignElement, "fname"),
+                Address: GetElementValueNs(callsignElement, "addr1"),
+                City: GetElementValueNs(callsignElement, "addr2"),
+                State: GetElementValueNs(callsignElement, "state"),
+                Country: GetElementValueNs(callsignElement, "country"),
+                Grid: GetElementValueNs(callsignElement, "grid"),
+                Latitude: ParseDouble(GetElementValueNs(callsignElement, "lat")),
+                Longitude: ParseDouble(GetElementValueNs(callsignElement, "lon")),
+                Dxcc: ParseInt(GetElementValueNs(callsignElement, "dxcc")),
+                CqZone: ParseInt(GetElementValueNs(callsignElement, "cqzone")),
+                ItuZone: ParseInt(GetElementValueNs(callsignElement, "ituzone")),
+                Email: GetElementValueNs(callsignElement, "email"),
+                QslManager: GetElementValueNs(callsignElement, "qslmgr"),
+                ImageUrl: GetElementValueNs(callsignElement, "image"),
+                LicenseExpiration: ParseDate(GetElementValueNs(callsignElement, "expdate"))
             );
         }
         catch (QrzSubscriptionRequiredException)
@@ -178,40 +181,64 @@ public class QrzService : IQrzService
         }
     }
 
+    // QRZ XML namespace
+    private static readonly XNamespace QrzNamespace = "http://xmldata.qrz.com";
+
     private async Task<string?> GetSessionKeyAsync(string username, string password)
     {
         // Return cached session if valid
         if (_sessionKey != null && _sessionExpiry > DateTime.UtcNow)
         {
+            _logger.LogDebug("Using cached QRZ session key");
             return _sessionKey;
         }
 
+        _logger.LogDebug("Requesting new QRZ session for user: {Username}", username);
         var url = $"{QrzXmlApiUrl}?username={Uri.EscapeDataString(username)}&password={Uri.EscapeDataString(password)}&agent=Log4YM";
-        var response = await _httpClient.GetStringAsync(url);
-        var doc = XDocument.Parse(response);
 
-        var session = doc.Descendants("Session").FirstOrDefault();
-        if (session == null)
+        try
         {
-            return null;
-        }
+            var response = await _httpClient.GetStringAsync(url);
+            var doc = XDocument.Parse(response);
 
-        var error = GetElementValue(session, "Error");
-        if (!string.IsNullOrEmpty(error))
-        {
-            if (error.Contains("subscription", StringComparison.OrdinalIgnoreCase))
+            // Try with namespace first, then without (for backwards compatibility)
+            var session = doc.Descendants(QrzNamespace + "Session").FirstOrDefault()
+                ?? doc.Descendants("Session").FirstOrDefault();
+            if (session == null)
             {
-                throw new QrzSubscriptionRequiredException(error);
+                _logger.LogWarning("QRZ response has no Session element");
+                return null;
             }
-            _logger.LogWarning("QRZ login error: {Error}", error);
+
+            var error = GetElementValueNs(session, "Error");
+            if (!string.IsNullOrEmpty(error))
+            {
+                if (error.Contains("subscription", StringComparison.OrdinalIgnoreCase))
+                {
+                    throw new QrzSubscriptionRequiredException(error);
+                }
+                _logger.LogWarning("QRZ login error: {Error}", error);
+                return null;
+            }
+
+            _sessionKey = GetElementValueNs(session, "Key");
+            if (string.IsNullOrEmpty(_sessionKey))
+            {
+                _logger.LogWarning("QRZ response has no session key");
+                return null;
+            }
+
+            // Sessions typically last 24 hours, but we'll refresh more often
+            _sessionExpiry = DateTime.UtcNow.AddHours(1);
+            _logger.LogInformation("QRZ session obtained successfully");
+
+            return _sessionKey;
+        }
+        catch (HttpRequestException ex)
+        {
+            _logger.LogError(ex, "HTTP error connecting to QRZ API");
             return null;
         }
-
-        _sessionKey = GetElementValue(session, "Key");
-        // Sessions typically last 24 hours, but we'll refresh more often
-        _sessionExpiry = DateTime.UtcNow.AddHours(1);
-
-        return _sessionKey;
     }
 
     private async Task<(bool Success, string? LogId, string? Message)> UploadAdifToQrzAsync(string apiKey, string adif)
@@ -324,6 +351,12 @@ public class QrzService : IQrzService
     private static string? GetElementValue(XElement parent, string name)
     {
         return parent.Element(name)?.Value;
+    }
+
+    // Helper that tries both with namespace and without
+    private static string? GetElementValueNs(XElement parent, string name)
+    {
+        return parent.Element(QrzNamespace + name)?.Value ?? parent.Element(name)?.Value;
     }
 
     private static double? ParseDouble(string? value)

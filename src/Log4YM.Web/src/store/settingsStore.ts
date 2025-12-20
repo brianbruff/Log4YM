@@ -233,10 +233,20 @@ export const useSettingsStore = create<SettingsState>()(
         set({ isSaving: true });
         try {
           const { settings } = get();
+          // Deobfuscate QRZ credentials before sending to backend
+          // The backend stores plain passwords for use with QRZ API
+          const settingsToSave = {
+            ...settings,
+            qrz: {
+              ...settings.qrz,
+              password: deobfuscate(settings.qrz.password),
+              apiKey: deobfuscate(settings.qrz.apiKey),
+            },
+          };
           const response = await fetch('/api/settings', {
             method: 'POST',
             headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(settings),
+            body: JSON.stringify(settingsToSave),
           });
 
           if (!response.ok) {
@@ -258,7 +268,16 @@ export const useSettingsStore = create<SettingsState>()(
           const response = await fetch('/api/settings');
           if (response.ok) {
             const settings = await response.json();
-            set({ settings, isDirty: false });
+            // Backend stores plain passwords, so obfuscate for frontend storage
+            const settingsToStore = {
+              ...settings,
+              qrz: {
+                ...settings.qrz,
+                password: obfuscate(settings.qrz?.password || ''),
+                apiKey: obfuscate(settings.qrz?.apiKey || ''),
+              },
+            };
+            set({ settings: settingsToStore, isDirty: false });
           }
         } catch (error) {
           console.error('Failed to load settings:', error);

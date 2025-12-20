@@ -13,6 +13,12 @@ export function RotatorPlugin() {
   const [isRotating, setIsRotating] = useState(false);
   const [displayAzimuth, setDisplayAzimuth] = useState(0);
   const [showSettings, setShowSettings] = useState(false);
+  const [pathMode, setPathMode] = useState<'short' | 'long'>('short');
+
+  // Calculate long path from short path (add 180 degrees)
+  const shortPathBearing = focusedCallsignInfo?.bearing;
+  const longPathBearing = shortPathBearing != null ? (shortPathBearing + 180) % 360 : undefined;
+  const selectedBearing = pathMode === 'short' ? shortPathBearing : longPathBearing;
 
   // Rotator is enabled in settings
   const rotatorEnabled = settings.rotator.enabled;
@@ -88,19 +94,19 @@ export function RotatorPlugin() {
   }, [targetAzimuth, commandRotator]);
 
   const handleRotateToTarget = useCallback(async () => {
-    if (!focusedCallsignInfo?.bearing) return;
+    if (selectedBearing === undefined) return;
 
     lastCommandTimeRef.current = Date.now();
-    commandedAzimuthRef.current = focusedCallsignInfo.bearing;
-    displayedAzimuthRef.current = focusedCallsignInfo.bearing;
-    setDisplayAzimuth(focusedCallsignInfo.bearing);
+    commandedAzimuthRef.current = selectedBearing;
+    displayedAzimuthRef.current = selectedBearing;
+    setDisplayAzimuth(selectedBearing);
     setIsRotating(true);
     try {
-      await commandRotator(focusedCallsignInfo.bearing, 'rotator');
+      await commandRotator(selectedBearing, 'rotator');
     } finally {
       setIsRotating(false);
     }
-  }, [focusedCallsignInfo?.bearing, commandRotator]);
+  }, [selectedBearing, commandRotator]);
 
   const handleQuickRotate = useCallback(async (deg: number) => {
     lastCommandTimeRef.current = Date.now();
@@ -165,13 +171,26 @@ export function RotatorPlugin() {
       <span className="absolute bottom-8 right-8 text-xs text-gray-600">SE</span>
       <span className="absolute bottom-8 left-8 text-xs text-gray-600">SW</span>
 
-      {/* Target bearing indicator (yellow/orange line) */}
-      {focusedCallsignInfo?.bearing !== undefined && (
+      {/* Short path bearing indicator (orange line) */}
+      {shortPathBearing != null && (
         <div
-          className="absolute left-1/2 top-1/2 w-1 h-24 -ml-0.5 origin-bottom opacity-60"
+          className="absolute left-1/2 top-1/2 w-1 h-24 -ml-0.5 origin-bottom"
           style={{
-            transform: `translateY(-100%) rotate(${focusedCallsignInfo.bearing}deg)`,
-            background: 'linear-gradient(to top, transparent, #f59e0b)',
+            transform: `translateY(-100%) rotate(${shortPathBearing}deg)`,
+            background: 'linear-gradient(to top, transparent, #f97316)',
+            opacity: pathMode === 'short' ? 0.8 : 0.3,
+          }}
+        />
+      )}
+
+      {/* Long path bearing indicator (orange dashed line) */}
+      {longPathBearing != null && (
+        <div
+          className="absolute left-1/2 top-1/2 w-0.5 h-24 origin-bottom"
+          style={{
+            transform: `translateY(-100%) rotate(${longPathBearing}deg)`,
+            background: `repeating-linear-gradient(to top, transparent 0px, transparent 4px, #f97316 4px, #f97316 8px)`,
+            opacity: pathMode === 'long' ? 0.8 : 0.3,
           }}
         />
       )}
@@ -262,9 +281,38 @@ export function RotatorPlugin() {
         {/* Target Info */}
         {focusedCallsignInfo && (
           <div className="glass-panel p-3">
-            <div className="flex items-center gap-2 mb-2">
-              <Target className="w-4 h-4 text-accent-warning" />
-              <span className="text-sm text-gray-400">Target</span>
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Target className="w-4 h-4 text-accent-warning" />
+                <span className="text-sm text-gray-400">Target</span>
+              </div>
+              {/* SP/LP Toggle */}
+              {shortPathBearing != null && (
+                <div className="flex rounded-lg overflow-hidden border border-glass-200 text-xs">
+                  <button
+                    onClick={() => setPathMode('short')}
+                    className={`px-2 py-1 font-medium transition-colors ${
+                      pathMode === 'short'
+                        ? 'bg-accent-warning text-dark-900'
+                        : 'bg-dark-700 text-gray-400 hover:text-gray-200'
+                    }`}
+                    title="Short Path"
+                  >
+                    SP
+                  </button>
+                  <button
+                    onClick={() => setPathMode('long')}
+                    className={`px-2 py-1 font-medium transition-colors ${
+                      pathMode === 'long'
+                        ? 'bg-accent-warning text-dark-900'
+                        : 'bg-dark-700 text-gray-400 hover:text-gray-200'
+                    }`}
+                    title="Long Path"
+                  >
+                    LP
+                  </button>
+                </div>
+              )}
             </div>
             <div className="flex items-center justify-between">
               <div>
@@ -276,11 +324,23 @@ export function RotatorPlugin() {
                 )}
               </div>
               <div className="text-right">
-                <p className="font-mono text-xl text-accent-warning">
-                  {focusedCallsignInfo.bearing?.toFixed(0) ?? '---'}°
-                </p>
-                {focusedCallsignInfo.distance && (
-                  <p className="text-xs text-accent-info">
+                {/* Show both bearings */}
+                <div className="flex items-center gap-3">
+                  <div className={pathMode === 'short' ? 'opacity-100' : 'opacity-40'}>
+                    <p className="font-mono text-sm text-gray-400">SP</p>
+                    <p className="font-mono text-lg text-accent-warning">
+                      {shortPathBearing?.toFixed(0) ?? '---'}°
+                    </p>
+                  </div>
+                  <div className={pathMode === 'long' ? 'opacity-100' : 'opacity-40'}>
+                    <p className="font-mono text-sm text-gray-400">LP</p>
+                    <p className="font-mono text-lg text-accent-warning">
+                      {longPathBearing?.toFixed(0) ?? '---'}°
+                    </p>
+                  </div>
+                </div>
+                {focusedCallsignInfo.distance != null && (
+                  <p className="text-xs text-accent-info mt-1">
                     {Math.round(focusedCallsignInfo.distance)} km
                   </p>
                 )}
@@ -326,15 +386,20 @@ export function RotatorPlugin() {
 
             {/* Rotate to target */}
             <div className="space-y-2">
-              <label className="text-xs text-gray-500">Rotate to Target</label>
+              <label className="text-xs text-gray-500">
+                Rotate to Target ({pathMode === 'short' ? 'SP' : 'LP'})
+              </label>
               <button
                 onClick={handleRotateToTarget}
-                disabled={isRotating || !focusedCallsignInfo?.bearing}
+                disabled={isRotating || selectedBearing === undefined}
                 className="glass-button-success w-full flex items-center justify-center gap-2 py-2 disabled:opacity-50"
               >
                 <Target className="w-4 h-4" />
                 <span className="font-mono">
-                  {focusedCallsignInfo?.bearing?.toFixed(0) || '---'}°
+                  {selectedBearing?.toFixed(0) || '---'}°
+                </span>
+                <span className="text-xs opacity-70">
+                  ({pathMode === 'short' ? 'SP' : 'LP'})
                 </span>
               </button>
             </div>

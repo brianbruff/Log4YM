@@ -9,6 +9,7 @@ export function useSignalR() {
     setConnected,
     setFocusedCallsign,
     setFocusedCallsignInfo,
+    setLookingUpCallsign,
     setRotatorPosition,
     setRigStatus,
     setAntennaGeniusStatus,
@@ -36,6 +37,7 @@ export function useSignalR() {
           },
           onCallsignLookedUp: (evt) => {
             setFocusedCallsignInfo(evt);
+            setLookingUpCallsign(false);
           },
           onQsoLogged: () => {
             // Invalidate QSO queries to refetch
@@ -161,8 +163,9 @@ export function useSignalR() {
 
   const focusCallsign = useCallback(async (callsign: string, source: string) => {
     setFocusedCallsign(callsign);
+    setLookingUpCallsign(true);
     await signalRService.focusCallsign({ callsign, source });
-  }, [setFocusedCallsign]);
+  }, [setFocusedCallsign, setLookingUpCallsign]);
 
   const selectSpot = useCallback(async (dxCall: string, frequency: number, mode?: string) => {
     await signalRService.selectSpot({ dxCall, frequency, mode });

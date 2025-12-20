@@ -460,6 +460,7 @@ class SignalRService {
     });
 
     this.connection.on('OnCallsignLookedUp', (evt: CallsignLookedUpEvent) => {
+      console.log('QRZ Lookup received:', evt);
       this.handlers.onCallsignLookedUp?.(evt);
     });
 
@@ -558,6 +559,7 @@ class SignalRService {
 
   // Client-to-server methods
   async focusCallsign(evt: CallsignFocusedEvent): Promise<void> {
+    console.log('Sending FocusCallsign:', evt);
     await this.connection?.invoke('FocusCallsign', evt);
   }
 

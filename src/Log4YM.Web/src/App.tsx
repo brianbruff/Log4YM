@@ -1,11 +1,11 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { Layout, Model, TabNode, TabSetNode, BorderNode, IJsonModel, ITabSetRenderValues, Actions, DockLocation } from 'flexlayout-react';
-import { X, Radio, Book, Zap, LayoutGrid, Antenna, Plus, Map, Compass, Gauge, User, Globe } from 'lucide-react';
+import { X, Radio, Book, Zap, LayoutGrid, Antenna, Plus, Map, Compass, Gauge, User } from 'lucide-react';
 import { Header } from './components/Header';
 import { StatusBar } from './components/StatusBar';
 import { SettingsPanel } from './components/SettingsPanel';
 import { useSignalR } from './hooks/useSignalR';
-import { LogEntryPlugin, LogHistoryPlugin, ClusterPlugin, MapPlugin, RotatorPlugin, GlobePlugin, AntennaGeniusPlugin, PgxlPlugin, SmartUnlinkPlugin, RadioPlugin, QrzProfilePlugin, QrzPagePlugin } from './plugins';
+import { LogEntryPlugin, LogHistoryPlugin, ClusterPlugin, MapPlugin, RotatorPlugin, GlobePlugin, AntennaGeniusPlugin, PgxlPlugin, SmartUnlinkPlugin, RadioPlugin, QrzProfilePlugin } from './plugins';
 import { Globe as Globe3D } from 'lucide-react';
 
 import 'flexlayout-react/style/dark.css';
@@ -66,11 +66,6 @@ const PLUGINS: Record<string, { name: string; icon: React.ReactNode; component: 
     name: 'QRZ Profile',
     icon: <User className="w-4 h-4" />,
     component: QrzProfilePlugin,
-  },
-  'qrz-page': {
-    name: 'QRZ Page',
-    icon: <Globe className="w-4 h-4" />,
-    component: QrzPagePlugin,
   },
 };
 

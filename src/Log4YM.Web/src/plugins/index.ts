@@ -9,4 +9,3 @@ export { PgxlPlugin } from './PgxlPlugin';
 export { SmartUnlinkPlugin } from './SmartUnlinkPlugin';
 export { RadioPlugin } from './RadioPlugin';
 export { QrzProfilePlugin } from './QrzProfilePlugin';
-export { QrzPagePlugin } from './QrzPagePlugin';

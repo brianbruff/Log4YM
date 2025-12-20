@@ -1,10 +1,19 @@
-import { User, MapPin, Navigation, Globe } from 'lucide-react';
+import { User, MapPin, Navigation, Globe, ExternalLink } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import { GlassPanel } from '../components/GlassPanel';
 import { getCountryFlag } from '../core/countryFlags';
 
 export function QrzProfilePlugin() {
   const { focusedCallsignInfo, isLookingUpCallsign } = useAppStore();
+
+  const callsign = focusedCallsignInfo?.callsign;
+  const qrzUrl = callsign ? `https://www.qrz.com/db/${callsign}` : null;
+
+  const handleOpenQrz = () => {
+    if (qrzUrl) {
+      window.open(qrzUrl, '_blank', 'noopener,noreferrer');
+    }
+  };
 
   // Calculate long path bearing
   const shortPath = focusedCallsignInfo?.bearing;
@@ -134,6 +143,15 @@ export function QrzProfilePlugin() {
                   )}
                 </div>
               )}
+
+              {/* View on QRZ button */}
+              <button
+                onClick={handleOpenQrz}
+                className="mt-4 w-full glass-button py-2 flex items-center justify-center gap-2 text-accent-primary hover:bg-accent-primary/10 transition-colors"
+              >
+                <ExternalLink className="w-4 h-4" />
+                <span className="text-sm font-medium">View Full QRZ Profile</span>
+              </button>
             </div>
           </div>
         )}

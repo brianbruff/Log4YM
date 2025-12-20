@@ -351,6 +351,24 @@ public class LogHub : Hub<ILogHubClient>
         await _hamlibService.DisconnectAsync(radioId);
     }
 
+    /// <summary>
+    /// Connect directly to a TCI server without discovery
+    /// </summary>
+    public async Task ConnectTci(string host, int port = 40001, string? name = null)
+    {
+        _logger.LogInformation("Connecting to TCI at {Host}:{Port}", host, port);
+        await _tciRadioService.ConnectDirectAsync(host, port, name);
+    }
+
+    /// <summary>
+    /// Disconnect from a TCI server
+    /// </summary>
+    public async Task DisconnectTci(string radioId)
+    {
+        _logger.LogInformation("Disconnecting from TCI {RadioId}", radioId);
+        await _tciRadioService.DisconnectAsync(radioId);
+    }
+
     public async Task SelectRadioSlice(SelectRadioSliceCommand cmd)
     {
         _logger.LogInformation("Selecting slice {SliceId} on radio {RadioId}", cmd.SliceId, cmd.RadioId);

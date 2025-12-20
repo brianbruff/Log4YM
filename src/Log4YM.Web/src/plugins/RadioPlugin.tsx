@@ -22,6 +22,8 @@ export function RadioPlugin() {
     selectRadioSlice,
     connectHamlib,
     disconnectHamlib,
+    connectTci,
+    disconnectTci,
   } = useSignalR();
 
   const [selectedType, setSelectedType] = useState<'FlexRadio' | 'Tci' | null>(null);
@@ -31,6 +33,11 @@ export function RadioPlugin() {
   const [hamlibPort, setHamlibPort] = useState("4532");
   const [hamlibName, setHamlibName] = useState("");
   const [isConnectingHamlib, setIsConnectingHamlib] = useState(false);
+  const [showTciForm, setShowTciForm] = useState(false);
+  const [tciHost, setTciHost] = useState("localhost");
+  const [tciPort, setTciPort] = useState("40001");
+  const [tciName, setTciName] = useState("");
+  const [isConnectingTci, setIsConnectingTci] = useState(false);
 
   // Convert Map to array for rendering
   const radios = Array.from(discoveredRadios.values());
@@ -67,6 +74,8 @@ export function RadioPlugin() {
       const radio = discoveredRadios.get(selectedRadioId);
       if (radio?.type === "Hamlib") {
         await disconnectHamlib(selectedRadioId);
+      } else if (radio?.type === "Tci" && selectedRadioId.startsWith("tci-")) {
+        await disconnectTci(selectedRadioId);
       } else {
         await disconnectRadio(selectedRadioId);
       }
@@ -87,6 +96,22 @@ export function RadioPlugin() {
       setHamlibName("");
     } finally {
       setIsConnectingHamlib(false);
+    }
+  };
+
+  const handleConnectTci = async () => {
+    const port = parseInt(tciPort, 10);
+    if (!tciHost || isNaN(port)) return;
+
+    setIsConnectingTci(true);
+    try {
+      await connectTci(tciHost, port, tciName || undefined);
+      setShowTciForm(false);
+      setTciHost("localhost");
+      setTciPort("40001");
+      setTciName("");
+    } finally {
+      setIsConnectingTci(false);
     }
   };
 
@@ -264,7 +289,7 @@ export function RadioPlugin() {
           <div className="grid grid-cols-3 gap-2">
             <button
               onClick={() => handleStartDiscovery("FlexRadio")}
-              disabled={isDiscovering || showHamlibForm}
+              disabled={isDiscovering || showHamlibForm || showTciForm}
               className={`px-4 py-3 rounded-lg text-sm font-medium transition-all border ${
                 selectedType === "FlexRadio" && isDiscovering
                   ? "bg-accent-primary/20 text-accent-primary border-accent-primary/30"
@@ -277,11 +302,14 @@ export function RadioPlugin() {
               </div>
             </button>
             <button
-              onClick={() => handleStartDiscovery("Tci")}
-              disabled={isDiscovering || showHamlibForm}
+              onClick={() => {
+                setShowTciForm(!showTciForm);
+                setShowHamlibForm(false);
+              }}
+              disabled={isDiscovering}
               className={`px-4 py-3 rounded-lg text-sm font-medium transition-all border ${
-                selectedType === "Tci" && isDiscovering
-                  ? "bg-accent-primary/20 text-accent-primary border-accent-primary/30"
+                showTciForm
+                  ? "bg-purple-500/20 text-purple-400 border-purple-500/30"
                   : "bg-dark-700 text-gray-300 hover:bg-dark-600 border-glass-100 disabled:opacity-50"
               }`}
             >
@@ -291,7 +319,10 @@ export function RadioPlugin() {
               </div>
             </button>
             <button
-              onClick={() => setShowHamlibForm(!showHamlibForm)}
+              onClick={() => {
+                setShowHamlibForm(!showHamlibForm);
+                setShowTciForm(false);
+              }}
               disabled={isDiscovering}
               className={`px-4 py-3 rounded-lg text-sm font-medium transition-all border ${
                 showHamlibForm
@@ -365,6 +396,72 @@ export function RadioPlugin() {
               </button>
               <button
                 onClick={() => setShowHamlibForm(false)}
+                className="px-4 py-2 text-sm font-medium bg-dark-700 text-gray-400 rounded-lg hover:bg-dark-600 transition-all"
+              >
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* TCI Connection Form */}
+        {showTciForm && (
+          <div className="bg-dark-700/50 rounded-lg p-4 border border-purple-500/30 space-y-3">
+            <div className="text-xs text-purple-400 uppercase tracking-wider mb-2">
+              Connect to TCI Server
+            </div>
+            <div className="grid grid-cols-2 gap-3">
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Host</label>
+                <input
+                  type="text"
+                  value={tciHost}
+                  onChange={(e) => setTciHost(e.target.value)}
+                  placeholder="localhost"
+                  className="w-full px-3 py-2 bg-dark-800 border border-glass-100 rounded-lg text-sm text-gray-200 focus:outline-none focus:border-purple-500/50"
+                />
+              </div>
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Port</label>
+                <input
+                  type="number"
+                  value={tciPort}
+                  onChange={(e) => setTciPort(e.target.value)}
+                  placeholder="40001"
+                  className="w-full px-3 py-2 bg-dark-800 border border-glass-100 rounded-lg text-sm text-gray-200 focus:outline-none focus:border-purple-500/50"
+                />
+              </div>
+            </div>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">Name (optional)</label>
+              <input
+                type="text"
+                value={tciName}
+                onChange={(e) => setTciName(e.target.value)}
+                placeholder="My TCI Radio"
+                className="w-full px-3 py-2 bg-dark-800 border border-glass-100 rounded-lg text-sm text-gray-200 focus:outline-none focus:border-purple-500/50"
+              />
+            </div>
+            <div className="flex gap-2 pt-2">
+              <button
+                onClick={handleConnectTci}
+                disabled={isConnectingTci || !tciHost}
+                className="flex-1 px-4 py-2 text-sm font-medium flex items-center justify-center gap-2 bg-purple-500/20 text-purple-400 rounded-lg hover:bg-purple-500/30 transition-all disabled:opacity-50"
+              >
+                {isConnectingTci ? (
+                  <>
+                    <Wifi className="w-4 h-4 animate-pulse" />
+                    Connecting...
+                  </>
+                ) : (
+                  <>
+                    <Plus className="w-4 h-4" />
+                    Connect
+                  </>
+                )}
+              </button>
+              <button
+                onClick={() => setShowTciForm(false)}
                 className="px-4 py-2 text-sm font-medium bg-dark-700 text-gray-400 rounded-lg hover:bg-dark-600 transition-all"
               >
                 Cancel

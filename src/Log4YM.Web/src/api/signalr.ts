@@ -658,6 +658,15 @@ class SignalRService {
     await this.connection?.invoke('DisconnectHamlib', radioId);
   }
 
+  // TCI direct connection methods
+  async connectTci(host: string, port: number = 40001, name?: string): Promise<void> {
+    await this.connection?.invoke('ConnectTci', host, port, name);
+  }
+
+  async disconnectTci(radioId: string): Promise<void> {
+    await this.connection?.invoke('DisconnectTci', radioId);
+  }
+
   // SmartUnlink methods
   async addSmartUnlinkRadio(dto: SmartUnlinkRadioDto): Promise<void> {
     await this.connection?.invoke('AddSmartUnlinkRadio', dto);

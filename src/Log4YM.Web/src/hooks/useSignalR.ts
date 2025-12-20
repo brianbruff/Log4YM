@@ -233,6 +233,15 @@ export function useSignalR() {
     await signalRService.disconnectHamlib(radioId);
   }, []);
 
+  // TCI direct connection methods
+  const connectTci = useCallback(async (host: string, port: number = 40001, name?: string) => {
+    await signalRService.connectTci(host, port, name);
+  }, []);
+
+  const disconnectTci = useCallback(async (radioId: string) => {
+    await signalRService.disconnectTci(radioId);
+  }, []);
+
   // SmartUnlink methods
   const addSmartUnlinkRadioFn = useCallback(async (dto: SmartUnlinkRadioDto) => {
     await signalRService.addSmartUnlinkRadio(dto);
@@ -268,6 +277,9 @@ export function useSignalR() {
     // Hamlib (rigctld)
     connectHamlib,
     disconnectHamlib,
+    // TCI direct connection
+    connectTci,
+    disconnectTci,
     // SmartUnlink
     addSmartUnlinkRadio: addSmartUnlinkRadioFn,
     updateSmartUnlinkRadio: updateSmartUnlinkRadioFn,

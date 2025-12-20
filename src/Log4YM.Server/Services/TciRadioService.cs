@@ -21,7 +21,7 @@ public class TciRadioService : BackgroundService
     private readonly ConcurrentDictionary<string, TciRadioConnection> _connections = new();
 
     private const int DiscoveryPort = 1024;
-    private const int TciDefaultPort = 50001;
+    private const int TciDefaultPort = 40001;
     private const int RadioCleanupSeconds = 30;
     private const int DiscoveryBroadcastIntervalMs = 10000;
 
@@ -239,7 +239,53 @@ public class TciRadioService : BackgroundService
         }
     }
 
-    public bool HasRadio(string radioId) => _discoveredRadios.ContainsKey(radioId);
+    public bool HasRadio(string radioId) => _discoveredRadios.ContainsKey(radioId) || _connections.ContainsKey(radioId);
+
+    /// <summary>
+    /// Connect directly to a TCI server at a known host:port without discovery
+    /// </summary>
+    public async Task ConnectDirectAsync(string host, int port = TciDefaultPort, string? name = null)
+    {
+        var radioId = $"tci-{host}:{port}";
+
+        if (_connections.ContainsKey(radioId))
+        {
+            _logger.LogDebug("Already connected to TCI at {Host}:{Port}", host, port);
+            return;
+        }
+
+        // Create a device entry for direct connection
+        var device = new TciRadioDevice
+        {
+            Id = radioId,
+            Model = name ?? $"TCI ({host})",
+            IpAddress = host,
+            TciPort = port,
+            Instances = 1,
+            LastSeen = DateTime.UtcNow
+        };
+
+        _discoveredRadios[radioId] = device;
+
+        await _hubContext.BroadcastRadioDiscovered(new RadioDiscoveredEvent(
+            radioId,
+            RadioType.Tci,
+            device.Model,
+            host,
+            port,
+            null,
+            null
+        ));
+
+        await _hubContext.BroadcastRadioConnectionStateChanged(
+            new RadioConnectionStateChangedEvent(radioId, RadioConnectionState.Connecting));
+
+        var connection = new TciRadioConnection(device, _logger, _hubContext);
+        if (_connections.TryAdd(radioId, connection))
+        {
+            _ = connection.ConnectAsync();
+        }
+    }
 
     public async Task ConnectAsync(string radioId)
     {
@@ -384,10 +430,8 @@ internal class TciRadioConnection
             await _hubContext.BroadcastRadioConnectionStateChanged(
                 new RadioConnectionStateChangedEvent(_device.Id, RadioConnectionState.Connected));
 
-            // Subscribe to frequency and mode updates
-            await SendCommandAsync("vfo_frequency;");
-            await SendCommandAsync("modulation;");
-            await SendCommandAsync("trx;");
+            // TCI protocol: server pushes updates to us automatically
+            // No need to send subscription commands - just listen for incoming messages
 
             // Start receive loop
             await ReceiveLoopAsync(ct);
@@ -480,55 +524,111 @@ internal class TciRadioConnection
     {
         _logger.LogDebug("TCI message: {Message}", message);
 
-        // TCI protocol format: command:receiver,value; or command:value;
-        var parts = message.TrimEnd(';').Split(':');
-        if (parts.Length < 2) return;
+        // TCI protocol format: command:arg1,arg2,...;command2:arg1,...;
+        // Multiple commands can be in one message, separated by semicolons
+        var commands = message.Trim().Split(';', StringSplitOptions.RemoveEmptyEntries);
 
-        var command = parts[0].ToLower();
-        var args = parts[1].Split(',');
+        var stateChanged = false;
 
-        // Check if this message is for our selected instance
-        if (args.Length > 1 && int.TryParse(args[0], out var instance) && instance != _selectedInstance)
+        foreach (var cmd in commands)
         {
-            return; // Skip messages for other instances
+            var colonIndex = cmd.IndexOf(':');
+            if (colonIndex < 0) continue;
+
+            var command = cmd[..colonIndex].ToLower().Trim();
+            var argsStr = cmd[(colonIndex + 1)..];
+            var args = argsStr.Split(',').Select(a => a.Trim()).ToArray();
+
+            switch (command)
+            {
+                case "vfo":
+                    // Format: vfo:rx,channel,frequency; (rx=0/1, channel=0 for VFO-A, frequency in Hz)
+                    if (args.Length >= 3)
+                    {
+                        var rx = int.TryParse(args[0], out var rxVal) ? rxVal : 0;
+                        var channel = int.TryParse(args[1], out var chVal) ? chVal : 0;
+
+                        // Only track RX0, VFO-A (channel 0) or match selected instance
+                        if (rx == _selectedInstance && channel == 0)
+                        {
+                            if (long.TryParse(args[2], out var freq) && freq != _currentFrequencyHz)
+                            {
+                                _currentFrequencyHz = freq;
+                                stateChanged = true;
+                            }
+                        }
+                    }
+                    break;
+
+                case "modulation":
+                    // Format: modulation:rx,MODE;
+                    if (args.Length >= 2)
+                    {
+                        var rx = int.TryParse(args[0], out var rxVal) ? rxVal : 0;
+                        if (rx == _selectedInstance)
+                        {
+                            var mode = args[1].ToUpper();
+                            if (mode != _currentMode)
+                            {
+                                _currentMode = mode;
+                                stateChanged = true;
+                            }
+                        }
+                    }
+                    break;
+
+                case "trx":
+                    // Format: trx:rx,state; (state: true/false or 1/0)
+                    if (args.Length >= 2)
+                    {
+                        var rx = int.TryParse(args[0], out var rxVal) ? rxVal : 0;
+                        if (rx == _selectedInstance)
+                        {
+                            var newTx = args[1].Equals("true", StringComparison.OrdinalIgnoreCase)
+                                     || args[1] == "1";
+                            if (newTx != _isTransmitting)
+                            {
+                                _isTransmitting = newTx;
+                                stateChanged = true;
+                            }
+                        }
+                    }
+                    break;
+
+                case "tx":
+                    // Alternative TX format: tx:state;
+                    if (args.Length >= 1)
+                    {
+                        var newTx = args[0].Equals("true", StringComparison.OrdinalIgnoreCase)
+                                 || args[0] == "1";
+                        if (newTx != _isTransmitting)
+                        {
+                            _isTransmitting = newTx;
+                            stateChanged = true;
+                        }
+                    }
+                    break;
+
+                case "protocol":
+                    // Server identification: protocol:name,version;
+                    _logger.LogInformation("TCI protocol: {Args}", argsStr);
+                    break;
+
+                case "device":
+                    // Device name: device:name;
+                    _logger.LogInformation("TCI device: {Args}", argsStr);
+                    break;
+
+                case "ready":
+                    // Server ready signal
+                    _logger.LogInformation("TCI server ready");
+                    break;
+            }
         }
 
-        switch (command)
+        if (stateChanged)
         {
-            case "vfo":
-            case "vfo_frequency":
-                // Format: vfo:receiver,frequency;
-                var freqStr = args.Length > 1 ? args[1] : args[0];
-                if (long.TryParse(freqStr, out var freq))
-                {
-                    if (freq != _currentFrequencyHz)
-                    {
-                        _currentFrequencyHz = freq;
-                        await BroadcastStateAsync();
-                    }
-                }
-                break;
-
-            case "modulation":
-                // Format: modulation:receiver,mode;
-                var mode = (args.Length > 1 ? args[1] : args[0]).ToUpper();
-                if (mode != _currentMode)
-                {
-                    _currentMode = mode;
-                    await BroadcastStateAsync();
-                }
-                break;
-
-            case "trx":
-                // Format: trx:receiver,state; (true/false)
-                var txStr = args.Length > 1 ? args[1] : args[0];
-                var newTx = txStr.Equals("true", StringComparison.OrdinalIgnoreCase);
-                if (newTx != _isTransmitting)
-                {
-                    _isTransmitting = newTx;
-                    await BroadcastStateAsync();
-                }
-                break;
+            await BroadcastStateAsync();
         }
     }
 

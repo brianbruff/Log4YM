@@ -1,11 +1,11 @@
 import { useState, useCallback, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Book, Search, Calendar, Radio, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronUp, ChevronDown, X, CloudUpload, Loader2 } from 'lucide-react';
+import { useQuery, useQueryClient } from '@tanstack/react-query';
+import { Book, Search, Calendar, Radio, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronUp, ChevronDown, X, CloudUpload, Loader2, Pencil, Trash2 } from 'lucide-react';
 import { AgGridReact } from 'ag-grid-react';
 import { ColDef, ICellRendererParams } from 'ag-grid-community';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-alpine.css';
-import { api, QsoResponse } from '../api/client';
+import { api, QsoResponse, UpdateQsoRequest } from '../api/client';
 import { GlassPanel } from '../components/GlassPanel';
 import { getCountryFlag } from '../core/countryFlags';
 import { useAppStore } from '../store/appStore';
@@ -56,6 +56,32 @@ const DateCellRenderer = (props: ICellRendererParams<QsoResponse>) => {
   );
 };
 
+// Custom cell renderer for actions
+const ActionCellRenderer = (props: ICellRendererParams<QsoResponse> & {
+  onEdit: (qso: QsoResponse) => void;
+  onDelete: (qso: QsoResponse) => void;
+}) => {
+  if (!props.data) return null;
+  return (
+    <div className="flex items-center gap-1">
+      <button
+        onClick={() => props.onEdit(props.data!)}
+        className="p-1 text-gray-400 hover:text-accent-primary transition-colors"
+        title="Edit QSO"
+      >
+        <Pencil className="w-3.5 h-3.5" />
+      </button>
+      <button
+        onClick={() => props.onDelete(props.data!)}
+        className="p-1 text-gray-400 hover:text-red-400 transition-colors"
+        title="Delete QSO"
+      >
+        <Trash2 className="w-3.5 h-3.5" />
+      </button>
+    </div>
+  );
+};
+
 export function LogHistoryPlugin() {
   const [callsignSearch, setCallsignSearch] = useState('');
   const [nameSearch, setNameSearch] = useState('');
@@ -67,8 +93,13 @@ export function LogHistoryPlugin() {
   const [showFilters, setShowFilters] = useState(false);
   const [showSummary, setShowSummary] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [editingQso, setEditingQso] = useState<QsoResponse | null>(null);
+  const [deletingQso, setDeletingQso] = useState<QsoResponse | null>(null);
+  const [isDeleting, setIsDeleting] = useState(false);
+  const [isSaving, setIsSaving] = useState(false);
   const pageSize = 50;
 
+  const queryClient = useQueryClient();
   const { qrzSyncProgress, setQrzSyncProgress } = useAppStore();
 
   const handleSyncToQrz = useCallback(async () => {
@@ -83,6 +114,36 @@ export function LogHistoryPlugin() {
       setIsSyncing(false);
     }
   }, [isSyncing, setQrzSyncProgress]);
+
+  const handleDelete = useCallback(async () => {
+    if (!deletingQso || isDeleting) return;
+    setIsDeleting(true);
+    try {
+      await api.deleteQso(deletingQso.id);
+      queryClient.invalidateQueries({ queryKey: ['qsos'] });
+      queryClient.invalidateQueries({ queryKey: ['statistics'] });
+      setDeletingQso(null);
+    } catch (error) {
+      console.error('Failed to delete QSO:', error);
+    } finally {
+      setIsDeleting(false);
+    }
+  }, [deletingQso, isDeleting, queryClient]);
+
+  const handleSaveEdit = useCallback(async (updates: UpdateQsoRequest) => {
+    if (!editingQso || isSaving) return;
+    setIsSaving(true);
+    try {
+      await api.updateQso(editingQso.id, updates);
+      queryClient.invalidateQueries({ queryKey: ['qsos'] });
+      queryClient.invalidateQueries({ queryKey: ['statistics'] });
+      setEditingQso(null);
+    } catch (error) {
+      console.error('Failed to update QSO:', error);
+    } finally {
+      setIsSaving(false);
+    }
+  }, [editingQso, isSaving, queryClient]);
 
   const { data: response, isLoading } = useQuery({
     queryKey: ['qsos', callsignSearch, nameSearch, selectedBand, selectedMode, fromDate, toDate, currentPage],
@@ -195,6 +256,19 @@ export function LogHistoryPlugin() {
       cellClass: 'text-gray-400',
       width: 120,
       resizable: true,
+    },
+    {
+      headerName: '',
+      field: 'id',
+      cellRenderer: ActionCellRenderer,
+      cellRendererParams: {
+        onEdit: (qso: QsoResponse) => setEditingQso(qso),
+        onDelete: (qso: QsoResponse) => setDeletingQso(qso),
+      },
+      width: 70,
+      resizable: false,
+      sortable: false,
+      pinned: 'right',
     },
   ], []);
 
@@ -530,6 +604,294 @@ export function LogHistoryPlugin() {
         )}
 
       </div>
+
+      {/* Edit QSO Modal */}
+      {editingQso && (
+        <EditQsoModal
+          qso={editingQso}
+          onSave={handleSaveEdit}
+          onCancel={() => setEditingQso(null)}
+          isSaving={isSaving}
+        />
+      )}
+
+      {/* Delete Confirmation Modal */}
+      {deletingQso && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-dark-800 rounded-lg p-6 max-w-md w-full mx-4 border border-glass-100">
+            <h3 className="text-lg font-semibold text-white mb-4">Delete QSO?</h3>
+            <p className="text-gray-400 mb-2">
+              Are you sure you want to delete this QSO?
+            </p>
+            <div className="bg-dark-700/50 rounded p-3 mb-6">
+              <p className="text-accent-primary font-mono font-bold">{deletingQso.callsign}</p>
+              <p className="text-sm text-gray-400">
+                {new Date(deletingQso.qsoDate).toLocaleDateString()} • {deletingQso.band} • {deletingQso.mode}
+              </p>
+            </div>
+            <p className="text-sm text-red-400 mb-4">
+              This action cannot be undone.
+            </p>
+            <div className="flex gap-3 justify-end">
+              <button
+                onClick={() => setDeletingQso(null)}
+                disabled={isDeleting}
+                className="glass-button px-4 py-2"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={handleDelete}
+                disabled={isDeleting}
+                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50"
+              >
+                {isDeleting ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <Trash2 className="w-4 h-4" />
+                )}
+                Delete
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </GlassPanel>
+  );
+}
+
+// Edit QSO Modal Component
+function EditQsoModal({
+  qso,
+  onSave,
+  onCancel,
+  isSaving,
+}: {
+  qso: QsoResponse;
+  onSave: (updates: UpdateQsoRequest) => void;
+  onCancel: () => void;
+  isSaving: boolean;
+}) {
+  const [formData, setFormData] = useState({
+    callsign: qso.callsign,
+    qsoDate: qso.qsoDate.split('T')[0],
+    timeOn: qso.timeOn,
+    band: qso.band,
+    mode: qso.mode,
+    frequency: qso.frequency?.toString() || '',
+    rstSent: qso.rstSent || '',
+    rstRcvd: qso.rstRcvd || '',
+    name: qso.station?.name || '',
+    grid: qso.station?.grid || '',
+    country: qso.station?.country || '',
+    comment: qso.comment || '',
+  });
+
+  const handleSubmit = (e: React.FormEvent) => {
+    e.preventDefault();
+    onSave({
+      callsign: formData.callsign,
+      qsoDate: formData.qsoDate,
+      timeOn: formData.timeOn,
+      band: formData.band,
+      mode: formData.mode,
+      frequency: formData.frequency ? parseFloat(formData.frequency) : undefined,
+      rstSent: formData.rstSent || undefined,
+      rstRcvd: formData.rstRcvd || undefined,
+      name: formData.name || undefined,
+      grid: formData.grid || undefined,
+      country: formData.country || undefined,
+      comment: formData.comment || undefined,
+    });
+  };
+
+  return (
+    <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+      <div className="bg-dark-800 rounded-lg p-6 max-w-2xl w-full mx-4 border border-glass-100 max-h-[90vh] overflow-y-auto">
+        <h3 className="text-lg font-semibold text-white mb-4">Edit QSO</h3>
+        <form onSubmit={handleSubmit} className="space-y-4">
+          {/* Row 1: Callsign, Date, Time */}
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">Callsign</label>
+              <input
+                type="text"
+                value={formData.callsign}
+                onChange={(e) => setFormData({ ...formData, callsign: e.target.value.toUpperCase() })}
+                className="glass-input w-full font-mono"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">Date</label>
+              <input
+                type="date"
+                value={formData.qsoDate}
+                onChange={(e) => setFormData({ ...formData, qsoDate: e.target.value })}
+                className="glass-input w-full"
+                required
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">Time (UTC)</label>
+              <input
+                type="text"
+                value={formData.timeOn}
+                onChange={(e) => setFormData({ ...formData, timeOn: e.target.value })}
+                className="glass-input w-full font-mono"
+                placeholder="1234"
+                required
+              />
+            </div>
+          </div>
+
+          {/* Row 2: Band, Mode, Frequency */}
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">Band</label>
+              <select
+                value={formData.band}
+                onChange={(e) => setFormData({ ...formData, band: e.target.value })}
+                className="glass-input w-full"
+                required
+              >
+                <option value="">Select</option>
+                <option value="160m">160m</option>
+                <option value="80m">80m</option>
+                <option value="40m">40m</option>
+                <option value="30m">30m</option>
+                <option value="20m">20m</option>
+                <option value="17m">17m</option>
+                <option value="15m">15m</option>
+                <option value="12m">12m</option>
+                <option value="10m">10m</option>
+                <option value="6m">6m</option>
+                <option value="2m">2m</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">Mode</label>
+              <select
+                value={formData.mode}
+                onChange={(e) => setFormData({ ...formData, mode: e.target.value })}
+                className="glass-input w-full"
+                required
+              >
+                <option value="">Select</option>
+                <option value="SSB">SSB</option>
+                <option value="CW">CW</option>
+                <option value="FT8">FT8</option>
+                <option value="FT4">FT4</option>
+                <option value="RTTY">RTTY</option>
+                <option value="PSK31">PSK31</option>
+                <option value="AM">AM</option>
+                <option value="FM">FM</option>
+              </select>
+            </div>
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">Frequency (MHz)</label>
+              <input
+                type="number"
+                step="0.001"
+                value={formData.frequency}
+                onChange={(e) => setFormData({ ...formData, frequency: e.target.value })}
+                className="glass-input w-full font-mono"
+                placeholder="14.074"
+              />
+            </div>
+          </div>
+
+          {/* Row 3: RST Sent, RST Rcvd */}
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">RST Sent</label>
+              <input
+                type="text"
+                value={formData.rstSent}
+                onChange={(e) => setFormData({ ...formData, rstSent: e.target.value })}
+                className="glass-input w-full font-mono"
+                placeholder="59"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">RST Rcvd</label>
+              <input
+                type="text"
+                value={formData.rstRcvd}
+                onChange={(e) => setFormData({ ...formData, rstRcvd: e.target.value })}
+                className="glass-input w-full font-mono"
+                placeholder="59"
+              />
+            </div>
+          </div>
+
+          {/* Row 4: Name, Grid, Country */}
+          <div className="grid grid-cols-3 gap-4">
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">Name</label>
+              <input
+                type="text"
+                value={formData.name}
+                onChange={(e) => setFormData({ ...formData, name: e.target.value })}
+                className="glass-input w-full"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">Grid</label>
+              <input
+                type="text"
+                value={formData.grid}
+                onChange={(e) => setFormData({ ...formData, grid: e.target.value.toUpperCase() })}
+                className="glass-input w-full font-mono"
+                placeholder="FN31"
+              />
+            </div>
+            <div>
+              <label className="block text-sm text-gray-400 mb-1">Country</label>
+              <input
+                type="text"
+                value={formData.country}
+                onChange={(e) => setFormData({ ...formData, country: e.target.value })}
+                className="glass-input w-full"
+              />
+            </div>
+          </div>
+
+          {/* Row 5: Comment */}
+          <div>
+            <label className="block text-sm text-gray-400 mb-1">Comment</label>
+            <textarea
+              value={formData.comment}
+              onChange={(e) => setFormData({ ...formData, comment: e.target.value })}
+              className="glass-input w-full h-20 resize-none"
+            />
+          </div>
+
+          {/* Actions */}
+          <div className="flex gap-3 justify-end pt-4 border-t border-glass-100">
+            <button
+              type="button"
+              onClick={onCancel}
+              disabled={isSaving}
+              className="glass-button px-4 py-2"
+            >
+              Cancel
+            </button>
+            <button
+              type="submit"
+              disabled={isSaving}
+              className="bg-accent-primary hover:bg-accent-primary/80 text-white px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50"
+            >
+              {isSaving ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Pencil className="w-4 h-4" />
+              )}
+              Save Changes
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
   );
 }

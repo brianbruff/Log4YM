@@ -46,6 +46,21 @@ export interface CreateQsoRequest {
   notes?: string;
 }
 
+export interface UpdateQsoRequest {
+  callsign?: string;
+  qsoDate?: string;
+  timeOn?: string;
+  band?: string;
+  mode?: string;
+  frequency?: number;
+  rstSent?: string;
+  rstRcvd?: string;
+  name?: string;
+  grid?: string;
+  country?: string;
+  comment?: string;
+}
+
 export interface QsoStatistics {
   totalQsos: number;
   uniqueCallsigns: number;
@@ -138,6 +153,13 @@ class ApiClient {
   async createQso(qso: CreateQsoRequest): Promise<QsoResponse> {
     return this.fetch<QsoResponse>('/qsos', {
       method: 'POST',
+      body: JSON.stringify(qso),
+    });
+  }
+
+  async updateQso(id: string, qso: UpdateQsoRequest): Promise<QsoResponse> {
+    return this.fetch<QsoResponse>(`/qsos/${id}`, {
+      method: 'PUT',
       body: JSON.stringify(qso),
     });
   }

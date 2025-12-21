@@ -199,6 +199,10 @@ export function useSignalR() {
     await signalRService.setPgxlStandby(serial);
   }, []);
 
+  const disablePgxlFlexRadioPairing = useCallback(async (serial: string, slice: string) => {
+    await signalRService.disablePgxlFlexRadioPairing(serial, slice);
+  }, []);
+
   // Radio CAT Control methods
   const startRadioDiscovery = useCallback(async (type: 'FlexRadio' | 'Tci') => {
     await signalRService.startRadioDiscovery(type);
@@ -267,6 +271,7 @@ export function useSignalR() {
     selectAntenna,
     setPgxlOperate,
     setPgxlStandby,
+    disablePgxlFlexRadioPairing,
     // Radio CAT Control
     startRadioDiscovery,
     stopRadioDiscovery,

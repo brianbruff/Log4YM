@@ -205,6 +205,11 @@ export interface SetPgxlStandbyCommand {
   serial: string;
 }
 
+export interface DisablePgxlFlexRadioPairingCommand {
+  serial: string;
+  slice: string;
+}
+
 // Radio CAT Control types
 export type RadioType = 'FlexRadio' | 'Tci' | 'Hamlib';
 
@@ -612,6 +617,11 @@ class SignalRService {
 
   async requestPgxlStatus(): Promise<void> {
     await this.connection?.invoke('RequestPgxlStatus');
+  }
+
+  async disablePgxlFlexRadioPairing(serial: string, slice: string): Promise<void> {
+    const cmd: DisablePgxlFlexRadioPairingCommand = { serial, slice };
+    await this.connection?.invoke('DisablePgxlFlexRadioPairing', cmd);
   }
 
   // Radio CAT Control methods

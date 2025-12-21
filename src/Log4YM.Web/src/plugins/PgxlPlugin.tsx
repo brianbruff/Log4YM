@@ -1,4 +1,4 @@
-import { useState, useEffect, useRef } from 'react';
+import { useState } from 'react';
 import { Wifi, WifiOff, Settings, Zap, Radio } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import { useSignalR } from '../hooks/useSignalR';
@@ -20,9 +20,8 @@ export function PgxlPlugin() {
     pgxlTciLinkB,
     radioStates,
     discoveredRadios,
-    radioConnectionStates,
   } = useAppStore();
-  const { setPgxlOperate, setPgxlStandby } = useSignalR();
+  const { setPgxlOperate, setPgxlStandby, disablePgxlFlexRadioPairing } = useSignalR();
   const [showSettings, setShowSettings] = useState(false);
 
   // Convert Map to array for rendering
@@ -34,35 +33,16 @@ export function PgxlPlugin() {
   const linkedRadioInfoA = pgxlTciLinkA ? discoveredRadios.get(pgxlTciLinkA) : null;
   const linkedRadioInfoB = pgxlTciLinkB ? discoveredRadios.get(pgxlTciLinkB) : null;
 
-  // Check connection states for linked radios
-  const linkedConnectionStateA = pgxlTciLinkA ? radioConnectionStates.get(pgxlTciLinkA) : null;
-  const linkedConnectionStateB = pgxlTciLinkB ? radioConnectionStates.get(pgxlTciLinkB) : null;
+  // Safety feature: DISABLED for now to debug TCI disconnect issue
+  // TODO: Re-enable once TCI connection is stable during TX
+  // Track if linked radios have state data (more reliable than connection state)
+  // const hadRadioStateA = useRef<boolean>(false);
+  // const hadRadioStateB = useRef<boolean>(false);
+  // useEffect(() => { ... }, []);
 
-  // Track previous connection states for safety feature
-  const prevConnectionStateA = useRef<string | null>(null);
-  const prevConnectionStateB = useRef<string | null>(null);
-
-  // Safety feature: put PGXL into standby if linked radio disconnects
-  useEffect(() => {
-    // Check if a linked radio just disconnected
-    const device = devices[0];
-    if (!device?.isOperating) return; // Only trigger if PGXL is operating
-
-    const wasConnectedA = prevConnectionStateA.current === 'Connected' || prevConnectionStateA.current === 'Monitoring';
-    const isDisconnectedA = linkedConnectionStateA === 'Disconnected' || linkedConnectionStateA === 'Error';
-
-    const wasConnectedB = prevConnectionStateB.current === 'Connected' || prevConnectionStateB.current === 'Monitoring';
-    const isDisconnectedB = linkedConnectionStateB === 'Disconnected' || linkedConnectionStateB === 'Error';
-
-    if ((pgxlTciLinkA && wasConnectedA && isDisconnectedA) ||
-        (pgxlTciLinkB && wasConnectedB && isDisconnectedB)) {
-      console.warn('PGXL Safety: Linked radio disconnected, putting PGXL into standby');
-      setPgxlStandby(device.serial);
-    }
-
-    prevConnectionStateA.current = linkedConnectionStateA ?? null;
-    prevConnectionStateB.current = linkedConnectionStateB ?? null;
-  }, [linkedConnectionStateA, linkedConnectionStateB, pgxlTciLinkA, pgxlTciLinkB, devices, setPgxlStandby]);
+  // Check if linked radios are disconnected (for warning display)
+  const linkedRadioDisconnectedA = pgxlTciLinkA && !linkedRadioStateA;
+  const linkedRadioDisconnectedB = pgxlTciLinkB && !linkedRadioStateB;
 
   if (devices.length === 0) {
     return (
@@ -83,6 +63,11 @@ export function PgxlPlugin() {
 
   // For now, show the first device
   const device = devices[0];
+
+  // Debug: log linked radio state
+  if (linkedRadioStateA) {
+    console.log('PGXL linked radio state A:', linkedRadioStateA);
+  }
 
   // A/B slice config - use linked TCI radio info if available
   const sliceA: SliceConfig = linkedRadioStateA
@@ -212,8 +197,7 @@ export function PgxlPlugin() {
 
         {/* Status Alerts */}
         {(device.setup.highSwr || device.setup.overTemp || device.setup.overCurrent ||
-          (pgxlTciLinkA && linkedConnectionStateA === 'Disconnected') ||
-          (pgxlTciLinkB && linkedConnectionStateB === 'Disconnected')) && (
+          linkedRadioDisconnectedA || linkedRadioDisconnectedB) && (
           <div className="flex gap-2 px-3 pb-3 flex-wrap">
             {device.setup.highSwr && (
               <StatusBadge label="HIGH SWR" variant="danger" />
@@ -224,10 +208,10 @@ export function PgxlPlugin() {
             {device.setup.overCurrent && (
               <StatusBadge label="OVER CURRENT" variant="danger" />
             )}
-            {pgxlTciLinkA && linkedConnectionStateA === 'Disconnected' && (
+            {linkedRadioDisconnectedA && (
               <StatusBadge label="SIDE A RADIO LOST" variant="warning" />
             )}
-            {pgxlTciLinkB && linkedConnectionStateB === 'Disconnected' && (
+            {linkedRadioDisconnectedB && (
               <StatusBadge label="SIDE B RADIO LOST" variant="warning" />
             )}
           </div>
@@ -241,6 +225,7 @@ export function PgxlPlugin() {
           onClose={() => setShowSettings(false)}
           linkedRadioIdA={pgxlTciLinkA}
           linkedRadioIdB={pgxlTciLinkB}
+          onDisableFlexPairing={disablePgxlFlexRadioPairing}
         />
       )}
     </GlassPanel>
@@ -509,9 +494,10 @@ interface SettingsModalProps {
   onClose: () => void;
   linkedRadioIdA: string | null;
   linkedRadioIdB: string | null;
+  onDisableFlexPairing: (serial: string, slice: string) => Promise<void>;
 }
 
-function SettingsModal({ device, onClose, linkedRadioIdA, linkedRadioIdB }: SettingsModalProps) {
+function SettingsModal({ device, onClose, linkedRadioIdA, linkedRadioIdB, onDisableFlexPairing }: SettingsModalProps) {
   const { discoveredRadios, radioStates, setPgxlTciLink } = useAppStore();
 
   // Get connected radios (TCI or Hamlib) that can be linked
@@ -567,6 +553,31 @@ function SettingsModal({ device, onClose, linkedRadioIdA, linkedRadioIdB }: Sett
                 <span className="text-gray-400">Antenna:</span>
                 <span className="text-gray-200">ANT{device.setup.selectedAntenna}</span>
               </div>
+            </div>
+          </div>
+
+          {/* FlexRadio Pairing */}
+          <div className="bg-dark-700/50 rounded-lg p-3 border border-glass-100">
+            <div className="text-xs text-gray-500 uppercase tracking-wider mb-2">
+              FlexRadio Pairing
+            </div>
+            <p className="text-xs text-gray-500 mb-3">
+              If the PGXL is paired with a FlexRadio, it will only accept PTT/band data from that radio.
+              Disable pairing to use with TCI or other radios.
+            </p>
+            <div className="flex gap-2">
+              <button
+                onClick={() => onDisableFlexPairing(device.serial, 'A')}
+                className="flex-1 px-3 py-1.5 text-sm font-medium bg-amber-600/20 text-amber-400 rounded-lg hover:bg-amber-600/30 transition-all border border-amber-600/30"
+              >
+                Unpair Side A
+              </button>
+              <button
+                onClick={() => onDisableFlexPairing(device.serial, 'B')}
+                className="flex-1 px-3 py-1.5 text-sm font-medium bg-amber-600/20 text-amber-400 rounded-lg hover:bg-amber-600/30 transition-all border border-amber-600/30"
+              >
+                Unpair Side B
+              </button>
             </div>
           </div>
 

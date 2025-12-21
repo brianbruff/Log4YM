@@ -217,6 +217,29 @@ public class PgxlService : BackgroundService
             .Select(c => c.GetStatus())
             .Where(s => s != null)!;
     }
+
+    /// <summary>
+    /// Read the FlexRadio pairing configuration for a slice (A or B)
+    /// </summary>
+    public async Task<string?> ReadFlexRadioConfigAsync(string serial, string slice)
+    {
+        if (_connections.TryGetValue(serial, out var connection))
+        {
+            return await connection.ReadFlexRadioConfigAsync(slice);
+        }
+        return null;
+    }
+
+    /// <summary>
+    /// Disable FlexRadio pairing for a slice, allowing other band sources to work
+    /// </summary>
+    public async Task DisableFlexRadioPairingAsync(string serial, string slice)
+    {
+        if (_connections.TryGetValue(serial, out var connection))
+        {
+            await connection.DisableFlexRadioPairingAsync(slice);
+        }
+    }
 }
 
 internal class PgxlConnection
@@ -364,6 +387,12 @@ internal class PgxlConnection
         var statusResponse = await SendCommandAsync("status", ct);
         _logger.LogInformation("PGXL status response: '{Response}'", statusResponse);
         ParseStatusResponse(statusResponse);
+
+        // Read FlexRadio pairing configuration for both slices
+        var flexConfigA = await SendCommandAsync("flexradio read=A", ct);
+        _logger.LogInformation("PGXL FlexRadio config A: '{Response}'", flexConfigA);
+        var flexConfigB = await SendCommandAsync("flexradio read=B", ct);
+        _logger.LogInformation("PGXL FlexRadio config B: '{Response}'", flexConfigB);
 
         _logger.LogInformation("PGXL {Serial} initialized: Operating={Operating}, Band={Band}, Nickname={Nickname}",
             _device.Serial, IsOperating, Band, _nickname);
@@ -689,6 +718,27 @@ internal class PgxlConnection
         {
             _logger.LogDebug(ex, "PGXL ping failed");
         }
+    }
+
+    /// <summary>
+    /// Read FlexRadio pairing configuration for a slice
+    /// </summary>
+    public async Task<string?> ReadFlexRadioConfigAsync(string slice)
+    {
+        var response = await SendCommandAsync($"flexradio read={slice.ToUpper()}");
+        _logger.LogInformation("PGXL FlexRadio config for slice {Slice}: {Response}", slice, response);
+        return response;
+    }
+
+    /// <summary>
+    /// Disable FlexRadio pairing for a slice to allow other band sources
+    /// </summary>
+    public async Task DisableFlexRadioPairingAsync(string slice)
+    {
+        _logger.LogInformation("Disabling FlexRadio pairing for PGXL slice {Slice}", slice);
+        // Set active=0 to disable the pairing
+        var response = await SendCommandAsync($"flexradio ampslice={slice.ToUpper()} active=0");
+        _logger.LogInformation("PGXL disable FlexRadio response: {Response}", response);
     }
 
     public PgxlStatusEvent GetStatus()

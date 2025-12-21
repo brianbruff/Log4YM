@@ -261,6 +261,12 @@ public class LogHub : Hub<ILogHubClient>
         }
     }
 
+    public async Task DisablePgxlFlexRadioPairing(DisablePgxlFlexRadioPairingCommand cmd)
+    {
+        _logger.LogInformation("Disabling FlexRadio pairing for PGXL {Serial} slice {Slice}", cmd.Serial, cmd.Slice);
+        await _pgxlService.DisableFlexRadioPairingAsync(cmd.Serial, cmd.Slice);
+    }
+
     // Radio CAT Control methods
 
     public async Task StartRadioDiscovery(StartRadioDiscoveryCommand cmd)

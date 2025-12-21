@@ -286,6 +286,14 @@ public record SetPgxlStandbyCommand(
     string Serial
 );
 
+/// <summary>
+/// Request to disable FlexRadio pairing for a PGXL slice (client to server)
+/// </summary>
+public record DisablePgxlFlexRadioPairingCommand(
+    string Serial,
+    string Slice
+);
+
 // ===== Radio CAT Control Events =====
 
 /// <summary>

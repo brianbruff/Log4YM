@@ -220,6 +220,33 @@ Network latency could affect PTT timing. FlexRadio users report:
 
 ## Implementation Plan
 
+### Existing Infrastructure: SmartUnlink
+
+**Good news!** Log4YM already has VITA-49 discovery packet broadcasting via the **SmartUnlink** feature. The `SmartUnlinkService` provides:
+
+| Feature | Already Implemented | Location |
+|---------|---------------------|----------|
+| VITA-49 packet generation | ✅ Yes | `SmartUnlinkService.BuildVita49DiscoveryPacket()` |
+| UDP broadcast on port 4991 | ✅ Yes | `SmartUnlinkService.BroadcastLoopAsync()` |
+| UDP broadcast on port 4992 | ✅ Yes | Same method, dual-port broadcast |
+| Network interface enumeration | ✅ Yes | `SmartUnlinkService.GetBroadcastAddresses()` |
+| Big-endian byte handling | ✅ Yes | `SmartUnlinkService.SwapEndian()` |
+| Configurable radio details | ✅ Yes | Serial, model, IP, callsign |
+| MongoDB persistence | ✅ Yes | `SmartUnlinkRadioEntity` |
+
+**What we need to add:**
+
+| Feature | Status | Description |
+|---------|--------|-------------|
+| TCP API server (port 4992) | ❌ New | Accept PGXL connections |
+| FLEX API command handler | ❌ New | Handle `amplifier create`, `sub slice all`, etc. |
+| Slice status broadcaster | ❌ New | Send `S|slice 0 RF_frequency=... tx=...` |
+| TCI-to-Emulator bridge | ❌ New | Wire TCI state changes to slice status |
+
+The FlexEmulator can either:
+1. **Extend SmartUnlink** - Add TCP server capability to existing service
+2. **Create new service** - Reuse packet generation code, separate concerns
+
 ### PGXL Connection State Machine
 
 ```mermaid
@@ -348,17 +375,18 @@ flowchart TB
 
 | Phase | Task | Description | Priority |
 |-------|------|-------------|----------|
-| 1 | FLEX-EMU-1 | Create `FlexEmulatorService` skeleton with DI | P0 |
-| 1 | FLEX-EMU-2 | Implement VITA-49 discovery packet generation | P0 |
-| 1 | FLEX-EMU-3 | Implement UDP broadcast on port 4991 | P0 |
+| 1 | FLEX-EMU-1 | Create `FlexApiServerService` for TCP connections | P0 |
+| 1 | FLEX-EMU-2 | ~~VITA-49 discovery~~ **Reuse SmartUnlink** | ✅ Done |
+| 1 | FLEX-EMU-3 | ~~UDP broadcast~~ **Reuse SmartUnlink** | ✅ Done |
 | 1 | FLEX-EMU-4 | Implement TCP server on port 4992 | P0 |
-| 1 | FLEX-EMU-5 | Handle PGXL registration commands | P0 |
-| 2 | BRIDGE-1 | Wire TCI frequency changes to emulator | P0 |
-| 2 | BRIDGE-2 | Wire TCI TX state to emulator | P0 |
-| 2 | BRIDGE-3 | Send slice status messages to PGXL | P0 |
-| 3 | UI-1 | Add emulator settings to PGXL plugin | P1 |
-| 3 | UI-2 | Add "Configure as TCI Amp" button | P1 |
-| 3 | UI-3 | Show emulator connection status | P1 |
+| 1 | FLEX-EMU-5 | Parse PGXL commands (`amplifier create`, `sub slice all`) | P0 |
+| 1 | FLEX-EMU-6 | Send responses in FLEX API format (`R<seq>\|...`) | P0 |
+| 2 | BRIDGE-1 | Wire TCI frequency changes to slice status | P0 |
+| 2 | BRIDGE-2 | Wire TCI TX state (`trx:0,true;`) to `tx=1` | P0 |
+| 2 | BRIDGE-3 | Send `S\|slice 0 RF_frequency=... tx=...` to PGXL | P0 |
+| 3 | UI-1 | Add "Configure for TCI" button to PGXL settings | P1 |
+| 3 | UI-2 | Show PGXL→Emulator connection status | P1 |
+| 3 | UI-3 | Link SmartUnlink radio to TCI radio for PTT/band | P1 |
 
 ---
 

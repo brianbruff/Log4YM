@@ -1,20 +1,4 @@
 import { create } from 'zustand';
-import { persist } from 'zustand/middleware';
-
-// Simple obfuscation for credentials (not secure, just basic hiding)
-const obfuscate = (text: string): string => {
-  if (!text) return '';
-  return btoa(text.split('').reverse().join(''));
-};
-
-const deobfuscate = (text: string): string => {
-  if (!text) return '';
-  try {
-    return atob(text).split('').reverse().join('');
-  } catch {
-    return '';
-  }
-};
 
 // Settings types
 export interface StationSettings {
@@ -29,8 +13,8 @@ export interface StationSettings {
 
 export interface QrzSettings {
   username: string;
-  password: string; // Stored obfuscated
-  apiKey: string; // Stored obfuscated - for QRZ logbook uploads
+  password: string;
+  apiKey: string; // For QRZ logbook uploads
   enabled: boolean;
 }
 
@@ -76,6 +60,7 @@ interface SettingsState {
   activeSection: SettingsSection;
   isDirty: boolean;
   isSaving: boolean;
+  isLoaded: boolean;
 
   // Actions
   openSettings: () => void;
@@ -89,13 +74,7 @@ interface SettingsState {
   updateRotatorSettings: (rotator: Partial<RotatorSettings>) => void;
   updateRadioSettings: (radio: Partial<RadioSettings>) => void;
 
-  // QRZ credentials with obfuscation
-  setQrzPassword: (password: string) => void;
-  getQrzPassword: () => string;
-  setQrzApiKey: (apiKey: string) => void;
-  getQrzApiKey: () => string;
-
-  // Persistence
+  // Persistence (MongoDB only - no localStorage)
   saveSettings: () => Promise<void>;
   loadSettings: () => Promise<void>;
   resetSettings: () => void;
@@ -139,177 +118,124 @@ const defaultSettings: Settings = {
   },
 };
 
-export const useSettingsStore = create<SettingsState>()(
-  persist(
-    (set, get) => ({
-      // Initial state
-      settings: defaultSettings,
-      isOpen: false,
-      activeSection: 'station',
-      isDirty: false,
-      isSaving: false,
+// Settings are stored in MongoDB only - no localStorage persistence
+// This ensures sensitive data (QRZ credentials) are never stored client-side
+export const useSettingsStore = create<SettingsState>()((set, get) => ({
+  // Initial state
+  settings: defaultSettings,
+  isOpen: false,
+  activeSection: 'station',
+  isDirty: false,
+  isSaving: false,
+  isLoaded: false,
 
-      // UI actions
-      openSettings: () => set({ isOpen: true }),
-      closeSettings: () => set({ isOpen: false, isDirty: false }),
-      setActiveSection: (section) => set({ activeSection: section }),
+  // UI actions
+  openSettings: () => set({ isOpen: true }),
+  closeSettings: () => set({ isOpen: false, isDirty: false }),
+  setActiveSection: (section) => set({ activeSection: section }),
 
-      // Station settings
-      updateStationSettings: (station) =>
-        set((state) => ({
-          settings: {
-            ...state.settings,
-            station: { ...state.settings.station, ...station },
-          },
-          isDirty: true,
-        })),
-
-      // QRZ settings
-      updateQrzSettings: (qrz) =>
-        set((state) => ({
-          settings: {
-            ...state.settings,
-            qrz: { ...state.settings.qrz, ...qrz },
-          },
-          isDirty: true,
-        })),
-
-      // Appearance settings
-      updateAppearanceSettings: (appearance) =>
-        set((state) => ({
-          settings: {
-            ...state.settings,
-            appearance: { ...state.settings.appearance, ...appearance },
-          },
-          isDirty: true,
-        })),
-
-      // Rotator settings
-      updateRotatorSettings: (rotator) =>
-        set((state) => ({
-          settings: {
-            ...state.settings,
-            rotator: { ...state.settings.rotator, ...rotator },
-          },
-          isDirty: true,
-        })),
-
-      // Radio settings
-      updateRadioSettings: (radio) =>
-        set((state) => ({
-          settings: {
-            ...state.settings,
-            radio: { ...state.settings.radio, ...radio },
-          },
-          isDirty: true,
-        })),
-
-      // QRZ password with obfuscation
-      setQrzPassword: (password) =>
-        set((state) => ({
-          settings: {
-            ...state.settings,
-            qrz: { ...state.settings.qrz, password: obfuscate(password) },
-          },
-          isDirty: true,
-        })),
-
-      getQrzPassword: () => deobfuscate(get().settings.qrz.password),
-
-      // QRZ API key with obfuscation
-      setQrzApiKey: (apiKey) =>
-        set((state) => ({
-          settings: {
-            ...state.settings,
-            qrz: { ...state.settings.qrz, apiKey: obfuscate(apiKey) },
-          },
-          isDirty: true,
-        })),
-
-      getQrzApiKey: () => deobfuscate(get().settings.qrz.apiKey),
-
-      // Save to backend (MongoDB via API)
-      saveSettings: async () => {
-        set({ isSaving: true });
-        try {
-          const { settings } = get();
-          // Deobfuscate QRZ credentials before sending to backend
-          // The backend stores plain passwords for use with QRZ API
-          const settingsToSave = {
-            ...settings,
-            qrz: {
-              ...settings.qrz,
-              password: deobfuscate(settings.qrz.password),
-              apiKey: deobfuscate(settings.qrz.apiKey),
-            },
-          };
-          const response = await fetch('/api/settings', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            body: JSON.stringify(settingsToSave),
-          });
-
-          if (!response.ok) {
-            throw new Error('Failed to save settings');
-          }
-
-          set({ isDirty: false });
-        } catch (error) {
-          console.error('Failed to save settings:', error);
-          throw error;
-        } finally {
-          set({ isSaving: false });
-        }
+  // Station settings
+  updateStationSettings: (station) =>
+    set((state) => ({
+      settings: {
+        ...state.settings,
+        station: { ...state.settings.station, ...station },
       },
+      isDirty: true,
+    })),
 
-      // Load from backend
-      loadSettings: async () => {
-        try {
-          const response = await fetch('/api/settings');
-          if (response.ok) {
-            const settings = await response.json();
-            // Backend stores plain passwords, so obfuscate for frontend storage
-            const settingsToStore = {
-              ...settings,
-              qrz: {
-                ...settings.qrz,
-                password: obfuscate(settings.qrz?.password || ''),
-                apiKey: obfuscate(settings.qrz?.apiKey || ''),
-              },
-            };
-            set({ settings: settingsToStore, isDirty: false });
-          }
-        } catch (error) {
-          console.error('Failed to load settings:', error);
-        }
+  // QRZ settings
+  updateQrzSettings: (qrz) =>
+    set((state) => ({
+      settings: {
+        ...state.settings,
+        qrz: { ...state.settings.qrz, ...qrz },
       },
+      isDirty: true,
+    })),
 
-      // Reset to defaults
-      resetSettings: () =>
-        set({
-          settings: defaultSettings,
-          isDirty: true,
-        }),
-    }),
-    {
-      name: 'log4ym-settings',
-      partialize: (state) => ({ settings: state.settings }),
-      merge: (persistedState, currentState) => {
-        const persisted = persistedState as { settings?: Partial<Settings> };
-        return {
-          ...currentState,
-          settings: {
-            ...defaultSettings,
-            ...persisted?.settings,
-            // Deep merge each settings section with defaults
-            station: { ...defaultSettings.station, ...persisted?.settings?.station },
-            qrz: { ...defaultSettings.qrz, ...persisted?.settings?.qrz },
-            appearance: { ...defaultSettings.appearance, ...persisted?.settings?.appearance },
-            rotator: { ...defaultSettings.rotator, ...persisted?.settings?.rotator },
-            radio: { ...defaultSettings.radio, ...persisted?.settings?.radio },
-          },
-        };
+  // Appearance settings
+  updateAppearanceSettings: (appearance) =>
+    set((state) => ({
+      settings: {
+        ...state.settings,
+        appearance: { ...state.settings.appearance, ...appearance },
       },
+      isDirty: true,
+    })),
+
+  // Rotator settings
+  updateRotatorSettings: (rotator) =>
+    set((state) => ({
+      settings: {
+        ...state.settings,
+        rotator: { ...state.settings.rotator, ...rotator },
+      },
+      isDirty: true,
+    })),
+
+  // Radio settings
+  updateRadioSettings: (radio) =>
+    set((state) => ({
+      settings: {
+        ...state.settings,
+        radio: { ...state.settings.radio, ...radio },
+      },
+      isDirty: true,
+    })),
+
+  // Save to backend (MongoDB via API)
+  saveSettings: async () => {
+    set({ isSaving: true });
+    try {
+      const { settings } = get();
+      const response = await fetch('/api/settings', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(settings),
+      });
+
+      if (!response.ok) {
+        throw new Error('Failed to save settings');
+      }
+
+      set({ isDirty: false });
+    } catch (error) {
+      console.error('Failed to save settings:', error);
+      throw error;
+    } finally {
+      set({ isSaving: false });
     }
-  )
-);
+  },
+
+  // Load from backend (MongoDB)
+  loadSettings: async () => {
+    try {
+      const response = await fetch('/api/settings');
+      if (response.ok) {
+        const settings = await response.json();
+        // Deep merge with defaults to handle missing fields
+        const mergedSettings: Settings = {
+          station: { ...defaultSettings.station, ...settings.station },
+          qrz: { ...defaultSettings.qrz, ...settings.qrz },
+          appearance: { ...defaultSettings.appearance, ...settings.appearance },
+          rotator: { ...defaultSettings.rotator, ...settings.rotator },
+          radio: { ...defaultSettings.radio, ...settings.radio },
+        };
+        set({ settings: mergedSettings, isDirty: false, isLoaded: true });
+      } else {
+        set({ isLoaded: true });
+      }
+    } catch (error) {
+      console.error('Failed to load settings:', error);
+      set({ isLoaded: true });
+    }
+  },
+
+  // Reset to defaults
+  resetSettings: () =>
+    set({
+      settings: defaultSettings,
+      isDirty: true,
+    }),
+}));

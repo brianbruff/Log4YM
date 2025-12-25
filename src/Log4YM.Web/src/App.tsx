@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { Layout, Model, TabNode, TabSetNode, BorderNode, IJsonModel, ITabSetRenderValues, Actions, DockLocation } from 'flexlayout-react';
+import { Layout, Model, TabNode, TabSetNode, BorderNode, ITabSetRenderValues, Actions, DockLocation } from 'flexlayout-react';
 import { X, Radio, Book, Zap, LayoutGrid, Antenna, Plus, Map, Compass, Gauge, User } from 'lucide-react';
 import { Header } from './components/Header';
 import { StatusBar } from './components/StatusBar';
@@ -7,6 +7,8 @@ import { SettingsPanel } from './components/SettingsPanel';
 import { useSignalR } from './hooks/useSignalR';
 import { LogEntryPlugin, LogHistoryPlugin, ClusterPlugin, MapPlugin, RotatorPlugin, GlobePlugin, AntennaGeniusPlugin, PgxlPlugin, SmartUnlinkPlugin, RadioPlugin, QrzProfilePlugin } from './plugins';
 import { Globe as Globe3D } from 'lucide-react';
+import { useLayoutStore, defaultLayout } from './store/layoutStore';
+import { useSettingsStore } from './store/settingsStore';
 
 import 'flexlayout-react/style/dark.css';
 
@@ -69,75 +71,27 @@ const PLUGINS: Record<string, { name: string; icon: React.ReactNode; component: 
   },
 };
 
-// Default layout configuration
-const defaultLayout: IJsonModel = {
-  global: {
-    tabEnableFloat: true,
-    tabSetMinWidth: 100,
-    tabSetMinHeight: 100,
-    borderMinSize: 100,
-  },
-  borders: [],
-  layout: {
-    type: 'row',
-    weight: 100,
-    children: [
-      {
-        type: 'tabset',
-        weight: 30,
-        children: [
-          {
-            type: 'tab',
-            name: 'Log Entry',
-            component: 'log-entry',
-          },
-          {
-            type: 'tab',
-            name: '3D Globe',
-            component: 'globe-3d',
-          },
-        ],
-      },
-      {
-        type: 'row',
-        weight: 70,
-        children: [
-          {
-            type: 'tabset',
-            weight: 60,
-            children: [
-              {
-                type: 'tab',
-                name: 'Log History',
-                component: 'log-history',
-              },
-            ],
-          },
-          {
-            type: 'tabset',
-            weight: 40,
-            children: [
-              {
-                type: 'tab',
-                name: 'DX Cluster',
-                component: 'cluster',
-              },
-            ],
-          },
-        ],
-      },
-    ],
-  },
-};
 
 export function App() {
   const layoutRef = useRef<Layout>(null);
-  const [model, setModel] = useState<Model>(() => Model.fromJson(defaultLayout));
+  const { layout, setLayout, resetLayout: resetLayoutStore } = useLayoutStore();
+  const { loadSettings } = useSettingsStore();
+  const [model, setModel] = useState<Model>(() => Model.fromJson(layout));
   const [showPanelPicker, setShowPanelPicker] = useState(false);
   const [targetTabSetId, setTargetTabSetId] = useState<string | null>(null);
 
   // Initialize SignalR connection
   useSignalR();
+
+  // Load settings from MongoDB on mount
+  useEffect(() => {
+    loadSettings();
+  }, [loadSettings]);
+
+  // Update model when layout store changes (e.g., from localStorage hydration)
+  useEffect(() => {
+    setModel(Model.fromJson(layout));
+  }, [layout]);
 
   // Get list of existing plugin components in the layout
   const getExistingPlugins = useCallback((): Set<string> => {
@@ -154,51 +108,10 @@ export function App() {
     return existing;
   }, [model]);
 
-  // Load saved layout from MongoDB via API
-  useEffect(() => {
-    const loadLayout = async () => {
-      try {
-        const response = await fetch('/api/settings');
-        if (response.ok) {
-          const settings = await response.json();
-          if (settings.layoutJson) {
-            console.log('Loading layout from MongoDB');
-            const layoutObj = JSON.parse(settings.layoutJson);
-            setModel(Model.fromJson(layoutObj));
-          }
-        }
-      } catch (e) {
-        console.error('Failed to load saved layout:', e);
-      }
-    };
-    loadLayout();
-  }, []);
-
-  // Debounced save to MongoDB
+  // Debounced save to localStorage (and MongoDB in background)
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
-  const saveLayoutToMongo = useCallback(async (layoutObj: IJsonModel) => {
-    try {
-      // First get current settings
-      const response = await fetch('/api/settings');
-      if (response.ok) {
-        const settings = await response.json();
-        // Update with new layout (stringify for MongoDB storage)
-        settings.layoutJson = JSON.stringify(layoutObj);
-        // Save back
-        await fetch('/api/settings', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(settings),
-        });
-        console.log('Layout saved to MongoDB');
-      }
-    } catch (e) {
-      console.error('Failed to save layout:', e);
-    }
-  }, []);
-
-  // Save layout changes (debounced to avoid too many API calls)
+  // Save layout changes (debounced)
   const handleModelChange = useCallback((newModel: Model) => {
     setModel(newModel);
 
@@ -207,9 +120,9 @@ export function App() {
       clearTimeout(saveTimeoutRef.current);
     }
     saveTimeoutRef.current = setTimeout(() => {
-      saveLayoutToMongo(newModel.toJson());
+      setLayout(newModel.toJson());
     }, 1000);
-  }, [saveLayoutToMongo]);
+  }, [setLayout]);
 
   // Factory function to render components
   const factory = useCallback((node: TabNode) => {
@@ -285,8 +198,8 @@ export function App() {
   // Reset layout to default
   const handleResetLayout = useCallback(() => {
     setModel(Model.fromJson(defaultLayout));
-    saveLayoutToMongo(defaultLayout);
-  }, [saveLayoutToMongo]);
+    resetLayoutStore();
+  }, [resetLayoutStore]);
 
   return (
     <div className="h-screen flex flex-col bg-dark-900 text-gray-100">

@@ -206,7 +206,7 @@ function StationSettingsSection() {
 
 // QRZ Settings Section
 function QrzSettingsSection() {
-  const { settings, updateQrzSettings, setQrzPassword, getQrzPassword, setQrzApiKey, getQrzApiKey } = useSettingsStore();
+  const { settings, updateQrzSettings } = useSettingsStore();
   const [showPassword, setShowPassword] = useState(false);
   const [showApiKey, setShowApiKey] = useState(false);
   const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
@@ -214,8 +214,8 @@ function QrzSettingsSection() {
   const [hasXmlSubscription, setHasXmlSubscription] = useState<boolean | null>(null);
 
   const qrz = settings.qrz;
-  const password = getQrzPassword();
-  const apiKey = getQrzApiKey();
+  const password = qrz.password;
+  const apiKey = qrz.apiKey;
 
   const handleTestConnection = async () => {
     setTestStatus('testing');
@@ -323,7 +323,7 @@ function QrzSettingsSection() {
             <input
               type={showPassword ? 'text' : 'password'}
               value={password}
-              onChange={(e) => setQrzPassword(e.target.value)}
+              onChange={(e) => updateQrzSettings({ password: e.target.value })}
               placeholder="Your QRZ.com password"
               className="glass-input w-full pr-10"
               disabled={!qrz.enabled}
@@ -353,7 +353,7 @@ function QrzSettingsSection() {
               <input
                 type={showApiKey ? 'text' : 'password'}
                 value={apiKey}
-                onChange={(e) => setQrzApiKey(e.target.value)}
+                onChange={(e) => updateQrzSettings({ apiKey: e.target.value })}
                 placeholder="Your QRZ Logbook API Key"
                 className="glass-input w-full pr-10 font-mono text-sm"
                 disabled={!qrz.enabled}

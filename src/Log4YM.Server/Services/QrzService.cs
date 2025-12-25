@@ -370,18 +370,33 @@ public class QrzService : IQrzService
         _logger.LogDebug("QRZ logbook response: {Response}", responseText);
 
         // Parse response - format is: RESULT=OK&LOGID=12345 or RESULT=FAIL&REASON=message
+        // QRZ can also return RESULT=REPLACE&LOGID=xxx for duplicates
         var parts = responseText.Split('&')
             .Select(p => p.Split('='))
             .Where(p => p.Length == 2)
             .ToDictionary(p => p[0], p => WebUtility.UrlDecode(p[1]));
 
-        if (parts.TryGetValue("RESULT", out var result) && result == "OK")
+        parts.TryGetValue("RESULT", out var result);
+        parts.TryGetValue("LOGID", out var logId);
+        parts.TryGetValue("REASON", out var reason);
+
+        // OK = new record inserted, REPLACE = duplicate updated
+        if (result == "OK" || result == "REPLACE")
         {
-            parts.TryGetValue("LOGID", out var logId);
-            return (true, logId, "QSO uploaded successfully");
+            var message = result == "REPLACE" ? "QSO already exists (updated)" : "QSO uploaded successfully";
+            return (true, logId, message);
         }
 
-        parts.TryGetValue("REASON", out var reason);
+        // Handle duplicate errors as success (QSO already exists in QRZ)
+        if (reason != null && (
+            reason.Contains("duplicate", StringComparison.OrdinalIgnoreCase) ||
+            reason.Contains("already exists", StringComparison.OrdinalIgnoreCase) ||
+            reason.Contains("dupe", StringComparison.OrdinalIgnoreCase)))
+        {
+            _logger.LogDebug("QRZ duplicate detected, treating as success: {Reason}", reason);
+            return (true, logId, "QSO already exists in QRZ");
+        }
+
         return (false, null, reason ?? "Unknown error");
     }
 

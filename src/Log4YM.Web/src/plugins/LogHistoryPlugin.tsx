@@ -455,14 +455,24 @@ export function LogHistoryPlugin() {
 
         {/* QRZ Sync Complete */}
         {qrzSyncProgress?.isComplete && (
-          <div className="bg-dark-700/80 rounded-lg p-3 border border-accent-success/30">
+          <div className={`bg-dark-700/80 rounded-lg p-3 border ${
+            qrzSyncProgress.message?.includes('cancelled')
+              ? 'border-yellow-500/30'
+              : 'border-accent-success/30'
+          }`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
-                <CloudUpload className="w-4 h-4 text-accent-success" />
+                <CloudUpload className={`w-4 h-4 ${
+                  qrzSyncProgress.message?.includes('cancelled')
+                    ? 'text-yellow-400'
+                    : 'text-accent-success'
+                }`} />
                 <span className="text-sm text-gray-300">
-                  {qrzSyncProgress.total === 0
-                    ? 'All QSOs already synced to QRZ'
-                    : `QRZ Sync Complete: ${qrzSyncProgress.successful} uploaded${qrzSyncProgress.failed > 0 ? `, ${qrzSyncProgress.failed} failed` : ''}`
+                  {qrzSyncProgress.message?.includes('cancelled')
+                    ? `Sync cancelled: ${qrzSyncProgress.successful} of ${qrzSyncProgress.total} uploaded`
+                    : qrzSyncProgress.total === 0
+                      ? 'All QSOs already synced to QRZ'
+                      : `QRZ Sync Complete: ${qrzSyncProgress.successful} uploaded${qrzSyncProgress.failed > 0 ? `, ${qrzSyncProgress.failed} failed` : ''}`
                   }
                 </span>
               </div>

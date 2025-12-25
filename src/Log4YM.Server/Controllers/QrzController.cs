@@ -151,11 +151,19 @@ public class QrzController : ControllerBase
             cts = _syncCancellation;
         }
 
+        // Track progress - declared outside try so accessible in catch for cancellation
+        var results = new List<QrzUploadResultDto>();
+        var successCount = 0;
+        var failedCount = 0;
+        var completedCount = 0;
+        var totalToSync = 0;
+
         try
         {
             // Get only QSOs that need syncing (NotSynced or Modified status)
             var unsyncedQsos = await _qsoRepository.GetUnsyncedToQrzAsync();
             var qsoList = unsyncedQsos.ToList();
+            totalToSync = qsoList.Count;
 
             if (qsoList.Count == 0)
             {
@@ -184,17 +192,14 @@ public class QrzController : ControllerBase
                 Message: $"Starting sync of {qsoList.Count} QSOs..."
             ));
 
-            var results = new List<QrzUploadResultDto>();
-            var successCount = 0;
-            var failedCount = 0;
-            var completedCount = 0;
-
             // Process in parallel batches with direct SignalR progress updates
             const int maxConcurrency = 5;
             using var semaphore = new SemaphoreSlim(maxConcurrency);
 
             var tasks = qsoList.Select(async qso =>
             {
+                // Check cancellation before waiting for semaphore
+                cts.Token.ThrowIfCancellationRequested();
                 await semaphore.WaitAsync(cts.Token);
                 try
                 {
@@ -214,9 +219,13 @@ public class QrzController : ControllerBase
                     }
 
                     // Update sync status for successful upload
-                    if (result.Success && !string.IsNullOrEmpty(result.LogId) && !string.IsNullOrEmpty(result.QsoId))
+                    // Note: QRZ may not always return a LogId, so use a placeholder if missing
+                    if (result.Success && !string.IsNullOrEmpty(result.QsoId))
                     {
-                        await _qsoRepository.UpdateQrzSyncStatusAsync(result.QsoId, result.LogId);
+                        var logId = !string.IsNullOrEmpty(result.LogId)
+                            ? result.LogId
+                            : $"synced-{DateTime.UtcNow:yyyyMMddHHmmss}";
+                        await _qsoRepository.UpdateQrzSyncStatusAsync(result.QsoId, logId);
                     }
 
                     // Broadcast progress directly (every upload or every few)
@@ -257,19 +266,19 @@ public class QrzController : ControllerBase
         }
         catch (OperationCanceledException)
         {
-            _logger.LogInformation("QRZ sync was cancelled by user");
+            _logger.LogInformation("QRZ sync was cancelled by user after {Completed}/{Total} QSOs", completedCount, totalToSync);
 
             await _hubContext.BroadcastQrzSyncProgress(new QrzSyncProgressEvent(
-                Total: 0,
-                Completed: 0,
-                Successful: 0,
-                Failed: 0,
+                Total: totalToSync,
+                Completed: completedCount,
+                Successful: successCount,
+                Failed: failedCount,
                 IsComplete: true,
                 CurrentCallsign: null,
-                Message: "Sync cancelled"
+                Message: "Sync cancelled by user"
             ));
 
-            return Ok(new QrzUploadResponse(0, 0, 0, Enumerable.Empty<QrzUploadResultDto>()));
+            return Ok(new QrzUploadResponse(totalToSync, successCount, failedCount, results));
         }
     }
 

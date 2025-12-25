@@ -121,7 +121,7 @@ public static class HamlibNative
     private static string GetLibraryFileName()
     {
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            return "hamlib-4.dll";
+            return "libhamlib-4.dll";
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
             return "libhamlib.so.4";
         if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
@@ -132,7 +132,7 @@ public static class HamlibNative
     private static string GetSystemLibraryName()
     {
         if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
-            return "hamlib-4";
+            return "libhamlib-4";
         if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
             return "libhamlib.4.dylib";
         return "libhamlib.so.4";

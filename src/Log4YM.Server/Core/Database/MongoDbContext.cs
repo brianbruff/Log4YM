@@ -38,7 +38,9 @@ public class MongoDbContext
             new CreateIndexModel<Qso>(Builders<Qso>.IndexKeys.Descending(q => q.QsoDate)),
             new CreateIndexModel<Qso>(Builders<Qso>.IndexKeys.Ascending(q => q.Band).Ascending(q => q.Mode)),
             new CreateIndexModel<Qso>(Builders<Qso>.IndexKeys.Ascending("station.dxcc")),
-            new CreateIndexModel<Qso>(Builders<Qso>.IndexKeys.Ascending("station.grid"))
+            new CreateIndexModel<Qso>(Builders<Qso>.IndexKeys.Ascending("station.grid")),
+            // Index for efficient sync status queries (like QLog's upload status columns)
+            new CreateIndexModel<Qso>(Builders<Qso>.IndexKeys.Ascending(q => q.QrzSyncStatus))
         });
 
         // Spot indexes with TTL (24 hour expiry)

@@ -217,16 +217,40 @@ class ApiClient {
     });
   }
 
+  async cancelQrzSync(): Promise<{ message: string }> {
+    return this.fetch('/qrz/sync/cancel', {
+      method: 'POST',
+    });
+  }
+
   async lookupCallsignQrz(callsign: string): Promise<QrzCallsignResponse> {
     return this.fetch(`/qrz/lookup/${encodeURIComponent(callsign)}`);
   }
 
   // ADIF
-  async importAdif(file: File, skipDuplicates = true): Promise<AdifImportResponse> {
+  async importAdif(
+    file: File,
+    options: {
+      skipDuplicates?: boolean;
+      markAsSyncedToQrz?: boolean;
+      clearExistingLogs?: boolean;
+    } = {}
+  ): Promise<AdifImportResponse> {
+    const {
+      skipDuplicates = true,
+      markAsSyncedToQrz = true,
+      clearExistingLogs = false,
+    } = options;
+
     const formData = new FormData();
     formData.append('file', file);
 
-    const response = await fetch(`${API_BASE}/adif/import?skipDuplicates=${skipDuplicates}`, {
+    const params = new URLSearchParams();
+    params.append('skipDuplicates', String(skipDuplicates));
+    params.append('markAsSyncedToQrz', String(markAsSyncedToQrz));
+    params.append('clearExistingLogs', String(clearExistingLogs));
+
+    const response = await fetch(`${API_BASE}/adif/import?${params}`, {
       method: 'POST',
       body: formData,
     });

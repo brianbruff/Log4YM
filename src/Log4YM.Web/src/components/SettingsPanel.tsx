@@ -553,7 +553,7 @@ function LogbookSettingsSection() {
   // Import mutation
   const importMutation = useMutation({
     mutationFn: ({ file, skipDuplicates }: { file: File; skipDuplicates: boolean }) =>
-      api.importAdif(file, skipDuplicates),
+      api.importAdif(file, { skipDuplicates }),
     onSuccess: (data) => {
       setImportResult(data);
       queryClient.invalidateQueries({ queryKey: ['qsos'] });

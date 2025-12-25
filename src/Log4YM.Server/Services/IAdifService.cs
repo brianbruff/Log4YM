@@ -23,7 +23,11 @@ public interface IAdifService
     /// <summary>
     /// Import ADIF file and save to database
     /// </summary>
-    Task<AdifImportResult> ImportAdifAsync(Stream stream, bool skipDuplicates = true);
+    /// <param name="stream">ADIF file stream</param>
+    /// <param name="skipDuplicates">Skip duplicate QSOs</param>
+    /// <param name="markAsSyncedToQrz">Mark imported QSOs as already synced to QRZ (avoids re-uploading QRZ exports)</param>
+    /// <param name="clearExistingLogs">Delete all existing QSOs before import</param>
+    Task<AdifImportResult> ImportAdifAsync(Stream stream, bool skipDuplicates = true, bool markAsSyncedToQrz = true, bool clearExistingLogs = false);
 
     /// <summary>
     /// Export QSOs from database to ADIF format

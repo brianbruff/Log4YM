@@ -21,13 +21,19 @@ public class AdifController : ControllerBase
     /// <summary>
     /// Import ADIF file into the log
     /// </summary>
+    /// <param name="file">ADIF file to import (.adi, .adif, or .xml)</param>
+    /// <param name="skipDuplicates">Skip duplicate QSOs (same callsign, date, time, band, mode)</param>
+    /// <param name="markAsSyncedToQrz">Mark imported QSOs as already synced to QRZ (default: true, useful when importing from QRZ export)</param>
+    /// <param name="clearExistingLogs">Delete all existing QSOs before import (default: false)</param>
     [HttpPost("import")]
     [ProducesResponseType(typeof(AdifImportResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
     [RequestSizeLimit(50 * 1024 * 1024)] // 50MB limit
     public async Task<ActionResult<AdifImportResponse>> ImportAdif(
         IFormFile file,
-        [FromQuery] bool skipDuplicates = true)
+        [FromQuery] bool skipDuplicates = true,
+        [FromQuery] bool markAsSyncedToQrz = true,
+        [FromQuery] bool clearExistingLogs = false)
     {
         if (file == null || file.Length == 0)
         {
@@ -40,11 +46,11 @@ public class AdifController : ControllerBase
             return BadRequest("Invalid file type. Expected .adi, .adif, or .xml");
         }
 
-        _logger.LogInformation("Importing ADIF file: {FileName} ({Size} bytes)",
-            file.FileName, file.Length);
+        _logger.LogInformation("Importing ADIF file: {FileName} ({Size} bytes), skipDuplicates={Skip}, markAsSyncedToQrz={Synced}, clearExisting={Clear}",
+            file.FileName, file.Length, skipDuplicates, markAsSyncedToQrz, clearExistingLogs);
 
         await using var stream = file.OpenReadStream();
-        var result = await _adifService.ImportAdifAsync(stream, skipDuplicates);
+        var result = await _adifService.ImportAdifAsync(stream, skipDuplicates, markAsSyncedToQrz, clearExistingLogs);
 
         return Ok(new AdifImportResponse(
             result.TotalRecords,

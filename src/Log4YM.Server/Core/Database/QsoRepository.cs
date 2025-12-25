@@ -19,6 +19,8 @@ public interface IQsoRepository
     Task<bool> ExistsAsync(string callsign, DateTime qsoDate, string timeOn, string band, string mode);
     Task<IEnumerable<Qso>> GetByIdsAsync(IEnumerable<string> ids);
     Task<bool> UpdateQrzSyncStatusAsync(string id, string qrzLogId);
+    Task<int> GetPendingSyncCountAsync();
+    Task<long> DeleteAllAsync();
 }
 
 public class QsoRepository : IQsoRepository
@@ -104,6 +106,13 @@ public class QsoRepository : IQsoRepository
     public async Task<bool> UpdateAsync(string id, Qso qso)
     {
         qso.UpdatedAt = DateTime.UtcNow;
+
+        // If QSO was previously synced, mark as Modified (like QLog's trigger)
+        if (qso.QrzSyncStatus == SyncStatus.Synced)
+        {
+            qso.QrzSyncStatus = SyncStatus.Modified;
+        }
+
         var result = await _collection.ReplaceOneAsync(q => q.Id == id, qso);
         return result.ModifiedCount > 0;
     }
@@ -178,7 +187,16 @@ public class QsoRepository : IQsoRepository
 
     public async Task<IEnumerable<Qso>> GetUnsyncedToQrzAsync()
     {
-        var filter = Builders<Qso>.Filter.Eq(q => q.QrzLogId, null);
+        // Get QSOs that need syncing: NotSynced OR Modified (like QLog's N/M status)
+        var filter = Builders<Qso>.Filter.Or(
+            Builders<Qso>.Filter.Eq(q => q.QrzSyncStatus, SyncStatus.NotSynced),
+            Builders<Qso>.Filter.Eq(q => q.QrzSyncStatus, SyncStatus.Modified),
+            // Also include legacy records without status (QrzLogId == null)
+            Builders<Qso>.Filter.And(
+                Builders<Qso>.Filter.Eq(q => q.QrzLogId, null),
+                Builders<Qso>.Filter.Eq(q => q.QrzSyncStatus, SyncStatus.NotSynced)
+            )
+        );
         return await _collection
             .Find(filter)
             .SortByDescending(q => q.QsoDate)
@@ -186,14 +204,30 @@ public class QsoRepository : IQsoRepository
             .ToListAsync();
     }
 
+    public async Task<int> GetPendingSyncCountAsync()
+    {
+        var filter = Builders<Qso>.Filter.Or(
+            Builders<Qso>.Filter.Eq(q => q.QrzSyncStatus, SyncStatus.NotSynced),
+            Builders<Qso>.Filter.Eq(q => q.QrzSyncStatus, SyncStatus.Modified)
+        );
+        return (int)await _collection.CountDocumentsAsync(filter);
+    }
+
     public async Task<bool> UpdateQrzSyncStatusAsync(string id, string qrzLogId)
     {
         var update = Builders<Qso>.Update
             .Set(q => q.QrzLogId, qrzLogId)
             .Set(q => q.QrzSyncedAt, DateTime.UtcNow)
+            .Set(q => q.QrzSyncStatus, SyncStatus.Synced)
             .Set(q => q.UpdatedAt, DateTime.UtcNow);
 
         var result = await _collection.UpdateOneAsync(q => q.Id == id, update);
         return result.ModifiedCount > 0;
+    }
+
+    public async Task<long> DeleteAllAsync()
+    {
+        var result = await _collection.DeleteManyAsync(_ => true);
+        return result.DeletedCount;
     }
 }

@@ -3,6 +3,20 @@ using MongoDB.Bson.Serialization.Attributes;
 
 namespace Log4YM.Contracts.Models;
 
+/// <summary>
+/// Sync status for external services (QRZ, LoTW, etc.)
+/// Follows QLog's Y/N/M pattern for efficient incremental sync
+/// </summary>
+public enum SyncStatus
+{
+    /// <summary>Not yet synced to the service</summary>
+    NotSynced = 0,
+    /// <summary>Successfully synced, no changes since</summary>
+    Synced = 1,
+    /// <summary>Was synced but has been modified since - needs re-sync</summary>
+    Modified = 2
+}
+
 public class Qso
 {
     [BsonId]
@@ -81,6 +95,10 @@ public class Qso
 
     [BsonElement("qrzSyncedAt")]
     public DateTime? QrzSyncedAt { get; set; }
+
+    [BsonElement("qrzSyncStatus")]
+    [BsonRepresentation(BsonType.String)]
+    public SyncStatus QrzSyncStatus { get; set; } = SyncStatus.NotSynced;
 }
 
 public class StationInfo

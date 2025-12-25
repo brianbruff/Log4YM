@@ -15,9 +15,24 @@ public interface IQrzService
     Task<QrzUploadResult> UploadQsoAsync(Qso qso);
 
     /// <summary>
-    /// Upload multiple QSOs to QRZ logbook
+    /// Upload multiple QSOs to QRZ logbook (sequential)
     /// </summary>
     Task<QrzBatchUploadResult> UploadQsosAsync(IEnumerable<Qso> qsos);
+
+    /// <summary>
+    /// Upload multiple QSOs in parallel with rate limiting (much faster)
+    /// </summary>
+    Task<QrzBatchUploadResult> UploadQsosParallelAsync(
+        IEnumerable<Qso> qsos,
+        int maxConcurrency = 5,
+        int delayBetweenBatchesMs = 200,
+        IProgress<QrzUploadProgress>? progress = null,
+        CancellationToken cancellationToken = default);
+
+    /// <summary>
+    /// Generate batch ADIF for multiple QSOs
+    /// </summary>
+    string GenerateBatchAdif(IEnumerable<Qso> qsos);
 
     /// <summary>
     /// Lookup callsign information from QRZ
@@ -65,4 +80,12 @@ public record QrzCallsignInfo(
     string? QslManager,
     string? ImageUrl,
     DateTime? LicenseExpiration
+);
+
+public record QrzUploadProgress(
+    int TotalCount,
+    int CompletedCount,
+    int SuccessCount,
+    int FailedCount,
+    string? CurrentCallsign
 );

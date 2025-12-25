@@ -1,11 +1,11 @@
-import { useState, useCallback, useMemo } from 'react';
-import { useQuery, useQueryClient } from '@tanstack/react-query';
-import { Book, Search, Calendar, Radio, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronUp, ChevronDown, X, CloudUpload, Loader2, Pencil, Trash2 } from 'lucide-react';
+import { useState, useCallback, useMemo, useRef } from 'react';
+import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
+import { Book, Search, Calendar, Radio, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronUp, ChevronDown, X, CloudUpload, Loader2, Pencil, Trash2, Upload, Download, FileText, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
 import { AgGridReact } from 'ag-grid-react';
 import { ColDef, ICellRendererParams } from 'ag-grid-community';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-alpine.css';
-import { api, QsoResponse, UpdateQsoRequest } from '../api/client';
+import { api, QsoResponse, UpdateQsoRequest, AdifImportResponse } from '../api/client';
 import { GlassPanel } from '../components/GlassPanel';
 import { getCountryFlag } from '../core/countryFlags';
 import { useAppStore } from '../store/appStore';
@@ -99,6 +99,14 @@ export function LogHistoryPlugin() {
   const [isSaving, setIsSaving] = useState(false);
   const pageSize = 50;
 
+  // ADIF Import/Export state
+  const [showImportModal, setShowImportModal] = useState(false);
+  const [importResult, setImportResult] = useState<AdifImportResponse | null>(null);
+  const [skipDuplicates, setSkipDuplicates] = useState(true);
+  const [markAsSyncedToQrz, setMarkAsSyncedToQrz] = useState(true);
+  const [clearExistingLogs, setClearExistingLogs] = useState(false);
+  const fileInputRef = useRef<HTMLInputElement>(null);
+
   const queryClient = useQueryClient();
   const { qrzSyncProgress, setQrzSyncProgress } = useAppStore();
 
@@ -114,6 +122,51 @@ export function LogHistoryPlugin() {
       setIsSyncing(false);
     }
   }, [isSyncing, setQrzSyncProgress]);
+
+  const handleCancelSync = useCallback(async () => {
+    try {
+      await api.cancelQrzSync();
+    } catch (error) {
+      console.error('Failed to cancel sync:', error);
+    }
+  }, []);
+
+  // ADIF Import mutation
+  const importMutation = useMutation({
+    mutationFn: (file: File) =>
+      api.importAdif(file, { skipDuplicates, markAsSyncedToQrz, clearExistingLogs }),
+    onSuccess: (data) => {
+      setImportResult(data);
+      setShowImportModal(false);
+      queryClient.invalidateQueries({ queryKey: ['qsos'] });
+      queryClient.invalidateQueries({ queryKey: ['statistics'] });
+    },
+  });
+
+  // ADIF Export mutation
+  const exportMutation = useMutation({
+    mutationFn: () => api.exportAdif(),
+    onSuccess: (blob) => {
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url;
+      a.download = `log4ym_export_${new Date().toISOString().slice(0, 10)}.adi`;
+      document.body.appendChild(a);
+      a.click();
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    },
+  });
+
+  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      importMutation.mutate(file);
+    }
+    if (fileInputRef.current) {
+      fileInputRef.current.value = '';
+    }
+  }, [importMutation]);
 
   const handleDelete = useCallback(async () => {
     if (!deletingQso || isDeleting) return;
@@ -286,23 +339,69 @@ export function LogHistoryPlugin() {
           <span>{totalCount.toLocaleString()} QSOs</span>
           <span className="text-glass-100">|</span>
           <span>{stats?.uniqueCountries || 0} DXCC</span>
-          <button
-            onClick={handleSyncToQrz}
-            disabled={isSyncing}
-            className="glass-button p-1.5 flex items-center gap-1.5 text-accent-info hover:text-accent-primary disabled:opacity-50 disabled:cursor-not-allowed"
-            title="Upload unsynced QSOs to QRZ.com (one-way push)"
-          >
-            {isSyncing ? (
-              <Loader2 className="w-4 h-4 animate-spin" />
-            ) : (
-              <CloudUpload className="w-4 h-4" />
-            )}
-            <span className="text-xs">Push to QRZ</span>
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => setShowImportModal(true)}
+              className="glass-button p-1.5 flex items-center gap-1.5 text-accent-success hover:text-accent-primary"
+              title="Import ADIF file"
+            >
+              <Upload className="w-4 h-4" />
+              <span className="text-xs">Import</span>
+            </button>
+            <button
+              onClick={() => exportMutation.mutate()}
+              disabled={exportMutation.isPending}
+              className="glass-button p-1.5 flex items-center gap-1.5 text-accent-info hover:text-accent-primary disabled:opacity-50"
+              title="Export all QSOs to ADIF"
+            >
+              {exportMutation.isPending ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <Download className="w-4 h-4" />
+              )}
+              <span className="text-xs">Export</span>
+            </button>
+            <span className="text-glass-100 mx-1">|</span>
+            <button
+              onClick={handleSyncToQrz}
+              disabled={isSyncing}
+              className="glass-button p-1.5 flex items-center gap-1.5 text-accent-warning hover:text-accent-primary disabled:opacity-50 disabled:cursor-not-allowed"
+              title="Upload unsynced QSOs to QRZ.com (one-way push)"
+            >
+              {isSyncing ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <CloudUpload className="w-4 h-4" />
+              )}
+              <span className="text-xs">Push to QRZ</span>
+            </button>
+          </div>
         </div>
       }
     >
       <div className="p-4 space-y-4">
+        {/* QRZ Sync Starting (before first progress event) */}
+        {isSyncing && !qrzSyncProgress && (
+          <div className="bg-dark-700/80 rounded-lg p-3 border border-accent-info/30">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 text-accent-info animate-spin" />
+                <span className="text-sm text-gray-300">
+                  Connecting to QRZ.com...
+                </span>
+              </div>
+              <button
+                onClick={handleCancelSync}
+                className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 px-2 py-1 rounded hover:bg-red-500/10 transition-colors"
+                title="Cancel sync"
+              >
+                <X className="w-3 h-3" />
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
         {/* QRZ Sync Progress */}
         {qrzSyncProgress && !qrzSyncProgress.isComplete && qrzSyncProgress.total > 0 && (
           <div className="bg-dark-700/80 rounded-lg p-3 border border-accent-info/30">
@@ -313,9 +412,19 @@ export function LogHistoryPlugin() {
                   {qrzSyncProgress.message || `Syncing to QRZ.com...`}
                 </span>
               </div>
-              <span className="text-xs text-gray-400">
-                {qrzSyncProgress.completed} / {qrzSyncProgress.total}
-              </span>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-gray-400">
+                  {qrzSyncProgress.completed} / {qrzSyncProgress.total}
+                </span>
+                <button
+                  onClick={handleCancelSync}
+                  className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 px-2 py-1 rounded hover:bg-red-500/10 transition-colors"
+                  title="Cancel sync"
+                >
+                  <X className="w-3 h-3" />
+                  Cancel
+                </button>
+              </div>
             </div>
             <div className="w-full bg-dark-600 rounded-full h-2 overflow-hidden">
               <div
@@ -653,6 +762,168 @@ export function LogHistoryPlugin() {
                 Delete
               </button>
             </div>
+          </div>
+        </div>
+      )}
+
+      {/* ADIF Import Modal */}
+      {showImportModal && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-dark-800 rounded-lg p-6 max-w-lg w-full mx-4 border border-glass-100">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+                <Upload className="w-5 h-5 text-accent-success" />
+                Import ADIF
+              </h3>
+              <button
+                onClick={() => setShowImportModal(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            <p className="text-sm text-gray-400 mb-4">
+              Import QSOs from an ADIF file. Supports .adi, .adif, and .xml formats.
+            </p>
+
+            {/* Import Options */}
+            <div className="space-y-3 mb-6">
+              <label className="flex items-center gap-3 p-3 bg-dark-700/50 rounded-lg cursor-pointer hover:bg-dark-700">
+                <input
+                  type="checkbox"
+                  checked={markAsSyncedToQrz}
+                  onChange={e => setMarkAsSyncedToQrz(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-600 text-accent-primary focus:ring-accent-primary"
+                />
+                <div>
+                  <p className="text-sm text-gray-200">Mark as already synced to QRZ</p>
+                  <p className="text-xs text-gray-500">
+                    Recommended when importing from QRZ.com export (prevents re-uploading)
+                  </p>
+                </div>
+              </label>
+
+              <label className="flex items-center gap-3 p-3 bg-dark-700/50 rounded-lg cursor-pointer hover:bg-dark-700">
+                <input
+                  type="checkbox"
+                  checked={skipDuplicates}
+                  onChange={e => setSkipDuplicates(e.target.checked)}
+                  className="w-4 h-4 rounded border-gray-600 text-accent-primary focus:ring-accent-primary"
+                />
+                <div>
+                  <p className="text-sm text-gray-200">Skip duplicate QSOs</p>
+                  <p className="text-xs text-gray-500">
+                    Skip QSOs that match existing records (callsign, date, time, band, mode)
+                  </p>
+                </div>
+              </label>
+
+              <label className="flex items-center gap-3 p-3 bg-red-500/10 border border-red-500/30 rounded-lg cursor-pointer hover:bg-red-500/20">
+                <input
+                  type="checkbox"
+                  checked={clearExistingLogs}
+                  onChange={e => setClearExistingLogs(e.target.checked)}
+                  className="w-4 h-4 rounded border-red-600 text-red-500 focus:ring-red-500"
+                />
+                <div>
+                  <p className="text-sm text-red-400">Clear existing log before import</p>
+                  <p className="text-xs text-red-400/70">
+                    Warning: This will delete ALL existing QSOs before importing
+                  </p>
+                </div>
+              </label>
+            </div>
+
+            {/* File Input */}
+            <input
+              ref={fileInputRef}
+              type="file"
+              accept=".adi,.adif,.xml"
+              onChange={handleFileSelect}
+              className="hidden"
+            />
+
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowImportModal(false)}
+                className="flex-1 glass-button py-3"
+              >
+                Cancel
+              </button>
+              <button
+                onClick={() => fileInputRef.current?.click()}
+                disabled={importMutation.isPending}
+                className="flex-1 bg-accent-success/20 hover:bg-accent-success/30 text-accent-success border border-accent-success/30 py-3 rounded-lg flex items-center justify-center gap-2 disabled:opacity-50"
+              >
+                {importMutation.isPending ? (
+                  <>
+                    <Loader2 className="w-5 h-5 animate-spin" />
+                    Importing...
+                  </>
+                ) : (
+                  <>
+                    <FileText className="w-5 h-5" />
+                    Select ADIF File
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Import Results */}
+      {importResult && (
+        <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
+          <div className="bg-dark-800 rounded-lg p-6 max-w-md w-full mx-4 border border-glass-100">
+            <h3 className="text-lg font-semibold text-white flex items-center gap-2 mb-4">
+              {importResult.errorCount === 0 && importResult.importedCount > 0 ? (
+                <CheckCircle className="w-5 h-5 text-green-400" />
+              ) : importResult.errorCount > 0 ? (
+                <AlertTriangle className="w-5 h-5 text-yellow-400" />
+              ) : (
+                <XCircle className="w-5 h-5 text-red-400" />
+              )}
+              Import Results
+            </h3>
+
+            <div className="grid grid-cols-4 gap-4 mb-4">
+              <div className="text-center">
+                <p className="text-2xl font-bold text-accent-primary">{importResult.totalRecords}</p>
+                <p className="text-xs text-gray-500">Total</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-green-400">{importResult.importedCount}</p>
+                <p className="text-xs text-gray-500">Imported</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-yellow-400">{importResult.skippedDuplicates}</p>
+                <p className="text-xs text-gray-500">Duplicates</p>
+              </div>
+              <div className="text-center">
+                <p className="text-2xl font-bold text-red-400">{importResult.errorCount}</p>
+                <p className="text-xs text-gray-500">Errors</p>
+              </div>
+            </div>
+
+            {importResult.errors.length > 0 && (
+              <div className="max-h-24 overflow-auto bg-dark-700/50 rounded p-2 mb-4">
+                {importResult.errors.map((error, i) => (
+                  <p key={i} className="text-sm text-red-400 flex items-start gap-2 py-1">
+                    <XCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
+                    {error}
+                  </p>
+                ))}
+              </div>
+            )}
+
+            <button
+              onClick={() => setImportResult(null)}
+              className="w-full glass-button py-2"
+            >
+              Close
+            </button>
           </div>
         </div>
       )}

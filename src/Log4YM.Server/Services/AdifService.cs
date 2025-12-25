@@ -102,7 +102,7 @@ public partial class AdifService : IAdifService
         return sb.ToString();
     }
 
-    public async Task<AdifImportResult> ImportAdifAsync(Stream stream, bool skipDuplicates = true)
+    public async Task<AdifImportResult> ImportAdifAsync(Stream stream, bool skipDuplicates = true, bool markAsSyncedToQrz = true, bool clearExistingLogs = false)
     {
         var qsos = ParseAdif(stream).ToList();
         var importedCount = 0;
@@ -110,15 +110,24 @@ public partial class AdifService : IAdifService
         var errorCount = 0;
         var errors = new List<string>();
 
-        _logger.LogInformation("Importing {Count} QSO records from ADIF", qsos.Count);
+        _logger.LogInformation("Importing {Count} QSO records from ADIF (markAsSynced={Synced}, clearExisting={Clear})",
+            qsos.Count, markAsSyncedToQrz, clearExistingLogs);
+
+        // Clear existing logs if requested
+        if (clearExistingLogs)
+        {
+            var deletedCount = await _qsoRepository.DeleteAllAsync();
+            _logger.LogInformation("Cleared {Count} existing QSOs before import", deletedCount);
+        }
 
         foreach (var qso in qsos)
         {
             try
             {
-                if (skipDuplicates)
+                if (skipDuplicates && !clearExistingLogs)
                 {
                     // Check for duplicate based on callsign, date, time, band, and mode
+                    // Skip check if we just cleared all logs
                     var isDuplicate = await _qsoRepository.ExistsAsync(
                         qso.Callsign,
                         qso.QsoDate,
@@ -136,6 +145,15 @@ public partial class AdifService : IAdifService
 
                 qso.CreatedAt = DateTime.UtcNow;
                 qso.UpdatedAt = DateTime.UtcNow;
+
+                // Mark as already synced to QRZ if requested (useful for QRZ exports)
+                if (markAsSyncedToQrz)
+                {
+                    qso.QrzSyncStatus = SyncStatus.Synced;
+                    qso.QrzSyncedAt = DateTime.UtcNow;
+                    // Use a placeholder ID to indicate it came from QRZ import
+                    qso.QrzLogId = $"imported-{DateTime.UtcNow:yyyyMMddHHmmss}";
+                }
 
                 var created = await _qsoRepository.CreateAsync(qso);
                 importedCount++;

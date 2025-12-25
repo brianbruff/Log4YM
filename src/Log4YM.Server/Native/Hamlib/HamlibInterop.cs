@@ -533,6 +533,17 @@ public static class HamlibRigList
 {
     private static List<RigModelInfo>? _cachedModels;
     private static readonly object _cacheLock = new();
+    private static string? _initError;
+
+    /// <summary>
+    /// Check if initialization has been attempted
+    /// </summary>
+    public static bool IsInitialized { get; private set; }
+
+    /// <summary>
+    /// Get any initialization error message
+    /// </summary>
+    public static string? InitError => _initError ?? HamlibNative.LoadError;
 
     /// <summary>
     /// Get list of all available rig models
@@ -544,51 +555,100 @@ public static class HamlibRigList
             if (_cachedModels != null)
                 return _cachedModels;
 
-            HamlibRig.Initialize();
+            try
+            {
+                HamlibRig.Initialize();
+                IsInitialized = true;
+                Console.WriteLine("[Hamlib] Library initialized, enumerating rig models...");
+            }
+            catch (Exception ex)
+            {
+                _initError = $"Failed to initialize Hamlib: {ex.Message}";
+                Console.WriteLine($"[Hamlib] {_initError}");
+                _cachedModels = new List<RigModelInfo>();
+                return _cachedModels;
+            }
 
             var models = new List<RigModelInfo>();
 
             // Use the newer API if available (Hamlib 4.2+)
             try
             {
+                Console.WriteLine("[Hamlib] Using rig_list_foreach_model API...");
                 HamlibNative.rig_list_foreach_model((modelId, data) =>
                 {
-                    var mfgPtr = HamlibNative.rig_get_caps_cptr(modelId, RigCapsField.RIG_CAPS_MFG_NAME_CPTR);
-                    var modelPtr = HamlibNative.rig_get_caps_cptr(modelId, RigCapsField.RIG_CAPS_MODEL_NAME_CPTR);
-                    var versionPtr = HamlibNative.rig_get_caps_cptr(modelId, RigCapsField.RIG_CAPS_VERSION_CPTR);
+                    try
+                    {
+                        var mfgPtr = HamlibNative.rig_get_caps_cptr(modelId, RigCapsField.RIG_CAPS_MFG_NAME_CPTR);
+                        var modelPtr = HamlibNative.rig_get_caps_cptr(modelId, RigCapsField.RIG_CAPS_MODEL_NAME_CPTR);
+                        var versionPtr = HamlibNative.rig_get_caps_cptr(modelId, RigCapsField.RIG_CAPS_VERSION_CPTR);
 
-                    var mfg = HamlibNative.PtrToString(mfgPtr)?.Trim() ?? "Unknown";
-                    var model = HamlibNative.PtrToString(modelPtr)?.Trim() ?? "Unknown";
-                    var version = HamlibNative.PtrToString(versionPtr)?.Trim() ?? "";
+                        var mfg = HamlibNative.PtrToString(mfgPtr)?.Trim() ?? "Unknown";
+                        var model = HamlibNative.PtrToString(modelPtr)?.Trim() ?? "Unknown";
+                        var version = HamlibNative.PtrToString(versionPtr)?.Trim() ?? "";
 
-                    models.Add(new RigModelInfo(modelId, mfg, model, version));
-                    return -1; // Continue enumeration
+                        models.Add(new RigModelInfo(modelId, mfg, model, version));
+                    }
+                    catch (Exception ex)
+                    {
+                        Console.WriteLine($"[Hamlib] Error reading model {modelId}: {ex.Message}");
+                    }
+                    return 1; // Continue enumeration (1 = continue, 0 = stop)
                 }, IntPtr.Zero);
+                Console.WriteLine($"[Hamlib] Enumerated {models.Count} rig models using new API");
             }
             catch (EntryPointNotFoundException)
             {
+                Console.WriteLine("[Hamlib] rig_list_foreach_model not found, falling back to older API...");
                 // Fall back to older API
-                HamlibNative.rig_list_foreach((capsPtr, data) =>
+                try
                 {
-                    if (capsPtr == IntPtr.Zero) return -1;
-
-                    // Read from rig_caps structure
-                    // This is less reliable but works with older Hamlib
-                    var modelId = Marshal.ReadInt32(capsPtr, 0); // rig_model is first field
-
-                    // Skip complex structure parsing for older API
-                    // Just use the model ID and fetch caps separately
-                    var caps = HamlibNative.rig_get_caps(modelId);
-                    if (caps != IntPtr.Zero)
+                    HamlibNative.rig_list_foreach((capsPtr, data) =>
                     {
-                        // Basic info extraction would require struct marshaling
-                        models.Add(new RigModelInfo(modelId, "Unknown", $"Model {modelId}", ""));
-                    }
-                    return -1;
-                }, IntPtr.Zero);
+                        if (capsPtr == IntPtr.Zero) return 1;
+
+                        try
+                        {
+                            // Read from rig_caps structure
+                            // This is less reliable but works with older Hamlib
+                            var modelId = Marshal.ReadInt32(capsPtr, 0); // rig_model is first field
+
+                            // Skip complex structure parsing for older API
+                            // Just use the model ID and fetch caps separately
+                            var caps = HamlibNative.rig_get_caps(modelId);
+                            if (caps != IntPtr.Zero)
+                            {
+                                // Basic info extraction would require struct marshaling
+                                models.Add(new RigModelInfo(modelId, "Unknown", $"Model {modelId}", ""));
+                            }
+                        }
+                        catch (Exception ex)
+                        {
+                            Console.WriteLine($"[Hamlib] Error in rig_list_foreach callback: {ex.Message}");
+                        }
+                        return 1;
+                    }, IntPtr.Zero);
+                    Console.WriteLine($"[Hamlib] Enumerated {models.Count} rig models using legacy API");
+                }
+                catch (Exception ex)
+                {
+                    _initError = $"Failed to enumerate rigs: {ex.Message}";
+                    Console.WriteLine($"[Hamlib] {_initError}");
+                }
+            }
+            catch (DllNotFoundException ex)
+            {
+                _initError = $"Hamlib native library not found: {ex.Message}";
+                Console.WriteLine($"[Hamlib] {_initError}");
+            }
+            catch (Exception ex)
+            {
+                _initError = $"Error enumerating rigs: {ex.Message}";
+                Console.WriteLine($"[Hamlib] {_initError}");
             }
 
             _cachedModels = models.OrderBy(m => m.Manufacturer).ThenBy(m => m.Model).ToList();
+            Console.WriteLine($"[Hamlib] Returning {_cachedModels.Count} rig models (sorted)");
             return _cachedModels;
         }
     }
@@ -601,6 +661,8 @@ public static class HamlibRigList
         lock (_cacheLock)
         {
             _cachedModels = null;
+            IsInitialized = false;
+            _initError = null;
         }
     }
 }

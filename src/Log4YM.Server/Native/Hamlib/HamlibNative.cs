@@ -11,6 +11,10 @@ public static class HamlibNative
 {
     private const string LibraryName = "hamlib";
 
+    public static bool IsLoaded { get; private set; }
+    public static string? LoadedLibraryPath { get; private set; }
+    public static string? LoadError { get; private set; }
+
     static HamlibNative()
     {
         NativeLibrary.SetDllImportResolver(typeof(HamlibNative).Assembly, ImportResolver);
@@ -21,35 +25,86 @@ public static class HamlibNative
         if (libraryName != LibraryName)
             return IntPtr.Zero;
 
-        // Try platform-specific paths
-        var libPath = GetLibraryPath();
-        if (!string.IsNullOrEmpty(libPath) && File.Exists(libPath))
+        // Try platform-specific paths in order
+        foreach (var path in GetLibrarySearchPaths())
         {
-            return NativeLibrary.Load(libPath);
+            if (File.Exists(path))
+            {
+                try
+                {
+                    var handle = NativeLibrary.Load(path);
+                    if (handle != IntPtr.Zero)
+                    {
+                        IsLoaded = true;
+                        LoadedLibraryPath = path;
+                        Console.WriteLine($"[Hamlib] Loaded native library from: {path}");
+                        return handle;
+                    }
+                }
+                catch (Exception ex)
+                {
+                    Console.WriteLine($"[Hamlib] Failed to load {path}: {ex.Message}");
+                }
+            }
         }
 
         // Fallback to system library search
-        if (NativeLibrary.TryLoad(GetSystemLibraryName(), out var handle))
-            return handle;
+        var systemLibName = GetSystemLibraryName();
+        if (NativeLibrary.TryLoad(systemLibName, out var systemHandle))
+        {
+            IsLoaded = true;
+            LoadedLibraryPath = $"system:{systemLibName}";
+            Console.WriteLine($"[Hamlib] Loaded native library from system: {systemLibName}");
+            return systemHandle;
+        }
 
+        LoadError = $"Could not find Hamlib native library. Searched paths: {string.Join(", ", GetLibrarySearchPaths())}";
+        Console.WriteLine($"[Hamlib] {LoadError}");
         return IntPtr.Zero;
     }
 
-    private static string GetLibraryPath()
+    private static IEnumerable<string> GetLibrarySearchPaths()
     {
         var baseDir = AppContext.BaseDirectory;
         var rid = GetRuntimeIdentifier();
         var libName = GetLibraryFileName();
 
-        // Try runtimes/{rid}/native/{libname}
-        var path = Path.Combine(baseDir, "runtimes", rid, "native", libName);
-        if (File.Exists(path)) return path;
+        // 1. runtimes/{rid}/native/{libname} in app directory
+        yield return Path.Combine(baseDir, "runtimes", rid, "native", libName);
 
-        // Try just the lib name in base directory
-        path = Path.Combine(baseDir, libName);
-        if (File.Exists(path)) return path;
+        // 2. Direct lib name in base directory
+        yield return Path.Combine(baseDir, libName);
 
-        return string.Empty;
+        // 3. Platform-specific system paths
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.OSX))
+        {
+            // Homebrew paths for macOS
+            if (RuntimeInformation.ProcessArchitecture == Architecture.Arm64)
+            {
+                yield return "/opt/homebrew/opt/hamlib/lib/libhamlib.4.dylib";
+                yield return "/opt/homebrew/lib/libhamlib.4.dylib";
+            }
+            else
+            {
+                yield return "/usr/local/opt/hamlib/lib/libhamlib.4.dylib";
+                yield return "/usr/local/lib/libhamlib.4.dylib";
+            }
+        }
+        else if (RuntimeInformation.IsOSPlatform(OSPlatform.Linux))
+        {
+            // Common Linux paths
+            if (RuntimeInformation.ProcessArchitecture == Architecture.X64)
+            {
+                yield return "/usr/lib/x86_64-linux-gnu/libhamlib.so.4";
+                yield return "/usr/lib64/libhamlib.so.4";
+            }
+            else if (RuntimeInformation.ProcessArchitecture == Architecture.Arm64)
+            {
+                yield return "/usr/lib/aarch64-linux-gnu/libhamlib.so.4";
+            }
+            yield return "/usr/local/lib/libhamlib.so.4";
+            yield return "/usr/lib/libhamlib.so.4";
+        }
     }
 
     private static string GetRuntimeIdentifier()

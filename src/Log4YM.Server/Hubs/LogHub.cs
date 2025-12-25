@@ -354,11 +354,36 @@ public class LogHub : Hub<ILogHubClient>
     /// </summary>
     public async Task GetHamlibRigList()
     {
-        _logger.LogDebug("Client requested Hamlib rig list");
+        _logger.LogInformation("Client requested Hamlib rig list");
 
-        var rigs = _hamlibService.GetAvailableRigs()
-            .Select(r => new HamlibRigModelInfo(r.ModelId, r.Manufacturer, r.Model, r.Version, r.DisplayName))
-            .ToList();
+        // Try to get rigs regardless of initialization state - this triggers lazy loading
+        List<HamlibRigModelInfo> rigs;
+        try
+        {
+            rigs = _hamlibService.GetAvailableRigs()
+                .Select(r => new HamlibRigModelInfo(r.ModelId, r.Manufacturer, r.Model, r.Version, r.DisplayName))
+                .ToList();
+
+            _logger.LogInformation("Returning {Count} Hamlib rig models (lib loaded: {Loaded}, path: {Path})",
+                rigs.Count,
+                Native.Hamlib.HamlibNative.IsLoaded,
+                Native.Hamlib.HamlibNative.LoadedLibraryPath ?? "none");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to get Hamlib rig list");
+            rigs = new List<HamlibRigModelInfo>();
+        }
+
+        // If no rigs found, check for errors
+        if (rigs.Count == 0)
+        {
+            var error = Native.Hamlib.HamlibRigList.InitError;
+            if (!string.IsNullOrEmpty(error))
+            {
+                _logger.LogWarning("Hamlib initialization error: {Error}", error);
+            }
+        }
 
         await Clients.Caller.OnHamlibRigList(new HamlibRigListEvent(rigs));
     }

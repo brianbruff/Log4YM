@@ -120,10 +120,11 @@ public class HamlibService : BackgroundService
 
     /// <summary>
     /// Get list of all available rig models
+    /// Note: This triggers lazy initialization of Hamlib library
     /// </summary>
     public List<RigModelInfo> GetAvailableRigs()
     {
-        if (!_initialized) return new List<RigModelInfo>();
+        // HamlibRigList.GetModels() handles its own initialization
         return HamlibRigList.GetModels();
     }
 

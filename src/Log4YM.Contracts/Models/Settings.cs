@@ -127,6 +127,21 @@ public class RadioSettings
 {
     [BsonElement("followRadio")]
     public bool FollowRadio { get; set; } = true;
+
+    [BsonElement("tci")]
+    public TciSettings Tci { get; set; } = new();
+}
+
+public class TciSettings
+{
+    [BsonElement("host")]
+    public string Host { get; set; } = "localhost";
+
+    [BsonElement("port")]
+    public int Port { get; set; } = 50001;
+
+    [BsonElement("name")]
+    public string Name { get; set; } = string.Empty;
 }
 
 public class MapSettings

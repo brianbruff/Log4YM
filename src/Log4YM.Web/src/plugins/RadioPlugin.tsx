@@ -1,6 +1,7 @@
 import { useState, useEffect, useMemo } from "react";
 import { Radio, Wifi, WifiOff, Search, Power, PowerOff, Plus, Settings, ChevronDown, ChevronUp } from "lucide-react";
 import { useAppStore } from "../store/appStore";
+import { useSettingsStore } from "../store/settingsStore";
 import { useSignalR } from "../hooks/useSignalR";
 import { GlassPanel } from "../components/GlassPanel";
 import { signalRService } from "../api/signalr";
@@ -68,11 +69,12 @@ export function RadioPlugin() {
   const [selectedType, setSelectedType] = useState<'FlexRadio' | 'Tci' | null>(null);
   const [isDiscovering, setIsDiscovering] = useState(false);
 
+  // TCI settings from store (persisted to database)
+  const { settings, updateTciSettings, saveSettings } = useSettingsStore();
+  const tciSettings = settings.radio.tci;
+
   // TCI form state
   const [showTciForm, setShowTciForm] = useState(false);
-  const [tciHost, setTciHost] = useState(() => localStorage.getItem('tciHost') || "localhost");
-  const [tciPort, setTciPort] = useState(() => localStorage.getItem('tciPort') || "50001");
-  const [tciName, setTciName] = useState(() => localStorage.getItem('tciName') || "");
   const [isConnectingTci, setIsConnectingTci] = useState(false);
 
   // Hamlib form state
@@ -85,13 +87,6 @@ export function RadioPlugin() {
   const [rigSearch, setRigSearch] = useState("");
   const [showRigDropdown, setShowRigDropdown] = useState(false);
   const [showAdvanced, setShowAdvanced] = useState(false);
-
-  // Persist TCI settings to localStorage
-  useEffect(() => {
-    localStorage.setItem('tciHost', tciHost);
-    localStorage.setItem('tciPort', tciPort);
-    localStorage.setItem('tciName', tciName);
-  }, [tciHost, tciPort, tciName]);
 
   // Set up Hamlib event handlers
   useEffect(() => {
@@ -227,19 +222,19 @@ export function RadioPlugin() {
   };
 
   const handleConnectTci = async () => {
-    const port = parseInt(tciPort, 10);
-    if (!tciHost || isNaN(port)) return;
+    const port = tciSettings.port;
+    const host = tciSettings.host;
+    if (!host || !port) return;
 
-    const radioId = `tci-${tciHost}:${port}`;
+    const radioId = `tci-${host}:${port}`;
     setSelectedRadio(radioId);
     setIsConnectingTci(true);
     setShowTciForm(false);
 
     try {
-      await connectTci(tciHost, port, tciName || undefined);
-      setTciHost("localhost");
-      setTciPort("50001");
-      setTciName("");
+      // Save settings to database before connecting
+      await saveSettings();
+      await connectTci(host, port, tciSettings.name || undefined);
     } catch (error) {
       setSelectedRadio(null);
       setIsConnectingTci(false);
@@ -838,8 +833,8 @@ export function RadioPlugin() {
                 <label className="block text-xs text-gray-500 mb-1">Host</label>
                 <input
                   type="text"
-                  value={tciHost}
-                  onChange={(e) => setTciHost(e.target.value)}
+                  value={tciSettings.host}
+                  onChange={(e) => updateTciSettings({ host: e.target.value })}
                   placeholder="localhost"
                   className="w-full px-3 py-2 bg-dark-800 border border-glass-100 rounded-lg text-sm text-gray-200 focus:outline-none focus:border-purple-500/50"
                 />
@@ -848,8 +843,8 @@ export function RadioPlugin() {
                 <label className="block text-xs text-gray-500 mb-1">Port</label>
                 <input
                   type="number"
-                  value={tciPort}
-                  onChange={(e) => setTciPort(e.target.value)}
+                  value={tciSettings.port}
+                  onChange={(e) => updateTciSettings({ port: parseInt(e.target.value) || 50001 })}
                   placeholder="50001"
                   className="w-full px-3 py-2 bg-dark-800 border border-glass-100 rounded-lg text-sm text-gray-200 focus:outline-none focus:border-purple-500/50"
                 />
@@ -859,8 +854,8 @@ export function RadioPlugin() {
               <label className="block text-xs text-gray-500 mb-1">Name (optional)</label>
               <input
                 type="text"
-                value={tciName}
-                onChange={(e) => setTciName(e.target.value)}
+                value={tciSettings.name}
+                onChange={(e) => updateTciSettings({ name: e.target.value })}
                 placeholder="My TCI Radio"
                 className="w-full px-3 py-2 bg-dark-800 border border-glass-100 rounded-lg text-sm text-gray-200 focus:outline-none focus:border-purple-500/50"
               />
@@ -868,7 +863,7 @@ export function RadioPlugin() {
             <div className="flex gap-2 pt-2">
               <button
                 onClick={handleConnectTci}
-                disabled={isConnectingTci || !tciHost}
+                disabled={isConnectingTci || !tciSettings.host}
                 className="flex-1 px-4 py-2 text-sm font-medium flex items-center justify-center gap-2 bg-purple-500/20 text-purple-400 rounded-lg hover:bg-purple-500/30 transition-all disabled:opacity-50"
               >
                 {isConnectingTci ? (

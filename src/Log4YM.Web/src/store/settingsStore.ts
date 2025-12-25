@@ -37,8 +37,15 @@ export interface RotatorSettings {
   presets: RotatorPreset[];
 }
 
+export interface TciSettings {
+  host: string;
+  port: number;
+  name: string;
+}
+
 export interface RadioSettings {
   followRadio: boolean;
+  tci: TciSettings;
 }
 
 export interface MapSettings {
@@ -78,6 +85,7 @@ interface SettingsState {
   updateAppearanceSettings: (appearance: Partial<AppearanceSettings>) => void;
   updateRotatorSettings: (rotator: Partial<RotatorSettings>) => void;
   updateRadioSettings: (radio: Partial<RadioSettings>) => void;
+  updateTciSettings: (tci: Partial<TciSettings>) => void;
   updateMapSettings: (map: Partial<MapSettings>) => void;
 
   // Persistence (MongoDB only - no localStorage)
@@ -121,6 +129,11 @@ const defaultSettings: Settings = {
   },
   radio: {
     followRadio: true,
+    tci: {
+      host: 'localhost',
+      port: 50001,
+      name: '',
+    },
   },
   map: {
     tileLayer: 'dark',
@@ -193,6 +206,19 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
       isDirty: true,
     })),
 
+  // TCI settings (nested under radio)
+  updateTciSettings: (tci) =>
+    set((state) => ({
+      settings: {
+        ...state.settings,
+        radio: {
+          ...state.settings.radio,
+          tci: { ...state.settings.radio.tci, ...tci },
+        },
+      },
+      isDirty: true,
+    })),
+
   // Map settings
   updateMapSettings: (map) =>
     set((state) => ({
@@ -244,7 +270,11 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
           qrz: { ...defaultSettings.qrz, ...settings.qrz },
           appearance: { ...defaultSettings.appearance, ...settings.appearance },
           rotator: { ...defaultSettings.rotator, ...settings.rotator },
-          radio: { ...defaultSettings.radio, ...settings.radio },
+          radio: {
+            ...defaultSettings.radio,
+            ...settings.radio,
+            tci: { ...defaultSettings.radio.tci, ...settings.radio?.tci },
+          },
           map: { ...defaultSettings.map, ...settings.map },
         };
         set({ settings: mergedSettings, isDirty: false, isLoaded: true });

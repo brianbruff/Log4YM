@@ -122,21 +122,23 @@ public class DxClusterService : BackgroundService
             if (loginSent && !ccModeEnabled && line.Contains("CCC >"))
             {
                 await Task.Delay(500, ct);
-                _logger.LogInformation("Enabling CC cluster mode and FT8 spots");
+                _logger.LogInformation("Enabling CC cluster mode (human spots only - no skimmers)");
                 await writer.WriteLineAsync("set/ve7cc");
                 ccModeEnabled = true;
                 continue;
             }
 
-            // Enable FT8 spots after CC mode is confirmed
+            // Disable skimmers after CC mode is confirmed to get human-spotted calls only
+            // Human spots include SSB/Phone which skimmers cannot detect
             if (ccModeEnabled && !ft8Enabled && line.Contains("Enhanced Spots Enabled"))
             {
                 await Task.Delay(200, ct);
-                await writer.WriteLineAsync("set/ft8");
+                // Explicitly disable skimmers to only receive human-spotted DX
+                await writer.WriteLineAsync("set/noskimmer");
                 await Task.Delay(200, ct);
-                await writer.WriteLineAsync("set/skimmer");
+                await writer.WriteLineAsync("set/noft8");
                 ft8Enabled = true;
-                _logger.LogInformation("FT8 and Skimmer spots enabled");
+                _logger.LogInformation("Skimmers disabled - receiving human spots only (includes SSB/Phone)");
                 continue;
             }
 
@@ -197,8 +199,8 @@ public class DxClusterService : BackgroundService
             var country = match.Groups[7].Value;
             var grid = match.Groups[8].Value;
 
-            // Parse mode from comment
-            var mode = ExtractMode(comment);
+            // Parse mode from comment, or infer from frequency
+            var mode = ExtractMode(comment) ?? InferModeFromFrequency(frequency);
 
             // Create timestamp from time string (HHMM format, assume today)
             var timestamp = ParseSpotTime(timeStr);
@@ -321,7 +323,7 @@ public class DxClusterService : BackgroundService
             var timeStr = match.Groups[5].Value;
             var grid = match.Groups[6].Success ? match.Groups[6].Value.ToUpper() : null;
 
-            var mode = ExtractMode(comment);
+            var mode = ExtractMode(comment) ?? InferModeFromFrequency(frequency);
             var timestamp = ParseSpotTime(timeStr);
 
             await SaveAndBroadcastSpotAsync(
@@ -384,7 +386,7 @@ public class DxClusterService : BackgroundService
     {
         var commentUpper = comment.ToUpper();
 
-        // Check for common modes
+        // Check for common modes in comment
         if (commentUpper.Contains("FT8")) return "FT8";
         if (commentUpper.Contains("FT4")) return "FT4";
         if (commentUpper.Contains("RTTY")) return "RTTY";
@@ -397,7 +399,57 @@ public class DxClusterService : BackgroundService
         if (commentUpper.Contains("JT65")) return "JT65";
         if (commentUpper.Contains("JT9")) return "JT9";
 
-        return null;
+        return null; // Will be inferred from frequency if null
+    }
+
+    /// <summary>
+    /// Infers mode from frequency when not explicitly specified in the comment.
+    /// Phone (SSB) portions of amateur bands are typically in the upper segments.
+    /// </summary>
+    private static string InferModeFromFrequency(double frequencyKhz)
+    {
+        // 160m: 1800-2000 kHz - Phone above 1843
+        if (frequencyKhz >= 1800 && frequencyKhz < 2000)
+            return frequencyKhz >= 1843 ? "SSB" : "CW";
+
+        // 80m: 3500-4000 kHz - Phone above 3600
+        if (frequencyKhz >= 3500 && frequencyKhz < 4000)
+            return frequencyKhz >= 3600 ? "SSB" : "CW";
+
+        // 40m: 7000-7300 kHz - Phone above 7125 (varies by region)
+        if (frequencyKhz >= 7000 && frequencyKhz < 7300)
+            return frequencyKhz >= 7125 ? "SSB" : "CW";
+
+        // 30m: 10100-10150 kHz - CW/Digital only, no phone
+        if (frequencyKhz >= 10100 && frequencyKhz < 10150)
+            return "CW";
+
+        // 20m: 14000-14350 kHz - Phone above 14150
+        if (frequencyKhz >= 14000 && frequencyKhz < 14350)
+            return frequencyKhz >= 14150 ? "SSB" : "CW";
+
+        // 17m: 18068-18168 kHz - Phone above 18110
+        if (frequencyKhz >= 18068 && frequencyKhz < 18168)
+            return frequencyKhz >= 18110 ? "SSB" : "CW";
+
+        // 15m: 21000-21450 kHz - Phone above 21200
+        if (frequencyKhz >= 21000 && frequencyKhz < 21450)
+            return frequencyKhz >= 21200 ? "SSB" : "CW";
+
+        // 12m: 24890-24990 kHz - Phone above 24930
+        if (frequencyKhz >= 24890 && frequencyKhz < 24990)
+            return frequencyKhz >= 24930 ? "SSB" : "CW";
+
+        // 10m: 28000-29700 kHz - Phone above 28300
+        if (frequencyKhz >= 28000 && frequencyKhz < 29700)
+            return frequencyKhz >= 28300 ? "SSB" : "CW";
+
+        // 6m: 50000-54000 kHz - Phone above 50100
+        if (frequencyKhz >= 50000 && frequencyKhz < 54000)
+            return frequencyKhz >= 50100 ? "SSB" : "CW";
+
+        // Default to SSB for unknown frequencies
+        return "SSB";
     }
 
     private static DateTime ParseSpotTime(string timeStr)

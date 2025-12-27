@@ -37,6 +37,10 @@ public partial class AdifService : IAdifService
         "my_cq_zone", "my_dxcc", "my_itu_zone", "a_index", "k_index", "sfi"
     };
 
+    // Threshold for detecting legacy frequency data stored in kHz instead of MHz
+    // Frequencies above this value are assumed to be in kHz and converted to MHz
+    private const double FrequencyKhzThreshold = 1000.0;
+
     public AdifService(
         IQsoRepository qsoRepository,
         ISettingsRepository settingsRepository,
@@ -387,9 +391,9 @@ public partial class AdifService : IAdifService
 
         if (qso.Frequency.HasValue)
         {
-            // Handle legacy data: if frequency is > 1000, it's likely stored in kHz instead of MHz
+            // Handle legacy data: if frequency is > FrequencyKhzThreshold, it's likely stored in kHz instead of MHz
             // Convert to MHz for proper ADIF export
-            var freqMhz = qso.Frequency.Value > 1000 ? qso.Frequency.Value / 1000 : qso.Frequency.Value;
+            var freqMhz = qso.Frequency.Value > FrequencyKhzThreshold ? qso.Frequency.Value / 1000 : qso.Frequency.Value;
             AppendAdifField(sb, "FREQ", freqMhz.ToString("F6", CultureInfo.InvariantCulture));
         }
 

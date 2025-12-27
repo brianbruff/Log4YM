@@ -413,7 +413,7 @@ public class QrzService : IQrzService
 
         // Optional fields
         if (qso.Frequency.HasValue)
-            AppendAdifField(sb, "FREQ", qso.Frequency.Value.ToString("F6"));
+            AppendAdifField(sb, "FREQ", (qso.Frequency.Value / 1000.0).ToString("F6"));
 
         if (!string.IsNullOrEmpty(qso.TimeOff))
             AppendAdifField(sb, "TIME_OFF", qso.TimeOff.Replace(":", ""));

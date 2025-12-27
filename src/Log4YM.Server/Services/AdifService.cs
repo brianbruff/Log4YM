@@ -386,7 +386,7 @@ public partial class AdifService : IAdifService
             AppendAdifField(sb, "TIME_OFF", FormatTime(qso.TimeOff));
 
         if (qso.Frequency.HasValue)
-            AppendAdifField(sb, "FREQ", qso.Frequency.Value.ToString("F6", CultureInfo.InvariantCulture));
+            AppendAdifField(sb, "FREQ", (qso.Frequency.Value / 1000.0).ToString("F6", CultureInfo.InvariantCulture));
 
         if (!string.IsNullOrEmpty(qso.RstSent))
             AppendAdifField(sb, "RST_SENT", qso.RstSent);

@@ -76,10 +76,10 @@ export function LogEntryPlugin() {
   // Auto-populate from radio state when followRadio is enabled
   useEffect(() => {
     if (followRadio && currentRadioState) {
-      const frequencyKhz = (currentRadioState.frequencyHz / 1000).toFixed(3);
+      const frequencyMhz = (currentRadioState.frequencyHz / 1000000).toFixed(6);
       setFormData(prev => ({
         ...prev,
-        frequency: frequencyKhz,
+        frequency: frequencyMhz,
         band: currentRadioState.band || prev.band,
         mode: normalizeMode(currentRadioState.mode) || prev.mode,
       }));
@@ -370,7 +370,7 @@ export function LogEntryPlugin() {
         <div className="flex gap-3 items-end">
           <div className="w-28">
             <label className="text-xs text-gray-400 mb-1 flex items-center gap-1">
-              Freq (kHz)
+              Freq (MHz)
               {followRadio && currentRadioState && (
                 <span className="w-1.5 h-1.5 rounded-full bg-accent-success" title="From radio" />
               )}
@@ -379,7 +379,7 @@ export function LogEntryPlugin() {
               type="text"
               value={formData.frequency}
               onChange={(e) => setFormData(prev => ({ ...prev, frequency: e.target.value }))}
-              placeholder="14250"
+              placeholder="14.250"
               className={`glass-input w-full font-mono text-sm ${
                 followRadio && currentRadioState ? 'border-accent-success/30' : ''
               }`}

@@ -386,7 +386,12 @@ public partial class AdifService : IAdifService
             AppendAdifField(sb, "TIME_OFF", FormatTime(qso.TimeOff));
 
         if (qso.Frequency.HasValue)
-            AppendAdifField(sb, "FREQ", qso.Frequency.Value.ToString("F6", CultureInfo.InvariantCulture));
+        {
+            // Handle legacy data: if frequency is > 1000, it's likely stored in kHz instead of MHz
+            // Convert to MHz for proper ADIF export
+            var freqMhz = qso.Frequency.Value > 1000 ? qso.Frequency.Value / 1000 : qso.Frequency.Value;
+            AppendAdifField(sb, "FREQ", freqMhz.ToString("F6", CultureInfo.InvariantCulture));
+        }
 
         if (!string.IsNullOrEmpty(qso.RstSent))
             AppendAdifField(sb, "RST_SENT", qso.RstSent);

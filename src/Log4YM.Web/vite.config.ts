@@ -1,8 +1,14 @@
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
+import basicSsl from "@vitejs/plugin-basic-ssl";
+
+// Use HTTPS only when VITE_HTTPS=true (for remote access where WebGL requires secure context)
+// Usage: VITE_HTTPS=true npm run dev
+const useHttps = process.env.VITE_HTTPS === "true";
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), ...(useHttps ? [basicSsl()] : [])],
+  base: "./",
   server: {
     port: 5173,
     host: true,

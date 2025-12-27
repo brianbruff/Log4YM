@@ -4,7 +4,7 @@ import { useAppStore } from '../store/appStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { useSignalR } from '../hooks/useSignalR';
 import { GlassPanel } from '../components/GlassPanel';
-import Globe from 'globe.gl';
+// Globe is dynamically imported to catch WebGL errors at load time
 
 // Default station location (can be overridden by store)
 const DEFAULT_LAT = 52.6667; // IO52RN - Limerick
@@ -56,6 +56,7 @@ export function GlobePlugin() {
   const { commandRotator } = useSignalR();
 
   const [currentAzimuth, setCurrentAzimuth] = useState(0);
+  const [webglError, setWebglError] = useState<string | null>(null);
 
   // Rotator is enabled in settings
   const rotatorEnabled = settings.rotator.enabled;
@@ -222,119 +223,259 @@ export function GlobePlugin() {
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // @ts-expect-error - globe.gl typings issue
-    const globe = Globe() as GlobeInstance;
+    // Thorough WebGL check - test actual shader compilation
+    try {
+      const canvas = document.createElement('canvas');
+      const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl') as WebGLRenderingContext | null;
+      if (!gl) {
+        console.error('WebGL not supported');
+        setWebglError('WebGL is not supported in your browser. The 3D Globe requires WebGL.');
+        return;
+      }
 
-    globe(containerRef.current)
-      // Use Google satellite tiles with labels - shows countries, cities as you zoom
-      .globeTileEngineUrl((x, y, l) => `https://mt1.google.com/vt/lyrs=y&x=${x}&y=${y}&z=${l}`)
-      .globeImageUrl('//unpkg.com/three-globe/example/img/earth-blue-marble.jpg')
-      .bumpImageUrl('//unpkg.com/three-globe/example/img/earth-topology.png')
-      .backgroundImageUrl('//unpkg.com/three-globe/example/img/night-sky.png')
-      .showAtmosphere(true)
-      .atmosphereColor('rgba(99, 102, 241, 0.4)')
-      .atmosphereAltitude(0.25)
-      .pointOfView({ lat: stationLat, lng: stationLon, altitude: 2.5 })
-      .enablePointerInteraction(true);
+      // Test shader compilation - this is what Three.js does and where it fails
+      const vertexShader = gl.createShader(gl.VERTEX_SHADER);
+      if (!vertexShader) {
+        console.error('WebGL cannot create vertex shader');
+        setWebglError('WebGL shader creation failed. Try enabling hardware acceleration in your browser settings.');
+        return;
+      }
 
-    // Add station marker
-    const markerData = [{
-      lat: stationLat,
-      lng: stationLon,
-      label: stationGrid || 'Station',
-      color: '#fbbf24', // Yellow to match beam color
-      size: 0.05
-    }];
+      gl.shaderSource(vertexShader, 'void main() { gl_Position = vec4(0.0); }');
+      gl.compileShader(vertexShader);
 
-    globe
-      .pointsData(markerData)
-      .pointLat('lat')
-      .pointLng('lng')
-      .pointColor('color')
-      .pointAltitude(0.01)
-      .pointRadius('size')
-      .pointResolution(12)
-      .pointLabel((d: unknown) => {
-        const data = d as { label: string };
-        return `<div style="text-align: center; padding: 5px; background: rgba(0, 0, 0, 0.8); border-radius: 3px; color: white;">
-          <div style="font-weight: bold;">${data.label}</div>
-          <div style="font-size: 0.8em;">Station Location</div>
-        </div>`;
+      if (!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
+        console.error('WebGL shader compilation failed:', gl.getShaderInfoLog(vertexShader));
+        setWebglError('WebGL shader compilation failed. Try enabling hardware acceleration in your browser settings.');
+        gl.deleteShader(vertexShader);
+        return;
+      }
+
+      gl.deleteShader(vertexShader);
+
+      // Also check for required extensions that Three.js needs
+      const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
+      if (debugInfo) {
+        const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
+        console.log('WebGL renderer:', renderer);
+        // SwiftShader is a software renderer - may cause issues
+        if (renderer && renderer.includes('SwiftShader')) {
+          console.warn('Using SwiftShader (software renderer) - performance may be poor');
+        }
+      }
+
+      // Explicitly release the WebGL context to free up resources
+      // Some browsers have limits on concurrent WebGL contexts
+      const loseContext = gl.getExtension('WEBGL_lose_context');
+      if (loseContext) {
+        loseContext.loseContext();
+      }
+    } catch (e) {
+      console.error('WebGL check failed:', e);
+      setWebglError('Failed to initialize WebGL. Please ensure hardware acceleration is enabled in your browser.');
+      return;
+    }
+
+    // Variables for cleanup - declared outside async function for cleanup access
+    let resizeObserver: ResizeObserver | null = null;
+    let resizeTimeout: ReturnType<typeof setTimeout> | null = null;
+    let debouncedResizeFn: (() => void) | null = null;
+    let isCancelled = false;
+
+    // Dynamically import globe.gl to catch WebGL errors at load time
+    const initGlobe = async () => {
+      // Wait for container to have valid dimensions
+      const waitForDimensions = async (): Promise<boolean> => {
+        for (let i = 0; i < 20; i++) { // Try for up to 2 seconds
+          if (!containerRef.current || isCancelled) return false;
+          const rect = containerRef.current.getBoundingClientRect();
+          if (rect.width > 0 && rect.height > 0) {
+            return true;
+          }
+          await new Promise(resolve => setTimeout(resolve, 100));
+        }
+        return false;
+      };
+
+      const hasDimensions = await waitForDimensions();
+      if (!hasDimensions) {
+        console.error('Globe container has no dimensions');
+        if (!isCancelled) {
+          setWebglError('Globe container failed to initialize. Please try resizing the window.');
+        }
+        return;
+      }
+
+      let Globe;
+      try {
+        // Import Three.js first to ensure WebGL renderer is initialized
+        // This helps prevent race conditions in the module initialization
+        // @ts-ignore - three.js types not needed for this initialization check
+        await import('three');
+
+        const module = await import('globe.gl');
+        Globe = module.default;
+      } catch (e) {
+        console.error('Failed to load globe.gl:', e);
+        if (!isCancelled) {
+          // Provide more helpful error message
+          const errorMsg = e instanceof Error ? e.message : String(e);
+          if (errorMsg.includes('VERTEX') || errorMsg.includes('WebGL') || errorMsg.includes('shader')) {
+            setWebglError('WebGL initialization failed. Please check that hardware acceleration is enabled in Chrome settings (chrome://settings/system).');
+          } else {
+            setWebglError(`Failed to load 3D Globe: ${errorMsg}`);
+          }
+        }
+        return;
+      }
+
+      if (isCancelled || !containerRef.current) return;
+
+      let globe: GlobeInstance | null = null;
+
+      try {
+        // @ts-expect-error - globe.gl typings issue with dynamic import
+        globe = Globe() as GlobeInstance;
+      } catch (e) {
+        console.error('Failed to initialize Globe:', e);
+        if (!isCancelled) {
+          setWebglError('Failed to initialize 3D Globe. Your browser may not support required features.');
+        }
+        return;
+      }
+
+      if (isCancelled || !containerRef.current) return;
+
+      try {
+        globe(containerRef.current)
+        // Use Google satellite tiles with labels - shows countries, cities as you zoom
+        .globeTileEngineUrl((x, y, l) => `https://mt1.google.com/vt/lyrs=y&x=${x}&y=${y}&z=${l}`)
+        .globeImageUrl('//unpkg.com/three-globe/example/img/earth-blue-marble.jpg')
+        .bumpImageUrl('//unpkg.com/three-globe/example/img/earth-topology.png')
+        .backgroundImageUrl('//unpkg.com/three-globe/example/img/night-sky.png')
+        .showAtmosphere(true)
+        .atmosphereColor('rgba(99, 102, 241, 0.4)')
+        .atmosphereAltitude(0.25)
+        .pointOfView({ lat: stationLat, lng: stationLon, altitude: 2.5 })
+        .enablePointerInteraction(true);
+
+      // Add station marker
+      const markerData = [{
+        lat: stationLat,
+        lng: stationLon,
+        label: stationGrid || 'Station',
+        color: '#fbbf24', // Yellow to match beam color
+        size: 0.05
+      }];
+
+      globe
+        .pointsData(markerData)
+        .pointLat('lat')
+        .pointLng('lng')
+        .pointColor('color')
+        .pointAltitude(0.01)
+        .pointRadius('size')
+        .pointResolution(12)
+        .pointLabel((d: unknown) => {
+          const data = d as { label: string };
+          return `<div style="text-align: center; padding: 5px; background: rgba(0, 0, 0, 0.8); border-radius: 3px; color: white;">
+            <div style="font-weight: bold;">${data.label}</div>
+            <div style="font-size: 0.8em;">Station Location</div>
+          </div>`;
+        });
+
+      // Handle globe clicks to set azimuth - use refs to avoid stale closures
+      // Only allow commanding rotator when enabled
+      globe.onGlobeClick((coords) => {
+        if (!rotatorEnabledRef.current) return; // Ignore clicks when rotator disabled
+        if (coords && coords.lat !== undefined && coords.lng !== undefined) {
+          const azimuth = calculateAzimuthRef.current(stationLat, stationLon, coords.lat, coords.lng);
+          lastCommandTimeRef.current = Date.now();
+          commandedAzimuthRef.current = azimuth;
+          displayedAzimuthRef.current = azimuth;
+          setCurrentAzimuth(azimuth);
+          commandRotatorRef.current(azimuth, 'globe');
+        }
       });
 
-    // Handle globe clicks to set azimuth - use refs to avoid stale closures
-    // Only allow commanding rotator when enabled
-    globe.onGlobeClick((coords) => {
-      if (!rotatorEnabledRef.current) return; // Ignore clicks when rotator disabled
-      if (coords && coords.lat !== undefined && coords.lng !== undefined) {
-        const azimuth = calculateAzimuthRef.current(stationLat, stationLon, coords.lat, coords.lng);
-        lastCommandTimeRef.current = Date.now();
-        commandedAzimuthRef.current = azimuth;
-        displayedAzimuthRef.current = azimuth;
-        setCurrentAzimuth(azimuth);
-        commandRotatorRef.current(azimuth, 'globe');
-      }
-    });
+      // Set material opacity
+      const material = globe.globeMaterial();
+      material.opacity = 0.95;
 
-    // Set material opacity
-    const material = globe.globeMaterial();
-    material.opacity = 0.95;
+      globeRef.current = globe;
 
-    globeRef.current = globe;
+      // Handle resize - use ResizeObserver for container size changes (FlexLayout panels)
+      let lastWidth = 0;
+      let lastHeight = 0;
+      let isResizing = false;
 
-    // Handle resize - use ResizeObserver for container size changes (FlexLayout panels)
-    let resizeTimeout: ReturnType<typeof setTimeout> | null = null;
-    let lastWidth = 0;
-    let lastHeight = 0;
-    let isResizing = false;
+      const handleResize = () => {
+        if (isResizing || !containerRef.current || !globeRef.current) return;
 
-    const handleResize = () => {
-      if (isResizing || !containerRef.current || !globeRef.current) return;
+        // Use getBoundingClientRect for more stable measurements
+        const rect = containerRef.current.getBoundingClientRect();
+        const width = Math.floor(rect.width);
+        const height = Math.floor(rect.height);
 
-      // Use getBoundingClientRect for more stable measurements
-      const rect = containerRef.current.getBoundingClientRect();
-      const width = Math.floor(rect.width);
-      const height = Math.floor(rect.height);
+        // Only update if size changed by more than 5px (avoid micro-fluctuations)
+        const widthDiff = Math.abs(width - lastWidth);
+        const heightDiff = Math.abs(height - lastHeight);
 
-      // Only update if size changed by more than 5px (avoid micro-fluctuations)
-      const widthDiff = Math.abs(width - lastWidth);
-      const heightDiff = Math.abs(height - lastHeight);
+        if (width > 0 && height > 0 && (widthDiff > 5 || heightDiff > 5)) {
+          isResizing = true;
+          lastWidth = width;
+          lastHeight = height;
+          globeRef.current.width(width).height(height);
+          // Release lock after a short delay to prevent feedback loops
+          setTimeout(() => { isResizing = false; }, 100);
+        }
+      };
 
-      if (width > 0 && height > 0 && (widthDiff > 5 || heightDiff > 5)) {
-        isResizing = true;
-        lastWidth = width;
-        lastHeight = height;
-        globeRef.current.width(width).height(height);
-        // Release lock after a short delay to prevent feedback loops
-        setTimeout(() => { isResizing = false; }, 100);
+      // Debounced resize handler to prevent rapid re-renders
+      const debouncedResize = () => {
+        if (resizeTimeout) {
+          clearTimeout(resizeTimeout);
+        }
+        resizeTimeout = setTimeout(handleResize, 300);
+      };
+
+      // Store reference for cleanup
+      debouncedResizeFn = debouncedResize;
+
+      // ResizeObserver detects container size changes from FlexLayout
+      resizeObserver = new ResizeObserver(debouncedResize);
+
+      resizeObserver.observe(containerRef.current);
+
+      // Also handle window resize for fullscreen etc
+      window.addEventListener('resize', debouncedResize);
+
+      // Initial size after a brief delay to let layout settle
+      setTimeout(handleResize, 100);
+
+      // Start animation
+      animationRef.current = requestAnimationFrame(animateBeam);
+
+      } catch (e) {
+        console.error('Error during globe initialization:', e);
+        if (!isCancelled) {
+          setWebglError('Failed to initialize 3D Globe. Please try refreshing the page or use a different browser.');
+        }
       }
     };
 
-    // Debounced resize handler to prevent rapid re-renders
-    const debouncedResize = () => {
-      if (resizeTimeout) {
-        clearTimeout(resizeTimeout);
-      }
-      resizeTimeout = setTimeout(handleResize, 300);
-    };
+    // Start async initialization
+    initGlobe();
 
-    // ResizeObserver detects container size changes from FlexLayout
-    const resizeObserver = new ResizeObserver(debouncedResize);
-
-    resizeObserver.observe(containerRef.current);
-
-    // Also handle window resize for fullscreen etc
-    window.addEventListener('resize', debouncedResize);
-
-    // Initial size after a brief delay to let layout settle
-    setTimeout(handleResize, 100);
-
-    // Start animation
-    animationRef.current = requestAnimationFrame(animateBeam);
-
+    // Cleanup function - always returned regardless of initialization success
     return () => {
-      resizeObserver.disconnect();
-      window.removeEventListener('resize', debouncedResize);
+      isCancelled = true;
+      if (resizeObserver) {
+        resizeObserver.disconnect();
+      }
+      if (debouncedResizeFn) {
+        window.removeEventListener('resize', debouncedResizeFn);
+      }
       if (resizeTimeout) {
         clearTimeout(resizeTimeout);
       }
@@ -425,6 +566,21 @@ export function GlobePlugin() {
       }
     >
       <div className="relative h-full min-h-[400px]">
+        {/* WebGL Error Message */}
+        {webglError && (
+          <div className="absolute inset-0 flex items-center justify-center bg-dark-800/95 backdrop-blur-sm z-50">
+            <div className="glass-panel p-6 max-w-md text-center">
+              <GlobeIcon className="w-12 h-12 mx-auto mb-4 text-gray-500" />
+              <h3 className="text-lg font-semibold mb-2 text-gray-300">WebGL Not Available</h3>
+              <p className="text-sm text-gray-400 mb-4">{webglError}</p>
+              <p className="text-xs text-gray-500">
+                Try using a modern browser like Chrome, Firefox, or Edge.
+                The 2D Map plugin provides similar functionality without WebGL.
+              </p>
+            </div>
+          </div>
+        )}
+
         {/* Globe container */}
         <div
           ref={containerRef}

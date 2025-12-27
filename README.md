@@ -143,7 +143,42 @@ Open the Settings panel in Log4YM to configure:
 
 ---
 
+## Remote Access & HTTPS
+
+When accessing Log4YM from another machine on your network (e.g., `http://192.168.1.100:5173`), the 3D Globe may fail to load. This is because browsers require a **secure context** for WebGL features, and HTTP over IP addresses is considered insecure.
+
+### Solution: Enable HTTPS for Remote Access
+
+**For development (Vite dev server):**
+
+```bash
+# Default - HTTP for localhost development
+npm run dev
+
+# HTTPS mode - for remote access with 3D Globe
+VITE_HTTPS=true npm run dev
+```
+
+Then access via `https://192.168.1.100:5173` (accept the self-signed certificate warning).
+
+**For Docker/Production:**
+
+The server listens on both HTTP (5000) and HTTPS (5001). Access via HTTPS for remote clients that need the 3D Globe.
+
+### Why is this needed?
+
+- `localhost` is always treated as a secure context, even over HTTP
+- IP addresses over HTTP are **not** secure contexts
+- WebGL/Three.js (used by the 3D Globe) requires secure context features
+- HTTPS provides the secure context needed for WebGL to work properly
+
+---
+
 ## Troubleshooting
+
+**3D Globe shows "WebGL Not Available" on remote machines?**
+- Use HTTPS instead of HTTP (see Remote Access section above)
+- Or access via `localhost` using SSH tunneling: `ssh -L 5173:localhost:5173 user@server-ip`
 
 **Can't connect to MongoDB Atlas?**
 - Check your IP is whitelisted in Atlas Network Access

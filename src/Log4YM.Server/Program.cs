@@ -6,6 +6,13 @@ using Log4YM.Server.Hubs;
 
 var builder = WebApplication.CreateBuilder(args);
 
+// Listen on all interfaces for development (allows access via IP)
+// Use HTTPS to ensure secure context for WebGL features like globe.gl
+if (builder.Environment.IsDevelopment())
+{
+    builder.WebHost.UseUrls("http://0.0.0.0:5000", "https://0.0.0.0:5001");
+}
+
 // Configure Serilog
 Log.Logger = new LoggerConfiguration()
     .ReadFrom.Configuration(builder.Configuration)

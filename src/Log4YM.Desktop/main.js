@@ -4,6 +4,11 @@ const path = require('path');
 const net = require('net');
 const log = require('electron-log');
 
+// Set app name for macOS menu bar (must be before ready)
+if (process.platform === 'darwin') {
+  app.setName('Log4YM');
+}
+
 // Configure logging
 log.transports.file.level = 'info';
 log.transports.console.level = 'debug';
@@ -207,17 +212,17 @@ function createMenu() {
   const template = [
     // App menu (macOS only)
     ...(isMac ? [{
-      label: app.name,
+      label: 'Log4YM',
       submenu: [
-        { role: 'about' },
+        { label: 'About Log4YM', role: 'about' },
         { type: 'separator' },
         { role: 'services' },
         { type: 'separator' },
-        { role: 'hide' },
+        { label: 'Hide Log4YM', role: 'hide' },
         { role: 'hideOthers' },
         { role: 'unhide' },
         { type: 'separator' },
-        { role: 'quit' }
+        { label: 'Quit Log4YM', role: 'quit' }
       ]
     }] : []),
     // File menu

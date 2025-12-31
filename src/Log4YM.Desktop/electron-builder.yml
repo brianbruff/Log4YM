@@ -19,12 +19,14 @@ extraResources:
     filter:
       - "**/*"
 
+# Use PNG icon - electron-builder converts automatically
+icon: assets/icon.png
+
 # Windows configuration
 win:
   target:
     - target: nsis
       arch: [x64]
-  icon: assets/icon.ico
   artifactName: "${productName}-${version}-${os}-${arch}.${ext}"
 
 nsis:
@@ -33,10 +35,6 @@ nsis:
   createDesktopShortcut: true
   createStartMenuShortcut: true
   shortcutName: Log4YM
-  installerIcon: assets/icon.ico
-  uninstallerIcon: assets/icon.ico
-  installerHeaderIcon: assets/icon.ico
-  license: ../../LICENSE
 
 # macOS configuration
 mac:
@@ -45,7 +43,6 @@ mac:
       arch: [x64, arm64]
     - target: zip
       arch: [x64, arm64]
-  icon: assets/icon.icns
   category: public.app-category.utilities
   artifactName: "${productName}-${version}-${os}-${arch}.${ext}"
   hardenedRuntime: true
@@ -72,7 +69,6 @@ linux:
       arch: [x64]
     - target: deb
       arch: [x64]
-  icon: assets/icon.png
   category: Utility
   artifactName: "${productName}-${version}-${os}-${arch}.${ext}"
   synopsis: Amateur Radio Logging Application

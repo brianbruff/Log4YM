@@ -11,17 +11,25 @@ permissions:
 jobs:
   build:
     strategy:
+      fail-fast: false
       matrix:
         include:
           - os: macos-latest
             platform: mac
-            arch: universal
+            dotnet_rid: osx-arm64
+            electron_arch: arm64
+          - os: macos-13
+            platform: mac
+            dotnet_rid: osx-x64
+            electron_arch: x64
           - os: windows-latest
             platform: win
-            arch: x64
+            dotnet_rid: win-x64
+            electron_arch: x64
           - os: ubuntu-latest
             platform: linux
-            arch: x64
+            dotnet_rid: linux-x64
+            electron_arch: x64
 
     runs-on: ${{ matrix.os }}
 
@@ -69,52 +77,36 @@ jobs:
         run: |
           npm version ${{ steps.version.outputs.version }} --no-git-tag-version --allow-same-version
 
-      # Windows build
-      - name: Build backend (Windows)
-        if: matrix.platform == 'win'
+      - name: Build .NET backend
         run: |
-          dotnet publish src/Log4YM.Server -c Release --self-contained -r win-x64 -o src/Log4YM.Server/bin/Release/net8.0/win-x64/publish
-          cp -r src/Log4YM.Web/dist src/Log4YM.Server/bin/Release/net8.0/win-x64/publish/wwwroot
+          dotnet publish src/Log4YM.Server -c Release --self-contained -r ${{ matrix.dotnet_rid }} -o src/Log4YM.Desktop/backend
 
-      # macOS build (both architectures)
-      - name: Build backend (macOS)
-        if: matrix.platform == 'mac'
+      - name: Copy frontend to backend wwwroot
+        shell: bash
         run: |
-          dotnet publish src/Log4YM.Server -c Release --self-contained -r osx-x64 -o src/Log4YM.Server/bin/Release/net8.0/osx-x64/publish
-          dotnet publish src/Log4YM.Server -c Release --self-contained -r osx-arm64 -o src/Log4YM.Server/bin/Release/net8.0/osx-arm64/publish
-          cp -r src/Log4YM.Web/dist src/Log4YM.Server/bin/Release/net8.0/osx-x64/publish/wwwroot
-          cp -r src/Log4YM.Web/dist src/Log4YM.Server/bin/Release/net8.0/osx-arm64/publish/wwwroot
+          cp -r src/Log4YM.Web/dist src/Log4YM.Desktop/backend/wwwroot
 
-      # Linux build
-      - name: Build backend (Linux)
-        if: matrix.platform == 'linux'
-        run: |
-          dotnet publish src/Log4YM.Server -c Release --self-contained -r linux-x64 -o src/Log4YM.Server/bin/Release/net8.0/linux-x64/publish
-          cp -r src/Log4YM.Web/dist src/Log4YM.Server/bin/Release/net8.0/linux-x64/publish/wwwroot
-
-      # Package Electron apps
       - name: Package Electron (Windows)
         if: matrix.platform == 'win'
         working-directory: src/Log4YM.Desktop
-        run: npx electron-builder --win --publish never
+        run: npx electron-builder --win --${{ matrix.electron_arch }} --publish never
 
       - name: Package Electron (macOS)
         if: matrix.platform == 'mac'
         working-directory: src/Log4YM.Desktop
-        run: npx electron-builder --mac --publish never
+        run: npx electron-builder --mac --${{ matrix.electron_arch }} --publish never
         env:
-          # Skip code signing for now (can be added later with secrets)
           CSC_IDENTITY_AUTO_DISCOVERY: false
 
       - name: Package Electron (Linux)
         if: matrix.platform == 'linux'
         working-directory: src/Log4YM.Desktop
-        run: npx electron-builder --linux --publish never
+        run: npx electron-builder --linux --${{ matrix.electron_arch }} --publish never
 
       - name: Upload artifacts
         uses: actions/upload-artifact@v4
         with:
-          name: Log4YM-${{ matrix.platform }}-${{ steps.version.outputs.version }}
+          name: Log4YM-${{ matrix.platform }}-${{ matrix.electron_arch }}-${{ steps.version.outputs.version }}
           path: |
             src/Log4YM.Desktop/dist/*.exe
             src/Log4YM.Desktop/dist/*.dmg

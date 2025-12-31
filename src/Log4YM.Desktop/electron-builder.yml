@@ -12,36 +12,12 @@ files:
   - "assets/**/*"
 
 # Include the .NET backend as an extra resource
+# The workflow copies the correct platform backend to ./backend before packaging
 extraResources:
-  # Windows
-  - from: "../Log4YM.Server/bin/Release/net8.0/win-x64/publish"
+  - from: "backend"
     to: "backend"
     filter:
       - "**/*"
-    platform: win32
-
-  # macOS x64
-  - from: "../Log4YM.Server/bin/Release/net8.0/osx-x64/publish"
-    to: "backend"
-    filter:
-      - "**/*"
-    platform: darwin
-    arch: x64
-
-  # macOS ARM64
-  - from: "../Log4YM.Server/bin/Release/net8.0/osx-arm64/publish"
-    to: "backend"
-    filter:
-      - "**/*"
-    platform: darwin
-    arch: arm64
-
-  # Linux
-  - from: "../Log4YM.Server/bin/Release/net8.0/linux-x64/publish"
-    to: "backend"
-    filter:
-      - "**/*"
-    platform: linux
 
 # Windows configuration
 win:

@@ -18,10 +18,8 @@ jobs:
             platform: mac
             dotnet_rid: osx-arm64
             electron_arch: arm64
-          - os: macos-15-large
-            platform: mac
-            dotnet_rid: osx-x64
-            electron_arch: x64
+          # Intel macOS removed - large runners require paid plan
+          # Most Macs are Apple Silicon now
           - os: windows-latest
             platform: win
             dotnet_rid: win-x64

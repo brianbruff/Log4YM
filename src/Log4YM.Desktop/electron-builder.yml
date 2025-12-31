@@ -36,13 +36,13 @@ nsis:
   createStartMenuShortcut: true
   shortcutName: Log4YM
 
-# macOS configuration
+# macOS configuration (ARM64 only - Intel requires paid CI runners)
 mac:
   target:
     - target: dmg
-      arch: [x64, arm64]
+      arch: [arm64]
     - target: zip
-      arch: [x64, arm64]
+      arch: [arm64]
   category: public.app-category.utilities
   artifactName: "${productName}-${version}-${os}-${arch}.${ext}"
   hardenedRuntime: true

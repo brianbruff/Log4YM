@@ -133,7 +133,7 @@ public class LogHub : Hub<ILogHubClient>
 
                 var lookedUpEvent = new CallsignLookedUpEvent(
                     Callsign: info.Callsign,
-                    Name: info.Name ?? info.FirstName,
+                    Name: BuildFullName(info.FirstName, info.Name),
                     Grid: info.Grid,
                     Latitude: info.Latitude,
                     Longitude: info.Longitude,
@@ -199,6 +199,20 @@ public class LogHub : Hub<ILogHubClient>
 
     private static double ToRadians(double degrees) => degrees * Math.PI / 180;
     private static double ToDegrees(double radians) => radians * 180 / Math.PI;
+
+    private static string? BuildFullName(string? firstName, string? lastName)
+    {
+        var hasFirst = !string.IsNullOrWhiteSpace(firstName);
+        var hasLast = !string.IsNullOrWhiteSpace(lastName);
+
+        if (hasFirst && hasLast)
+            return $"{firstName} {lastName}";
+        if (hasFirst)
+            return firstName;
+        if (hasLast)
+            return lastName;
+        return null;
+    }
 
     public async Task SelectSpot(SpotSelectedEvent evt)
     {

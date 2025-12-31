@@ -18,7 +18,7 @@ jobs:
             platform: mac
             dotnet_rid: osx-arm64
             electron_arch: arm64
-          - os: macos-13-large
+          - os: macos-15-large
             platform: mac
             dotnet_rid: osx-x64
             electron_arch: x64

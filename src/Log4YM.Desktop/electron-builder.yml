@@ -104,9 +104,6 @@ linux:
   desktop:
     StartupWMClass: log4ym
 
-appImage:
-  systemIntegration: ask
-
 deb:
   depends:
     - libgtk-3-0

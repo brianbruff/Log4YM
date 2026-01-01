@@ -61,7 +61,13 @@ public class SetupController : ControllerBase
 
         try
         {
-            var client = new MongoClient(request.ConnectionString);
+            // Configure client with reasonable timeouts for testing
+            var settings = MongoClientSettings.FromConnectionString(request.ConnectionString);
+            settings.ConnectTimeout = TimeSpan.FromSeconds(5);
+            settings.ServerSelectionTimeout = TimeSpan.FromSeconds(5);
+            settings.SocketTimeout = TimeSpan.FromSeconds(10);
+
+            var client = new MongoClient(settings);
             var database = client.GetDatabase(request.DatabaseName ?? "Log4YM");
 
             // Test with ping command

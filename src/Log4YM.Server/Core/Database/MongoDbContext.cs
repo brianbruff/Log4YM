@@ -20,8 +20,17 @@ public class MongoDbContext
         _configuration = configuration;
         _userConfigService = userConfigService;
 
-        // Try to initialize, but don't fail if MongoDB is not configured
-        TryInitialize();
+        // Only attempt initialization if user has already configured MongoDB via setup wizard
+        // This prevents blocking on first run when no config.json exists
+        // The appsettings.json default (localhost:27017) would cause a long timeout
+        if (_userConfigService.IsConfigured())
+        {
+            TryInitialize();
+        }
+        else
+        {
+            Log.Information("MongoDB not configured yet - waiting for setup wizard");
+        }
     }
 
     public bool IsConnected => _isInitialized && _database != null;
@@ -50,7 +59,13 @@ public class MongoDbContext
 
                 Log.Information("MongoDB connecting to database: {DatabaseName}", databaseName);
 
-                _client = new MongoClient(connectionString);
+                // Configure client with reasonable timeouts to prevent blocking
+                var settings = MongoClientSettings.FromConnectionString(connectionString);
+                settings.ConnectTimeout = TimeSpan.FromSeconds(5);
+                settings.ServerSelectionTimeout = TimeSpan.FromSeconds(5);
+                settings.SocketTimeout = TimeSpan.FromSeconds(10);
+
+                _client = new MongoClient(settings);
                 _database = _client.GetDatabase(databaseName);
 
                 // Test connection with ping

@@ -1,6 +1,6 @@
 # Log4YM
 
-**Log for Young Men** - A modern, web-based amateur radio logging application.
+**Log for Young Men** - A modern amateur radio logging application with desktop and web interfaces.
 
 > **Alpha Software** - Log4YM is under active development. Features may change and bugs are expected. Use at your own risk and always keep backups of your log data.
 
@@ -8,7 +8,7 @@
 
 ## What is Log4YM?
 
-Log4YM is a web-based amateur radio logger that runs on a server in your shack and can be accessed from any browser - PC, tablet, or phone. Your logs and settings sync automatically across all your devices via MongoDB.
+Log4YM is an amateur radio logger available as a desktop app (Windows, macOS, Linux) or web server. Your logs and settings sync automatically across all your devices via MongoDB.
 
 ### Key Features
 
@@ -21,9 +21,39 @@ Log4YM is a web-based amateur radio logger that runs on a server in your shack a
 
 ---
 
-## Quick Start
+## Installation
 
-### Option 1: Docker (Recommended)
+### Option 1: Desktop App (Recommended)
+
+Download the latest release for your platform from the [Releases](https://github.com/brianbruff/Log4YM/releases) page.
+
+| Platform | Download | Notes |
+|----------|----------|-------|
+| **Windows** | `Log4YM-Setup-x.x.x.exe` | Run the installer |
+| **macOS (Apple Silicon)** | `Log4YM-x.x.x-arm64.dmg` | See macOS instructions below |
+| **macOS (Intel)** | `Log4YM-x.x.x-x64.dmg` | See macOS instructions below |
+| **Linux** | `Log4YM-x.x.x.AppImage` | Make executable and run |
+
+#### macOS Installation (Unsigned App)
+
+The macOS builds are not signed with an Apple Developer certificate. You'll need to remove the quarantine attribute before running:
+
+```bash
+# After mounting the DMG and copying Log4YM.app to Applications:
+xattr -cr /Applications/Log4YM.app
+```
+
+Then open the app normally. If you still get a security warning, go to **System Preferences > Security & Privacy** and click **Open Anyway**.
+
+#### First Run - Setup Wizard
+
+On first launch, Log4YM will display a setup wizard to configure your MongoDB connection. You can use:
+- **MongoDB Atlas** (free cloud tier) - Sync across all your devices
+- **Local MongoDB** - For offline-only use
+
+---
+
+### Option 2: Docker
 
 ```bash
 git clone https://github.com/brianbruff/Log4YM.git
@@ -33,17 +63,69 @@ docker-compose up -d
 
 Open http://localhost:5000 in your browser.
 
-### Option 2: Run from Source
+---
+
+### Option 3: Run from Source
+
+#### Prerequisites
+
+- [.NET 8 SDK](https://dotnet.microsoft.com/download/dotnet/8.0)
+- [Node.js 18+](https://nodejs.org/)
+
+#### Development Mode (Hot Reload)
+
+Run the backend and frontend separately for development with hot reload:
 
 ```bash
-# Terminal 1 - Start the server
+# Terminal 1 - Start the .NET backend
 cd src/Log4YM.Server
 dotnet run
 
-# Terminal 2 - Start the web UI (for development)
+# Terminal 2 - Start the React frontend dev server
 cd src/Log4YM.Web
 npm install
 npm run dev
+
+# Terminal 3 - (Optional) Start Electron shell in dev mode
+cd src/Log4YM.Desktop
+npm install
+npm run dev
+```
+
+The backend runs on http://localhost:5000, frontend dev server on http://localhost:5173.
+
+#### Build Desktop App from Source
+
+```bash
+cd src/Log4YM.Desktop
+npm install
+cd ../Log4YM.Web && npm install && cd ../Log4YM.Desktop
+
+# Build for your platform:
+npm run package:mac      # macOS (builds both arm64 and x64)
+npm run package:win      # Windows
+npm run package:linux    # Linux
+
+# Or build all platforms:
+npm run package:all
+```
+
+Built packages are output to `src/Log4YM.Desktop/dist/`.
+
+#### Individual Build Steps
+
+```bash
+# Build frontend only
+npm run build:frontend
+
+# Build backend for specific platform
+npm run build:backend:mac-arm64   # macOS Apple Silicon
+npm run build:backend:mac-x64     # macOS Intel
+npm run build:backend:win         # Windows
+npm run build:backend:linux       # Linux
+
+# Run packaged Electron app locally (after building backend)
+npm start
 ```
 
 ---

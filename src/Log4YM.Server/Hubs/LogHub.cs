@@ -216,8 +216,16 @@ public class LogHub : Hub<ILogHubClient>
 
     public async Task SelectSpot(SpotSelectedEvent evt)
     {
-        _logger.LogDebug("Spot selected: {DxCall} on {Frequency}", evt.DxCall, evt.Frequency);
-        await Clients.Others.OnSpotSelected(evt);
+        _logger.LogInformation("Spot selected: {DxCall} on {Frequency} kHz ({Mode})", evt.DxCall, evt.Frequency / 1000.0, evt.Mode ?? "unknown");
+
+        // Broadcast to ALL clients (including caller) so the log entry gets populated
+        await Clients.All.OnSpotSelected(evt);
+
+        // TODO: Tune the connected radio to the spot frequency/mode
+        // This requires implementing SetFrequency/SetMode in the radio services:
+        // - HamlibService.SetFrequencyAsync(long freqHz)
+        // - FlexRadioService.SetFrequencyAsync(string radioId, long freqHz)
+        // - TciRadioService.SetFrequencyAsync(string radioId, long freqHz)
     }
 
     public async Task CommandRotator(RotatorCommandEvent evt)

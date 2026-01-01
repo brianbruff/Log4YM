@@ -29,6 +29,8 @@ export function useSignalR() {
     removeSmartUnlinkRadio,
     setSmartUnlinkRadios,
     setQrzSyncProgress,
+    setSelectedSpot,
+    setLogHistoryCallsignFilter,
   } = useAppStore();
 
   useEffect(() => {
@@ -104,6 +106,18 @@ export function useSignalR() {
           onSpotReceived: () => {
             // Invalidate spots query
             queryClient.invalidateQueries({ queryKey: ['spots'] });
+          },
+          onSpotSelected: (evt) => {
+            console.log('Spot selected:', evt.dxCall, evt.frequency, evt.mode);
+            // Store selected spot for log entry auto-population
+            setSelectedSpot(evt);
+            // Set the callsign for log history filter
+            setLogHistoryCallsignFilter(evt.dxCall);
+            // Trigger QRZ lookup for the callsign (will populate name, grid, country)
+            setFocusedCallsign(evt.dxCall);
+            setFocusedCallsignInfo(null);
+            setLookingUpCallsign(true);
+            signalRService.focusCallsign({ callsign: evt.dxCall, source: 'cluster-spot' });
           },
           onRotatorPosition: (evt) => {
             console.log('Rotator position:', evt.currentAzimuth, 'moving:', evt.isMoving);
@@ -213,7 +227,7 @@ export function useSignalR() {
       signalRService.disconnect();
       setConnectionState('disconnected', 0);
     };
-  }, [queryClient, setConnected, setConnectionState, setFocusedCallsign, setFocusedCallsignInfo, setLookingUpCallsign, setRotatorPosition, setRigStatus, setAntennaGeniusStatus, updateAntennaGeniusPort, removeAntennaGeniusDevice, setPgxlStatus, removePgxlDevice, addDiscoveredRadio, removeDiscoveredRadio, setRadioConnectionState, setRadioState, setRadioSlices, addSmartUnlinkRadio, updateSmartUnlinkRadio, removeSmartUnlinkRadio, setSmartUnlinkRadios, setQrzSyncProgress]);
+  }, [queryClient, setConnected, setConnectionState, setFocusedCallsign, setFocusedCallsignInfo, setLookingUpCallsign, setRotatorPosition, setRigStatus, setAntennaGeniusStatus, updateAntennaGeniusPort, removeAntennaGeniusDevice, setPgxlStatus, removePgxlDevice, addDiscoveredRadio, removeDiscoveredRadio, setRadioConnectionState, setRadioState, setRadioSlices, addSmartUnlinkRadio, updateSmartUnlinkRadio, removeSmartUnlinkRadio, setSmartUnlinkRadios, setQrzSyncProgress, setSelectedSpot, setLogHistoryCallsignFilter]);
 
   const focusCallsign = useCallback(async (callsign: string, source: string) => {
     setFocusedCallsign(callsign);

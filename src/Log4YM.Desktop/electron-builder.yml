@@ -8,6 +8,7 @@ directories:
 
 files:
   - "main.js"
+  - "updater.js"
   - "package.json"
   - "assets/**/*"
 

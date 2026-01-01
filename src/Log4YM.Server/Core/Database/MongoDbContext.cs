@@ -72,8 +72,10 @@ public class MongoDbContext
                 _database.RunCommand<MongoDB.Bson.BsonDocument>(
                     new MongoDB.Bson.BsonDocument("ping", 1));
 
-                CreateIndexes();
+                // Set initialized BEFORE creating indexes (indexes access collection properties)
                 _isInitialized = true;
+
+                CreateIndexes();
 
                 Log.Information("MongoDB connected successfully");
                 return true;

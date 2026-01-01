@@ -24,7 +24,7 @@ const MODES = ['SSB', 'CW', 'FT8', 'FT4', 'RTTY', 'PSK31', 'AM', 'FM'];
 export function LogEntryPlugin() {
   const queryClient = useQueryClient();
   const { focusCallsign } = useSignalR();
-  const { focusedCallsignInfo, radioStates, selectedRadioId, isLookingUpCallsign, setFocusedCallsign, setFocusedCallsignInfo, setLogHistoryCallsignFilter, clearCallsignFromAllControls } = useAppStore();
+  const { focusedCallsignInfo, radioStates, selectedRadioId, isLookingUpCallsign, setFocusedCallsign, setFocusedCallsignInfo, setLogHistoryCallsignFilter, clearCallsignFromAllControls, selectedSpot, setSelectedSpot } = useAppStore();
   const { settings, updateRadioSettings } = useSettingsStore();
   const followRadio = settings.radio.followRadio;
 
@@ -95,6 +95,44 @@ export function LogEntryPlugin() {
       }));
     }
   }, [nameLocked, focusedCallsignInfo?.name]);
+
+  // Auto-populate from DX cluster spot selection
+  useEffect(() => {
+    if (selectedSpot) {
+      const frequencyKhz = (selectedSpot.frequency / 1000).toFixed(3);
+      const band = getBandFromFrequency(selectedSpot.frequency);
+      const mode = selectedSpot.mode ? normalizeMode(selectedSpot.mode) : formData.mode;
+
+      setFormData(prev => ({
+        ...prev,
+        callsign: selectedSpot.dxCall,
+        frequency: frequencyKhz,
+        band: band || prev.band,
+        mode: mode,
+      }));
+
+      // Clear the selected spot after processing to allow re-selection of same spot
+      setSelectedSpot(null);
+    }
+  }, [selectedSpot, setSelectedSpot]);
+
+  // Helper to determine band from frequency in Hz
+  const getBandFromFrequency = (freqHz: number): string | null => {
+    const freqKhz = freqHz / 1000;
+    if (freqKhz >= 1800 && freqKhz <= 2000) return '160m';
+    if (freqKhz >= 3500 && freqKhz <= 4000) return '80m';
+    if (freqKhz >= 7000 && freqKhz <= 7300) return '40m';
+    if (freqKhz >= 10100 && freqKhz <= 10150) return '30m';
+    if (freqKhz >= 14000 && freqKhz <= 14350) return '20m';
+    if (freqKhz >= 18068 && freqKhz <= 18168) return '17m';
+    if (freqKhz >= 21000 && freqKhz <= 21450) return '15m';
+    if (freqKhz >= 24890 && freqKhz <= 24990) return '12m';
+    if (freqKhz >= 28000 && freqKhz <= 29700) return '10m';
+    if (freqKhz >= 50000 && freqKhz <= 54000) return '6m';
+    if (freqKhz >= 144000 && freqKhz <= 148000) return '2m';
+    if (freqKhz >= 420000 && freqKhz <= 450000) return '70cm';
+    return null;
+  };
 
   // Normalize mode names from radio to match our MODES list
   const normalizeMode = (mode: string): string => {

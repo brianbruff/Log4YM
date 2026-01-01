@@ -11,6 +11,7 @@ import type {
   RadioStateChangedEvent,
   RadioSliceInfo,
   SmartUnlinkRadioAddedEvent,
+  SpotSelectedEvent,
 } from '../api/signalr';
 
 // Connection state enum for detailed tracking
@@ -94,6 +95,10 @@ interface AppState {
   logHistoryCallsignFilter: string | null;
   setLogHistoryCallsignFilter: (callsign: string | null) => void;
   clearCallsignFromAllControls: () => void;
+
+  // Selected DX Cluster spot (for auto-populating log entry)
+  selectedSpot: SpotSelectedEvent | null;
+  setSelectedSpot: (spot: SpotSelectedEvent | null) => void;
 }
 
 export interface QrzSyncProgress {
@@ -288,5 +293,10 @@ export const useAppStore = create<AppState>((set) => ({
     focusedCallsignInfo: null,
     logHistoryCallsignFilter: null,
     isLookingUpCallsign: false,
+    selectedSpot: null,
   }),
+
+  // Selected DX Cluster spot
+  selectedSpot: null,
+  setSelectedSpot: (spot) => set({ selectedSpot: spot }),
 }));

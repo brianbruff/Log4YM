@@ -3,6 +3,7 @@ const { spawn } = require('child_process');
 const path = require('path');
 const net = require('net');
 const log = require('electron-log');
+const { checkForUpdates } = require('./updater');
 
 // Set app name for macOS menu bar (must be before ready)
 if (process.platform === 'darwin') {
@@ -279,6 +280,13 @@ function createMenu() {
       label: 'Help',
       submenu: [
         {
+          label: 'Check for Updates...',
+          click: async () => {
+            await checkForUpdates(false);
+          }
+        },
+        { type: 'separator' },
+        {
           label: 'Log4YM on GitHub',
           click: async () => {
             await shell.openExternal('https://github.com/brianbruff/Log4YM');
@@ -328,6 +336,13 @@ app.whenReady().then(async () => {
     await startBackend();
     createMenu();
     createWindow();
+
+    // Check for updates after startup (delayed to not slow down launch)
+    setTimeout(() => {
+      checkForUpdates(true).catch(err => {
+        log.warn(`Startup update check failed: ${err.message}`);
+      });
+    }, 3000);
 
     // macOS: Re-create window when dock icon clicked
     app.on('activate', () => {

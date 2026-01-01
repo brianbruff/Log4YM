@@ -1,7 +1,7 @@
 {
   "name": "log4ym-desktop",
   "productName": "Log4YM",
-  "version": "1.4.4",
+  "version": "1.5.0",
   "description": "Log4YM - Amateur Radio Logging Desktop Application",
   "homepage": "https://github.com/brianbruff/Log4YM",
   "repository": {

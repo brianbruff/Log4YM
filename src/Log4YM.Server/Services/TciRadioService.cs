@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.SignalR;
 using Log4YM.Contracts.Events;
+using Log4YM.Server.Core.Database;
 using Log4YM.Server.Hubs;
 
 namespace Log4YM.Server.Services;
@@ -17,6 +18,7 @@ public class TciRadioService : BackgroundService
 {
     private readonly ILogger<TciRadioService> _logger;
     private readonly IHubContext<LogHub, ILogHubClient> _hubContext;
+    private readonly ISettingsRepository _settingsRepository;
     private readonly ConcurrentDictionary<string, TciRadioDevice> _discoveredRadios = new();
     private readonly ConcurrentDictionary<string, TciRadioConnection> _connections = new();
 
@@ -31,21 +33,45 @@ public class TciRadioService : BackgroundService
 
     public TciRadioService(
         ILogger<TciRadioService> logger,
-        IHubContext<LogHub, ILogHubClient> hubContext)
+        IHubContext<LogHub, ILogHubClient> hubContext,
+        ISettingsRepository settingsRepository)
     {
         _logger = logger;
         _hubContext = hubContext;
+        _settingsRepository = settingsRepository;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
         _logger.LogInformation("TCI Radio service starting...");
 
+        // Auto-connect to TCI if configured
+        await TryAutoConnectAsync();
+
         // Run cleanup task periodically
         while (!stoppingToken.IsCancellationRequested)
         {
             await CleanupStaleRadiosAsync();
             await Task.Delay(TimeSpan.FromSeconds(10), stoppingToken);
+        }
+    }
+
+    private async Task TryAutoConnectAsync()
+    {
+        try
+        {
+            var settings = await _settingsRepository.GetAsync();
+            var tciSettings = settings?.Radio?.Tci;
+
+            if (tciSettings is { AutoConnect: true } && !string.IsNullOrEmpty(tciSettings.Host))
+            {
+                _logger.LogInformation("Auto-connecting to TCI at {Host}:{Port}", tciSettings.Host, tciSettings.Port);
+                await ConnectDirectAsync(tciSettings.Host, tciSettings.Port, tciSettings.Name);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to auto-connect to TCI");
         }
     }
 
@@ -361,6 +387,14 @@ public class TciRadioService : BackgroundService
             .Where(c => c.IsConnected)
             .Select(c => c.GetCurrentState())
             .Where(s => s != null)!;
+    }
+
+    public IEnumerable<RadioConnectionStateChangedEvent> GetConnectionStates()
+    {
+        return _connections.Select(kvp => new RadioConnectionStateChangedEvent(
+            kvp.Key,
+            kvp.Value.IsConnected ? RadioConnectionState.Connected : RadioConnectionState.Disconnected
+        ));
     }
 
     private static Dictionary<string, string> ParseKeyValuePairs(string text)

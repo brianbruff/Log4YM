@@ -789,6 +789,18 @@ export function RadioPlugin() {
                 className="w-full px-3 py-2 bg-dark-800 border border-glass-100 rounded-lg text-sm text-gray-200 focus:outline-none focus:border-purple-500/50"
               />
             </div>
+            <label className="flex items-center gap-2 text-sm text-gray-300 cursor-pointer">
+              <input
+                type="checkbox"
+                checked={tciSettings.autoConnect}
+                onChange={(e) => {
+                  updateTciSettings({ autoConnect: e.target.checked });
+                  saveSettings();
+                }}
+                className="w-4 h-4 rounded border-glass-100 bg-dark-800 text-purple-500 focus:ring-purple-500/50"
+              />
+              Auto-connect on startup
+            </label>
             <div className="flex gap-2 pt-2">
               <button
                 onClick={handleConnectTci}

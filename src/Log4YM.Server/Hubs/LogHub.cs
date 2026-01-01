@@ -633,6 +633,12 @@ public class LogHub : Hub<ILogHubClient>
         {
             await Clients.Caller.OnRadioStateChanged(state);
         }
+
+        // Send current connection states so UI reflects actual connection status
+        foreach (var connState in _tciRadioService.GetConnectionStates())
+        {
+            await Clients.Caller.OnRadioConnectionStateChanged(connState);
+        }
     }
 
     // SmartUnlink methods

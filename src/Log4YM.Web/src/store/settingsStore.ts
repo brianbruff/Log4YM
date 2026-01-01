@@ -41,6 +41,7 @@ export interface TciSettings {
   host: string;
   port: number;
   name: string;
+  autoConnect: boolean;
 }
 
 export interface RadioSettings {
@@ -135,6 +136,7 @@ const defaultSettings: Settings = {
       host: 'localhost',
       port: 50001,
       name: '',
+      autoConnect: false,
     },
   },
   map: {

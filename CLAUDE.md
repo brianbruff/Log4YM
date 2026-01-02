@@ -72,5 +72,5 @@ npm run package:all
 
 ## Git Commit Instructions
 
-- Never mention Claude or Anthropic in git commit messages
 - Never push unless instructed
+s

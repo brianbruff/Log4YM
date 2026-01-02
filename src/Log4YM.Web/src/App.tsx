@@ -77,7 +77,7 @@ const PLUGINS: Record<string, { name: string; icon: React.ReactNode; component: 
 export function App() {
   const layoutRef = useRef<Layout>(null);
   const { layout, setLayout, resetLayout: resetLayoutStore } = useLayoutStore();
-  const { loadSettings } = useSettingsStore();
+  const { loadSettings, openSettings } = useSettingsStore();
   const { fetchStatus } = useSetupStore();
   const [model, setModel] = useState<Model>(() => Model.fromJson(layout));
   const [showPanelPicker, setShowPanelPicker] = useState(false);
@@ -95,6 +95,20 @@ export function App() {
   useEffect(() => {
     loadSettings();
   }, [loadSettings]);
+
+  // Listen for Electron menu commands (Settings via Cmd+,)
+  useEffect(() => {
+    // Check if running in Electron with IPC available
+    if (window.electronAPI) {
+      window.electronAPI.onOpenSettings(() => {
+        openSettings();
+      });
+
+      return () => {
+        window.electronAPI?.removeOpenSettingsListener();
+      };
+    }
+  }, [openSettings]);
 
   // Update model when layout store changes (e.g., from localStorage hydration)
   useEffect(() => {

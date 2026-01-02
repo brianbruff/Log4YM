@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, shell, dialog } = require('electron');
+const { app, BrowserWindow, Menu, shell, dialog, ipcMain } = require('electron');
 const { spawn } = require('child_process');
 const path = require('path');
 const net = require('net');
@@ -18,6 +18,8 @@ let mainWindow;
 let backendProcess;
 let backendPort;
 let isDevMode = process.argv.includes('--dev');
+let useViteDevServer = process.argv.includes('--vite') || process.env.VITE_DEV === 'true';
+const VITE_DEV_PORT = 5173;
 
 /**
  * Find an available port starting from the given port
@@ -178,14 +180,19 @@ function createWindow() {
     webPreferences: {
       nodeIntegration: false,
       contextIsolation: true,
-      webSecurity: true
+      webSecurity: true,
+      preload: path.join(__dirname, 'preload.js')
     },
     backgroundColor: '#0a0a0f',
     show: false // Don't show until ready
   });
 
-  // Load the backend URL
-  mainWindow.loadURL(`http://localhost:${backendPort}`);
+  // Load the appropriate URL based on dev mode
+  const loadUrl = useViteDevServer
+    ? `http://localhost:${VITE_DEV_PORT}`
+    : `http://localhost:${backendPort}`;
+  log.info(`Loading URL: ${loadUrl}`);
+  mainWindow.loadURL(loadUrl);
 
   // Show window when ready
   mainWindow.once('ready-to-show', () => {
@@ -217,6 +224,16 @@ function createMenu() {
       submenu: [
         { label: 'About Log4YM', role: 'about' },
         { type: 'separator' },
+        {
+          label: 'Settings...',
+          accelerator: 'CmdOrCtrl+,',
+          click: () => {
+            if (mainWindow) {
+              mainWindow.webContents.send('open-settings');
+            }
+          }
+        },
+        { type: 'separator' },
         { role: 'services' },
         { type: 'separator' },
         { label: 'Hide Log4YM', role: 'hide' },
@@ -230,6 +247,16 @@ function createMenu() {
     {
       label: 'File',
       submenu: [
+        ...(!isMac ? [{
+          label: 'Settings',
+          accelerator: 'CmdOrCtrl+,',
+          click: () => {
+            if (mainWindow) {
+              mainWindow.webContents.send('open-settings');
+            }
+          }
+        },
+        { type: 'separator' }] : []),
         isMac ? { role: 'close' } : { role: 'quit' }
       ]
     },
@@ -331,6 +358,7 @@ app.whenReady().then(async () => {
   log.info(`Platform: ${process.platform} ${process.arch}`);
   log.info(`Electron: ${process.versions.electron}`);
   log.info(`Packaged: ${app.isPackaged}`);
+  log.info(`Dev mode: ${isDevMode}, Vite dev server: ${useViteDevServer}`);
 
   try {
     await startBackend();

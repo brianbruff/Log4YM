@@ -59,14 +59,16 @@ public sealed class HamlibRig : IDisposable
     {
         ThrowIfDisposed();
 
-        // Access rig->state.rigport struct via offset
-        // This is fragile but necessary for direct Hamlib access
-        // We'll use rig_set_conf for portable configuration
+        // Normalize Windows COM port paths
+        // COM ports >= 10 or with certain drivers need \\.\COMx format
+        var normalizedPath = NormalizeSerialPortPath(portPath);
+        _logger?.LogInformation("Configuring serial port: {OriginalPath} -> {NormalizedPath}",
+            portPath, normalizedPath);
 
         lock (_lock)
         {
             // Set pathname
-            SetConf("rig_pathname", portPath);
+            SetConf("rig_pathname", normalizedPath);
 
             // Set serial parameters via conf tokens where available
             SetConf("serial_speed", baudRate.ToString());
@@ -149,6 +151,7 @@ public sealed class HamlibRig : IDisposable
     /// <summary>
     /// Open connection to the rig
     /// </summary>
+    /// <exception cref="InvalidOperationException">Thrown when rig_open fails with error details</exception>
     public bool Open()
     {
         ThrowIfDisposed();
@@ -160,8 +163,9 @@ public sealed class HamlibRig : IDisposable
             var result = HamlibNative.rig_open(_rig);
             if (result != RigError.RIG_OK)
             {
-                _logger?.LogError("Failed to open rig: {Error}", GetErrorString(result));
-                return false;
+                var errorMsg = GetErrorString(result);
+                _logger?.LogError("Failed to open rig: {Error} (code {Code})", errorMsg, result);
+                throw new InvalidOperationException($"Hamlib rig_open failed: {errorMsg} (error code {result})");
             }
 
             _isOpen = true;
@@ -489,6 +493,33 @@ public sealed class HamlibRig : IDisposable
             }
             return true;
         }
+    }
+
+    /// <summary>
+    /// Normalize serial port path for the current platform
+    /// Windows COM ports need special handling for Hamlib
+    /// </summary>
+    private static string NormalizeSerialPortPath(string portPath)
+    {
+        if (string.IsNullOrEmpty(portPath))
+            return portPath;
+
+        // On Windows, normalize COM port paths
+        if (RuntimeInformation.IsOSPlatform(OSPlatform.Windows))
+        {
+            // If it's already in \\.\COMx format, leave it alone
+            if (portPath.StartsWith(@"\\.\", StringComparison.OrdinalIgnoreCase))
+                return portPath;
+
+            // If it's COMx format, convert to \\.\COMx for compatibility
+            // This is required for COM ports >= 10, and works for all COM ports
+            if (portPath.StartsWith("COM", StringComparison.OrdinalIgnoreCase))
+            {
+                return @"\\.\" + portPath.ToUpperInvariant();
+            }
+        }
+
+        return portPath;
     }
 
     private static string GetErrorString(int errorCode)

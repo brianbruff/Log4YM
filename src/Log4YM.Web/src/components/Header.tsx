@@ -1,6 +1,11 @@
+import { Settings } from 'lucide-react';
+import { useSettingsStore } from '../store/settingsStore';
+
 export function Header() {
+  const { openSettings } = useSettingsStore();
+
   return (
-    <header className="h-14 bg-dark-800/90 backdrop-blur-xl border-b border-glass-100 flex items-center px-4">
+    <header className="h-14 bg-dark-800/90 backdrop-blur-xl border-b border-glass-100 flex items-center justify-between px-4">
       {/* Logo */}
       <div className="flex items-center gap-3">
         <div className="relative w-10 h-10">
@@ -27,6 +32,13 @@ export function Header() {
           </h1>
           <p className="text-[10px] text-orange-500/80 tracking-widest uppercase -mt-0.5">Hamradio Logging</p>
         </div>
+      </div>
+
+      {/* Actions */}
+      <div className="flex items-center gap-2">
+        <button onClick={openSettings} className="glass-button p-2" title="Settings">
+          <Settings className="w-4 h-4" />
+        </button>
       </div>
     </header>
   );

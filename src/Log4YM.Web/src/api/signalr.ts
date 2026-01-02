@@ -318,6 +318,8 @@ export interface HamlibRigCapabilities {
   defaultDataBits: number;
   defaultStopBits: number;
   isNetworkOnly: boolean;
+  supportsSerial: boolean;
+  supportsNetwork: boolean;
 }
 
 export interface HamlibRigConfigDto {

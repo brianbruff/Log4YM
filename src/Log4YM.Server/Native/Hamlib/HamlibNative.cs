@@ -672,3 +672,19 @@ public enum SerialParity
     Mark = 3,
     Space = 4
 }
+
+/// <summary>
+/// Hamlib rig port types
+/// </summary>
+public enum RigPortType
+{
+    None = 0,
+    Serial = 1,
+    Device = 2,      // Generic device (serial-like)
+    Network = 4,
+    Udp = 5,
+    Parallel = 6,
+    Usb = 7,
+    Gpio = 8,
+    Cm108 = 9
+}

@@ -30,8 +30,12 @@ builder.Services.AddSwaggerGen(c =>
     c.SwaggerDoc("v1", new() { Title = "Log4YM API", Version = "v1" });
 });
 
-// Add SignalR
-builder.Services.AddSignalR();
+// Add SignalR with JSON enum string serialization
+builder.Services.AddSignalR()
+    .AddJsonProtocol(options =>
+    {
+        options.PayloadSerializerOptions.Converters.Add(new System.Text.Json.Serialization.JsonStringEnumConverter());
+    });
 
 // Add CORS
 builder.Services.AddCors(options =>

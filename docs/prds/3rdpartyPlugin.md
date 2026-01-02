@@ -81,7 +81,39 @@ This is a selection of useful endpoints. The full API should be documented (e.g.
   - `POST /api/log/focus`: Sets the callsign in the log entry panel.
   - `POST /api/radio/tune`: Tunes a connected radio to a specific frequency and mode.
 
-## 5. Example Plugin (Python)
+## 5. Plugin Deployment and Workflow
+
+A key design choice in this architecture is that **plugins are external, standalone applications.** This section clarifies how that works in practice and why this model was chosen.
+
+### How it Works in Practice
+
+The workflow for a developer and user (who may be the same person) is as follows:
+
+1.  **Develop the Plugin:** A developer writes their plugin in any language and on any platform they choose. The plugin's source code can be managed in its own Git repository, completely separate from Log4YM's codebase. The developer's only dependencies are the Log4YM API and WebSocket endpoints.
+
+2.  **Generate an API Key:** The user runs Log4YM, navigates to the `Settings -> API Keys` page, and generates a new API key for the plugin.
+
+3.  **Configure the Plugin:** The user provides the plugin with two pieces of information:
+    - The network address of the Log4YM server (e.g., `localhost:5000`).
+    - The generated API key.
+
+4.  **Run the Plugin:** The user starts the plugin as a separate process (e.g., by running `python my_plugin.py` or double-clicking an executable). The plugin then connects to Log4YM over the network.
+
+This model means Log4YM does **not** automatically discover or run plugins. The user is responsible for running their desired plugins alongside the main Log4YM application.
+
+### Comparison with a "Plugin Directory" Model
+
+An alternative approach is a "plugin directory" model, where Log4YM would monitor a special folder (e.g., `~/.log4ym/plugins`). Users would place plugin files in this folder, and Log4YM would be responsible for loading and running them.
+
+While this can offer a simpler user experience, it was not chosen for the initial design for the following reasons:
+
+-   **Complexity:** Log4YM would need complex logic to understand how to install dependencies and run plugins for various languages (e.g., `npm install`, `pip install`, `dotnet run`). This would be a significant maintenance burden.
+-   **Security:** Running arbitrary code from a folder is a major security risk. The proposed external model provides better isolation, as plugins run in their own sandboxed processes.
+-   **Flexibility:** The external model gives developers complete freedom. They can run the plugin on a different machine (e.g., a Raspberry Pi) and are not constrained by runtime environments or sandboxing that Log4YM might impose.
+
+The "plugin directory" model could be considered as a future enhancement, but the external API-first approach provides a more robust, secure, and flexible foundation.
+
+## 6. Example Plugin (Python)
 
 This example shows a simple Python plugin that listens for callsigns, looks up their country, and prints it to the console.
 
@@ -154,7 +186,7 @@ if __name__ == "__main__":
         loop.close()
 ```
 
-## 6. Implementation Plan
+## 7. Implementation Plan
 
 1.  **Backend: API Key Service**
     - Create a service to generate, store, and validate API keys.

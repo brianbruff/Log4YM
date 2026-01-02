@@ -133,8 +133,11 @@ public class HamlibService : BackgroundService
     /// </summary>
     public RigCapabilities GetRigCapabilities(int modelId)
     {
-        if (!_initialized) return new RigCapabilities();
-        return RigCapabilities.GetForModel(modelId);
+        if (!_initialized) return new RigCapabilities { SupportsSerial = true, SupportsNetwork = false };
+
+        // Look up model info to pass manufacturer/model names for better detection
+        var modelInfo = GetAvailableRigs().FirstOrDefault(r => r.ModelId == modelId);
+        return RigCapabilities.GetForModel(modelId, modelInfo?.Manufacturer, modelInfo?.Model);
     }
 
     /// <summary>
@@ -178,6 +181,9 @@ public class HamlibService : BackgroundService
         try
         {
             // Create rig instance
+            _logger.LogInformation("Creating Hamlib rig instance for model {ModelId} ({ModelName})",
+                config.ModelId, config.ModelName);
+
             _rig = HamlibRig.Create(config.ModelId, _logger);
             if (_rig == null)
             {
@@ -192,6 +198,9 @@ public class HamlibService : BackgroundService
                     throw new InvalidOperationException("Serial port not specified");
                 }
 
+                _logger.LogInformation("Configuring serial: Port={Port}, Baud={Baud}, DataBits={DataBits}, StopBits={StopBits}, Flow={Flow}, Parity={Parity}",
+                    config.SerialPort, config.BaudRate, config.DataBits, config.StopBits, config.FlowControl, config.Parity);
+
                 _rig.ConfigureSerial(
                     config.SerialPort,
                     config.BaudRate,
@@ -203,6 +212,8 @@ public class HamlibService : BackgroundService
                 // Configure PTT
                 if (config.PttType != Native.Hamlib.HamlibPttType.None)
                 {
+                    _logger.LogInformation("Configuring PTT: Type={PttType}, Port={PttPort}",
+                        config.GetPttTypeString(), config.PttPort ?? "(same as rig)");
                     _rig.ConfigurePtt(config.GetPttTypeString(), config.PttPort);
                 }
             }
@@ -213,14 +224,14 @@ public class HamlibService : BackgroundService
                     throw new InvalidOperationException("Hostname not specified");
                 }
 
+                _logger.LogInformation("Configuring network: Host={Host}, Port={Port}",
+                    config.Hostname, config.NetworkPort);
                 _rig.ConfigureNetwork(config.Hostname, config.NetworkPort);
             }
 
             // Open connection
-            if (!_rig.Open())
-            {
-                throw new InvalidOperationException("Failed to open rig connection");
-            }
+            _logger.LogInformation("Opening rig connection...");
+            _rig.Open(); // Now throws on failure with detailed error
 
             _logger.LogInformation("Connected to Hamlib rig: {ModelName}", config.ModelName);
 

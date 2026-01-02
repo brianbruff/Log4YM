@@ -513,7 +513,9 @@ public record HamlibRigCapabilities(
     bool CanSendMorse,
     int DefaultDataBits,
     int DefaultStopBits,
-    bool IsNetworkOnly
+    bool IsNetworkOnly,
+    bool SupportsSerial,
+    bool SupportsNetwork
 );
 
 /// <summary>

@@ -124,6 +124,18 @@ export function RadioPlugin() {
     }
   }, [hamlibConfig.modelId, getHamlibRigCaps]);
 
+  // Auto-select connection type based on capabilities
+  useEffect(() => {
+    if (hamlibCaps) {
+      // If current selection is not supported, switch to supported type
+      if (hamlibConfig.connectionType === "Serial" && !hamlibCaps.supportsSerial && hamlibCaps.supportsNetwork) {
+        updateHamlibConfig({ connectionType: "Network" });
+      } else if (hamlibConfig.connectionType === "Network" && !hamlibCaps.supportsNetwork && hamlibCaps.supportsSerial) {
+        updateHamlibConfig({ connectionType: "Serial" });
+      }
+    }
+  }, [hamlibCaps, hamlibConfig.connectionType]);
+
   // Filter rigs by search term
   const filteredRigs = useMemo(() => {
     if (!rigSearch) return hamlibRigs.slice(0, 50); // Show first 50 by default
@@ -478,22 +490,23 @@ export function RadioPlugin() {
               <div className="flex gap-2">
                 <button
                   onClick={() => updateHamlibConfig({ connectionType: "Serial" })}
-                  disabled={hamlibCaps?.isNetworkOnly}
+                  disabled={hamlibCaps ? !hamlibCaps.supportsSerial : false}
                   className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                     hamlibConfig.connectionType === "Serial"
                       ? "bg-orange-500/20 text-orange-400 border border-orange-500/30"
                       : "bg-dark-800 text-gray-400 border border-glass-100 hover:bg-dark-700"
-                  } disabled:opacity-50`}
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   Serial
                 </button>
                 <button
                   onClick={() => updateHamlibConfig({ connectionType: "Network" })}
+                  disabled={hamlibCaps ? !hamlibCaps.supportsNetwork : false}
                   className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
                     hamlibConfig.connectionType === "Network"
                       ? "bg-orange-500/20 text-orange-400 border border-orange-500/30"
                       : "bg-dark-800 text-gray-400 border border-glass-100 hover:bg-dark-700"
-                  }`}
+                  } disabled:opacity-50 disabled:cursor-not-allowed`}
                 >
                   Network
                 </button>

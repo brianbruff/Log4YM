@@ -437,7 +437,9 @@ public class LogHub : Hub<ILogHubClient>
             caps.CanSendMorse,
             caps.DefaultDataBits,
             caps.DefaultStopBits,
-            caps.IsNetworkOnly
+            caps.IsNetworkOnly,
+            caps.SupportsSerial,
+            caps.SupportsNetwork
         );
 
         await Clients.Caller.OnHamlibRigCaps(new HamlibRigCapsEvent(modelId, capsDto));

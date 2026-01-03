@@ -329,6 +329,50 @@ public class HamlibService : BackgroundService
     }
 
     /// <summary>
+    /// Set the rig frequency in Hz
+    /// </summary>
+    public async Task<bool> SetFrequencyAsync(long frequencyHz)
+    {
+        if (_rig == null || !_rig.IsOpen)
+        {
+            _logger.LogWarning("Cannot set frequency: Hamlib rig not connected");
+            return false;
+        }
+
+        var result = _rig.SetFrequency(frequencyHz);
+        if (result)
+        {
+            _currentFrequencyHz = frequencyHz;
+            _logger.LogDebug("Hamlib frequency set to {FrequencyHz} Hz", frequencyHz);
+            // Broadcast state change immediately so UI updates
+            await BroadcastStateAsync();
+        }
+        return result;
+    }
+
+    /// <summary>
+    /// Set the rig mode
+    /// </summary>
+    public async Task<bool> SetModeAsync(string mode)
+    {
+        if (_rig == null || !_rig.IsOpen)
+        {
+            _logger.LogWarning("Cannot set mode: Hamlib rig not connected");
+            return false;
+        }
+
+        var result = _rig.SetMode(mode);
+        if (result)
+        {
+            _currentMode = mode;
+            _logger.LogDebug("Hamlib mode set to {Mode}", mode);
+            // Broadcast state change immediately so UI updates
+            await BroadcastStateAsync();
+        }
+        return result;
+    }
+
+    /// <summary>
     /// Get current saved configuration
     /// </summary>
     public async Task<HamlibRigConfig?> LoadConfigAsync()

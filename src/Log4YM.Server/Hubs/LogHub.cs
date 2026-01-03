@@ -219,21 +219,42 @@ public class LogHub : Hub<ILogHubClient>
 
     public async Task SelectSpot(SpotSelectedEvent evt)
     {
-        _logger.LogInformation("Spot selected: {DxCall} on {Frequency} kHz ({Mode})", evt.DxCall, evt.Frequency / 1000.0, evt.Mode ?? "unknown");
+        _logger.LogInformation("Spot selected: {DxCall} on {FrequencyMHz} MHz ({Mode})", evt.DxCall, evt.Frequency / 1000.0, evt.Mode ?? "unknown");
 
         // Broadcast to ALL clients (including caller) so the log entry gets populated
         await Clients.All.OnSpotSelected(evt);
 
-        // Tune connected TCI radio (spot frequency is in kHz, TCI expects Hz)
+        // Convert spot frequency from kHz to Hz
+        var frequencyHz = (long)(evt.Frequency * 1000);
+
+        // Try to tune connected radio (TCI first, then Hamlib)
         var tciRadios = _tciRadioService.GetRadioStates().ToList();
         if (tciRadios.Any())
         {
             var radioId = tciRadios.First().RadioId;
-            var frequencyHz = (long)(evt.Frequency * 1000);
             var tuned = await _tciRadioService.SetFrequencyAsync(radioId, frequencyHz);
             if (tuned)
             {
                 _logger.LogInformation("Tuned TCI radio {RadioId} to {FrequencyMHz} MHz", radioId, evt.Frequency / 1000.0);
+            }
+        }
+        else if (_hamlibService.IsConnected)
+        {
+            // Tune Hamlib radio
+            var tuned = await _hamlibService.SetFrequencyAsync(frequencyHz);
+            if (tuned)
+            {
+                _logger.LogInformation("Tuned Hamlib radio to {FrequencyMHz} MHz", evt.Frequency / 1000.0);
+
+                // Also set mode if provided
+                if (!string.IsNullOrEmpty(evt.Mode))
+                {
+                    var modeSet = await _hamlibService.SetModeAsync(evt.Mode);
+                    if (modeSet)
+                    {
+                        _logger.LogInformation("Set Hamlib radio mode to {Mode}", evt.Mode);
+                    }
+                }
             }
         }
     }

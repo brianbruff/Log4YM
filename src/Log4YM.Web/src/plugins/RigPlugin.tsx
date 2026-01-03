@@ -41,7 +41,7 @@ const defaultHamlibConfig: HamlibRigConfigDto = {
   pollIntervalMs: 250,
 };
 
-export function RadioPlugin() {
+export function RigPlugin() {
   const {
     discoveredRadios,
     radioConnectionStates,
@@ -297,7 +297,7 @@ export function RadioPlugin() {
   if (selectedRadioId && radioInfo && (isConnecting || isConnected || isLocallyConnecting)) {
     return (
       <GlassPanel
-        title="Radio"
+        title="Rig"
         icon={<Radio className="w-5 h-5" />}
         actions={
           <div className="flex items-center gap-2">
@@ -402,7 +402,7 @@ export function RadioPlugin() {
   // Discovery / Connection UI
   return (
     <GlassPanel
-      title="Radio"
+      title="Rig"
       icon={<Radio className="w-5 h-5" />}
     >
       <div className="p-4 space-y-4">

@@ -6,7 +6,7 @@ import { StatusBar } from './components/StatusBar';
 import { SettingsPanel } from './components/SettingsPanel';
 import { ConnectionOverlay } from './components/ConnectionOverlay';
 import { useSignalR } from './hooks/useSignalR';
-import { LogEntryPlugin, LogHistoryPlugin, ClusterPlugin, MapPlugin, RotatorPlugin, GlobePlugin, AntennaGeniusPlugin, PgxlPlugin, SmartUnlinkPlugin, RadioPlugin, QrzProfilePlugin } from './plugins';
+import { LogEntryPlugin, LogHistoryPlugin, ClusterPlugin, MapPlugin, RotatorPlugin, GlobePlugin, AntennaGeniusPlugin, PgxlPlugin, SmartUnlinkPlugin, RigPlugin, QrzProfilePlugin } from './plugins';
 import { Globe as Globe3D } from 'lucide-react';
 import { useLayoutStore, defaultLayout } from './store/layoutStore';
 import { useSettingsStore } from './store/settingsStore';
@@ -61,10 +61,10 @@ const PLUGINS: Record<string, { name: string; icon: React.ReactNode; component: 
     icon: <Radio className="w-4 h-4" />,
     component: SmartUnlinkPlugin,
   },
-  'radio': {
-    name: 'Radio',
+  'rig': {
+    name: 'Rig',
     icon: <Radio className="w-4 h-4" />,
-    component: RadioPlugin,
+    component: RigPlugin,
   },
   'qrz-profile': {
     name: 'QRZ Profile',

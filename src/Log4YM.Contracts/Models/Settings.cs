@@ -128,6 +128,12 @@ public class RadioSettings
     [BsonElement("followRadio")]
     public bool FollowRadio { get; set; } = true;
 
+    [BsonElement("activeRigType")]
+    public string? ActiveRigType { get; set; }  // "tci" | "hamlib" | null
+
+    [BsonElement("autoReconnect")]
+    public bool AutoReconnect { get; set; } = false;
+
     [BsonElement("tci")]
     public TciSettings Tci { get; set; } = new();
 }

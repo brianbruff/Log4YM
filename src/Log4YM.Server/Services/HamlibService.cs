@@ -1,6 +1,7 @@
 using System.IO.Ports;
 using Microsoft.AspNetCore.SignalR;
 using Log4YM.Contracts.Events;
+using Log4YM.Server.Core.Database;
 using Log4YM.Server.Hubs;
 using Log4YM.Server.Native.Hamlib;
 using MongoDB.Driver;
@@ -15,6 +16,7 @@ public class HamlibService : BackgroundService
 {
     private readonly ILogger<HamlibService> _logger;
     private readonly IHubContext<LogHub, ILogHubClient> _hubContext;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly IMongoDatabase? _database;
 
     private HamlibRig? _rig;
@@ -39,24 +41,28 @@ public class HamlibService : BackgroundService
     public HamlibService(
         ILogger<HamlibService> logger,
         IHubContext<LogHub, ILogHubClient> hubContext,
-        IConfiguration configuration)
+        IServiceScopeFactory scopeFactory,
+        IUserConfigService userConfigService)
     {
         _logger = logger;
         _hubContext = hubContext;
+        _scopeFactory = scopeFactory;
 
-        // Get MongoDB connection
-        var connectionString = configuration.GetConnectionString("MongoDB");
-        if (!string.IsNullOrEmpty(connectionString))
+        // Get MongoDB connection from user config (same as MongoDbContext)
+        try
         {
-            try
+            var config = userConfigService.GetConfigAsync().GetAwaiter().GetResult();
+            if (!string.IsNullOrEmpty(config.MongoDbConnectionString))
             {
-                var client = new MongoClient(connectionString);
-                _database = client.GetDatabase("log4ym");
+                var client = new MongoClient(config.MongoDbConnectionString);
+                var databaseName = config.MongoDbDatabaseName ?? "Log4YM";
+                _database = client.GetDatabase(databaseName);
+                _logger.LogInformation("HamlibService connected to MongoDB database: {DatabaseName}", databaseName);
             }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Failed to connect to MongoDB for Hamlib config storage");
-            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to connect to MongoDB for Hamlib config storage");
         }
     }
 
@@ -77,20 +83,8 @@ public class HamlibService : BackgroundService
             return;
         }
 
-        // Try to load and auto-connect saved config
-        var savedConfig = await LoadConfigAsync();
-        if (savedConfig != null)
-        {
-            _logger.LogInformation("Found saved Hamlib config for model {ModelId}, attempting auto-connect", savedConfig.ModelId);
-            try
-            {
-                await ConnectAsync(savedConfig);
-            }
-            catch (Exception ex)
-            {
-                _logger.LogWarning(ex, "Auto-connect to saved Hamlib rig failed");
-            }
-        }
+        // Try to load and auto-connect saved config if autoReconnect is enabled
+        await TryAutoConnectAsync();
 
         // Poll connected rig periodically
         while (!stoppingToken.IsCancellationRequested)
@@ -100,6 +94,44 @@ public class HamlibService : BackgroundService
                 await PollRigStateAsync();
             }
             await Task.Delay(_config?.PollIntervalMs ?? 250, stoppingToken);
+        }
+    }
+
+    private async Task TryAutoConnectAsync()
+    {
+        try
+        {
+            // Check unified autoReconnect flag
+            using var scope = _scopeFactory.CreateScope();
+            var settingsRepository = scope.ServiceProvider.GetRequiredService<ISettingsRepository>();
+            var settings = await settingsRepository.GetAsync();
+            var radioSettings = settings?.Radio;
+
+            // Only auto-connect if autoReconnect is enabled AND activeRigType is hamlib
+            _logger.LogInformation("Hamlib auto-connect check: autoReconnect={AutoReconnect}, activeRigType={ActiveRigType}",
+                radioSettings?.AutoReconnect, radioSettings?.ActiveRigType);
+
+            if (radioSettings is not { AutoReconnect: true, ActiveRigType: "hamlib" })
+            {
+                _logger.LogInformation("Hamlib auto-reconnect not enabled - skipping");
+                return;
+            }
+
+            // Load saved Hamlib config
+            var savedConfig = await LoadConfigAsync();
+            if (savedConfig == null)
+            {
+                _logger.LogInformation("No saved Hamlib config found - cannot auto-reconnect");
+                return;
+            }
+
+            _logger.LogInformation("Auto-reconnecting to Hamlib rig {ModelName} (model {ModelId})",
+                savedConfig.ModelName, savedConfig.ModelId);
+            await ConnectAsync(savedConfig);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to auto-connect to Hamlib rig");
         }
     }
 
@@ -329,7 +361,7 @@ public class HamlibService : BackgroundService
                 c => c.Id == ConfigDocId,
                 config with { Id = ConfigDocId },
                 new ReplaceOptions { IsUpsert = true });
-            _logger.LogDebug("Saved Hamlib config to MongoDB");
+            _logger.LogInformation("Saved Hamlib config to MongoDB: {ModelName} ({ModelId})", config.ModelName, config.ModelId);
         }
         catch (Exception ex)
         {

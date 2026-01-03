@@ -1,5 +1,5 @@
 import { useState, useEffect, useMemo } from "react";
-import { Radio, Wifi, WifiOff, Power, PowerOff, Plus, Settings, ChevronDown, ChevronUp } from "lucide-react";
+import { Radio, Wifi, WifiOff, Power, PowerOff, Plus, Settings, ChevronDown, ChevronUp, RefreshCw } from "lucide-react";
 import { useAppStore } from "../store/appStore";
 import { useSettingsStore } from "../store/settingsStore";
 import { useSignalR } from "../hooks/useSignalR";
@@ -28,6 +28,7 @@ const defaultHamlibConfig: HamlibRigConfigDto = {
   stopBits: 1,
   flowControl: "None",
   parity: "None",
+  hostname: "localhost",
   networkPort: 4532,
   pttType: "Rig",
   getFrequency: true,
@@ -63,9 +64,10 @@ export function RigPlugin() {
     disconnectTci,
   } = useSignalR();
 
-  // TCI settings from store (persisted to database)
-  const { settings, updateTciSettings, saveSettings } = useSettingsStore();
+  // Radio settings from store (persisted to database)
+  const { settings, updateRadioSettings, updateTciSettings, saveSettings } = useSettingsStore();
   const tciSettings = settings.radio.tci;
+  const { autoReconnect } = settings.radio;
 
   // TCI form state
   const [showTciForm, setShowTciForm] = useState(false);
@@ -124,17 +126,20 @@ export function RigPlugin() {
     }
   }, [hamlibConfig.modelId, getHamlibRigCaps]);
 
-  // Auto-select connection type based on capabilities
+  // Auto-select connection type based on capabilities and set default hostname
   useEffect(() => {
     if (hamlibCaps) {
       // If current selection is not supported, switch to supported type
       if (hamlibConfig.connectionType === "Serial" && !hamlibCaps.supportsSerial && hamlibCaps.supportsNetwork) {
-        updateHamlibConfig({ connectionType: "Network" });
+        updateHamlibConfig({ connectionType: "Network", hostname: hamlibConfig.hostname || "localhost" });
       } else if (hamlibConfig.connectionType === "Network" && !hamlibCaps.supportsNetwork && hamlibCaps.supportsSerial) {
         updateHamlibConfig({ connectionType: "Serial" });
+      } else if (hamlibConfig.connectionType === "Network" && !hamlibConfig.hostname) {
+        // Default hostname to localhost for network connections
+        updateHamlibConfig({ hostname: "localhost" });
       }
     }
-  }, [hamlibCaps, hamlibConfig.connectionType]);
+  }, [hamlibCaps, hamlibConfig.connectionType, hamlibConfig.hostname]);
 
   // Filter rigs by search term
   const filteredRigs = useMemo(() => {
@@ -175,6 +180,17 @@ export function RigPlugin() {
     await connectRadio(radioId);
   };
 
+  // Auto-connect to saved Hamlib rig if autoReconnect is enabled and we have a discovered radio
+  useEffect(() => {
+    if (autoReconnect && radios.length > 0 && !selectedRadioId && !isConnectingHamlib && !isConnectingTci) {
+      const hamlibRadio = radios.find(r => r.type === "Hamlib");
+      if (hamlibRadio) {
+        console.log("Auto-connecting to saved Hamlib rig:", hamlibRadio.id);
+        handleConnect(hamlibRadio.id);
+      }
+    }
+  }, [autoReconnect, radios.length, selectedRadioId, isConnectingHamlib, isConnectingTci]);
+
   const handleDisconnect = async () => {
     if (selectedRadioId) {
       const radio = discoveredRadios.get(selectedRadioId);
@@ -185,8 +201,26 @@ export function RigPlugin() {
       } else {
         await disconnectRadio(selectedRadioId);
       }
+      // Disable auto-reconnect when manually disconnecting
+      updateRadioSettings({ autoReconnect: false });
+      saveSettings();
       setSelectedRadio(null);
     }
+  };
+
+  const handleToggleAutoReconnect = async () => {
+    updateRadioSettings({ autoReconnect: !autoReconnect });
+    await saveSettings();
+  };
+
+  const handleRemoveRig = async () => {
+    // Clear the saved rig configuration
+    updateRadioSettings({ activeRigType: null, autoReconnect: false });
+    await saveSettings();
+    // Reset local state
+    setHamlibConfig(defaultHamlibConfig);
+    setRigSearch("");
+    setSelectedRadio(null);
   };
 
   const handleConnectHamlib = async () => {
@@ -206,6 +240,9 @@ export function RigPlugin() {
     setShowHamlibForm(false);
 
     try {
+      // Set activeRigType and save settings
+      updateRadioSettings({ activeRigType: 'hamlib' });
+      await saveSettings();
       await connectHamlibRig(hamlibConfig);
     } catch (error) {
       console.error('Failed to connect Hamlib rig:', error);
@@ -225,7 +262,8 @@ export function RigPlugin() {
     setShowTciForm(false);
 
     try {
-      // Save settings to database before connecting
+      // Set activeRigType and save settings to database before connecting
+      updateRadioSettings({ activeRigType: 'tci' });
       await saveSettings();
       await connectTci(host, port, tciSettings.name || undefined);
     } catch (error) {
@@ -301,6 +339,17 @@ export function RigPlugin() {
         icon={<Radio className="w-5 h-5" />}
         actions={
           <div className="flex items-center gap-2">
+            <button
+              onClick={handleToggleAutoReconnect}
+              title={autoReconnect ? "Auto-reconnect enabled" : "Auto-reconnect disabled"}
+              className={`p-1.5 rounded transition-all ${
+                autoReconnect
+                  ? "bg-accent-primary/20 text-accent-primary"
+                  : "bg-dark-700 text-gray-500 hover:text-gray-400"
+              }`}
+            >
+              <RefreshCw className={`w-3.5 h-3.5 ${autoReconnect ? "" : "opacity-50"}`} />
+            </button>
             <span
               className={`flex items-center gap-1.5 text-xs ${getConnectionStateColor(
                 effectiveConnectionState
@@ -484,32 +533,36 @@ export function RigPlugin() {
               )}
             </div>
 
-            {/* Connection Type Toggle */}
+            {/* Connection Type Toggle - only show options that are supported */}
             <div>
               <label className="block text-xs text-gray-500 mb-1">Connection Type</label>
               <div className="flex gap-2">
-                <button
-                  onClick={() => updateHamlibConfig({ connectionType: "Serial" })}
-                  disabled={hamlibCaps ? !hamlibCaps.supportsSerial : false}
-                  className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                    hamlibConfig.connectionType === "Serial"
-                      ? "bg-orange-500/20 text-orange-400 border border-orange-500/30"
-                      : "bg-dark-800 text-gray-400 border border-glass-100 hover:bg-dark-700"
-                  } disabled:opacity-50 disabled:cursor-not-allowed`}
-                >
-                  Serial
-                </button>
-                <button
-                  onClick={() => updateHamlibConfig({ connectionType: "Network" })}
-                  disabled={hamlibCaps ? !hamlibCaps.supportsNetwork : false}
-                  className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
-                    hamlibConfig.connectionType === "Network"
-                      ? "bg-orange-500/20 text-orange-400 border border-orange-500/30"
-                      : "bg-dark-800 text-gray-400 border border-glass-100 hover:bg-dark-700"
-                  } disabled:opacity-50 disabled:cursor-not-allowed`}
-                >
-                  Network
-                </button>
+                {/* Only show Serial option if supported */}
+                {(!hamlibCaps || hamlibCaps.supportsSerial) && (
+                  <button
+                    onClick={() => updateHamlibConfig({ connectionType: "Serial" })}
+                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                      hamlibConfig.connectionType === "Serial"
+                        ? "bg-orange-500/20 text-orange-400 border border-orange-500/30"
+                        : "bg-dark-800 text-gray-400 border border-glass-100 hover:bg-dark-700"
+                    }`}
+                  >
+                    Serial
+                  </button>
+                )}
+                {/* Only show Network option if supported */}
+                {(!hamlibCaps || hamlibCaps.supportsNetwork) && (
+                  <button
+                    onClick={() => updateHamlibConfig({ connectionType: "Network", hostname: hamlibConfig.hostname || "localhost" })}
+                    className={`flex-1 px-3 py-2 rounded-lg text-sm font-medium transition-all ${
+                      hamlibConfig.connectionType === "Network"
+                        ? "bg-orange-500/20 text-orange-400 border border-orange-500/30"
+                        : "bg-dark-800 text-gray-400 border border-glass-100 hover:bg-dark-700"
+                    }`}
+                  >
+                    Network
+                  </button>
+                )}
               </div>
             </div>
 
@@ -842,11 +895,11 @@ export function RigPlugin() {
           </div>
         )}
 
-        {/* Discovered Radios */}
-        {radios.length > 0 ? (
+        {/* Saved Rig - only show if we have a configured rig and not showing forms */}
+        {radios.length > 0 && !showTciForm && !showHamlibForm ? (
           <div>
             <div className="text-xs text-gray-500 uppercase tracking-wider mb-2">
-              Discovered Radios ({radios.length})
+              Saved Rig
             </div>
             <div className="space-y-2">
               {radios.map((radio) => {
@@ -877,41 +930,51 @@ export function RigPlugin() {
                           {radio.nickname || radio.model}
                         </div>
                         <div className="text-xs text-gray-500 font-mono">
-                          {radio.ipAddress}:{radio.port}
+                          {radio.ipAddress}{radio.port ? `:${radio.port}` : ""}
                         </div>
                       </div>
                     </div>
-                    <button
-                      onClick={() => handleConnect(radio.id)}
-                      disabled={isConnecting}
-                      className="px-3 py-1.5 text-xs font-medium flex items-center gap-1.5 bg-accent-primary/20 text-accent-primary rounded-lg hover:bg-accent-primary/30 transition-all disabled:opacity-50"
-                    >
-                      {isConnecting ? (
-                        <>
-                          <Wifi className="w-3.5 h-3.5 animate-pulse" />
-                          Connecting...
-                        </>
-                      ) : (
-                        <>
-                          <Power className="w-3.5 h-3.5" />
-                          Connect
-                        </>
-                      )}
-                    </button>
+                    <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleConnect(radio.id)}
+                        disabled={isConnecting}
+                        className="px-3 py-1.5 text-xs font-medium flex items-center gap-1.5 bg-accent-primary/20 text-accent-primary rounded-lg hover:bg-accent-primary/30 transition-all disabled:opacity-50"
+                      >
+                        {isConnecting ? (
+                          <>
+                            <Wifi className="w-3.5 h-3.5 animate-pulse" />
+                            Connecting...
+                          </>
+                        ) : (
+                          <>
+                            <Power className="w-3.5 h-3.5" />
+                            Connect
+                          </>
+                        )}
+                      </button>
+                      <button
+                        onClick={handleRemoveRig}
+                        className="px-3 py-1.5 text-xs font-medium flex items-center gap-1.5 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-all"
+                        title="Remove saved rig"
+                      >
+                        <PowerOff className="w-3.5 h-3.5" />
+                        Remove
+                      </button>
+                    </div>
                   </div>
                 );
               })}
             </div>
           </div>
-        ) : (
+        ) : !showTciForm && !showHamlibForm ? (
           <div className="flex flex-col items-center justify-center py-8 text-gray-500">
             <WifiOff className="w-8 h-8 mb-3 opacity-50" />
-            <p className="text-sm text-center">No radios discovered</p>
+            <p className="text-sm text-center">No rig configured</p>
             <p className="text-xs text-gray-600 mt-1 text-center">
-              Select a radio type above to start discovery
+              Select a radio type above to configure
             </p>
           </div>
-        )}
+        ) : null}
       </div>
     </GlassPanel>
   );

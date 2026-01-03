@@ -44,8 +44,12 @@ export interface TciSettings {
   autoConnect: boolean;
 }
 
+export type RigType = 'tci' | 'hamlib' | null;
+
 export interface RadioSettings {
   followRadio: boolean;
+  activeRigType: RigType;
+  autoReconnect: boolean;
   tci: TciSettings;
 }
 
@@ -132,6 +136,8 @@ const defaultSettings: Settings = {
   },
   radio: {
     followRadio: true,
+    activeRigType: null,
+    autoReconnect: false,
     tci: {
       host: 'localhost',
       port: 50001,
@@ -277,6 +283,8 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
           radio: {
             ...defaultSettings.radio,
             ...settings.radio,
+            activeRigType: settings.radio?.activeRigType ?? null,
+            autoReconnect: settings.radio?.autoReconnect ?? false,
             tci: { ...defaultSettings.radio.tci, ...settings.radio?.tci },
           },
           map: { ...defaultSettings.map, ...settings.map },

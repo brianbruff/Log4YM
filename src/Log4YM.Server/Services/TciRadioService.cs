@@ -63,11 +63,15 @@ public class TciRadioService : BackgroundService
             using var scope = _scopeFactory.CreateScope();
             var settingsRepository = scope.ServiceProvider.GetRequiredService<ISettingsRepository>();
             var settings = await settingsRepository.GetAsync();
-            var tciSettings = settings?.Radio?.Tci;
+            var radioSettings = settings?.Radio;
+            var tciSettings = radioSettings?.Tci;
 
-            if (tciSettings is { AutoConnect: true } && !string.IsNullOrEmpty(tciSettings.Host))
+            // Check unified autoReconnect flag and activeRigType
+            if (radioSettings is { AutoReconnect: true, ActiveRigType: "tci" }
+                && tciSettings != null
+                && !string.IsNullOrEmpty(tciSettings.Host))
             {
-                _logger.LogInformation("Auto-connecting to TCI at {Host}:{Port}", tciSettings.Host, tciSettings.Port);
+                _logger.LogInformation("Auto-reconnecting to TCI at {Host}:{Port}", tciSettings.Host, tciSettings.Port);
                 await ConnectDirectAsync(tciSettings.Host, tciSettings.Port, tciSettings.Name);
             }
         }

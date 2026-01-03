@@ -441,6 +441,14 @@ export interface QrzSyncProgressEvent {
   message: string | null;
 }
 
+// DX Cluster types
+export interface ClusterStatusChangedEvent {
+  clusterId: string;
+  name: string;
+  status: 'connected' | 'connecting' | 'disconnected' | 'error';
+  errorMessage: string | null;
+}
+
 // Connection state for tracking
 export type SignalRConnectionState = 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'rehydrating';
 
@@ -482,6 +490,8 @@ type EventHandlers = {
   onSmartUnlinkStatus?: (evt: SmartUnlinkStatusEvent) => void;
   // QRZ Sync handlers
   onQrzSyncProgress?: (evt: QrzSyncProgressEvent) => void;
+  // DX Cluster handlers
+  onClusterStatusChanged?: (evt: ClusterStatusChangedEvent) => void;
 };
 
 class SignalRService {
@@ -796,6 +806,11 @@ class SignalRService {
     // QRZ Sync events
     this.connection.on('OnQrzSyncProgress', (evt: QrzSyncProgressEvent) => {
       this.handlers.onQrzSyncProgress?.(evt);
+    });
+
+    // DX Cluster events
+    this.connection.on('OnClusterStatusChanged', (evt: ClusterStatusChangedEvent) => {
+      this.handlers.onClusterStatusChanged?.(evt);
     });
   }
 

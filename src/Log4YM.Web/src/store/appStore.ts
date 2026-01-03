@@ -99,6 +99,17 @@ interface AppState {
   // Selected DX Cluster spot (for auto-populating log entry)
   selectedSpot: SpotSelectedEvent | null;
   setSelectedSpot: (spot: SpotSelectedEvent | null) => void;
+
+  // DX Cluster connection statuses
+  clusterStatuses: Record<string, ClusterStatus>;
+  setClusterStatus: (clusterId: string, status: ClusterStatus) => void;
+}
+
+export interface ClusterStatus {
+  clusterId: string;
+  name: string;
+  status: 'connected' | 'connecting' | 'disconnected' | 'error';
+  errorMessage: string | null;
 }
 
 export interface QrzSyncProgress {
@@ -299,4 +310,14 @@ export const useAppStore = create<AppState>((set) => ({
   // Selected DX Cluster spot
   selectedSpot: null,
   setSelectedSpot: (spot) => set({ selectedSpot: spot }),
+
+  // DX Cluster connection statuses
+  clusterStatuses: {},
+  setClusterStatus: (clusterId, status) =>
+    set((state) => ({
+      clusterStatuses: {
+        ...state.clusterStatuses,
+        [clusterId]: status,
+      },
+    })),
 }));

@@ -687,6 +687,18 @@ public record SmartUnlinkStatusEvent(
     List<SmartUnlinkRadioAddedEvent> Radios
 );
 
+// ===== DX Cluster Events =====
+
+/// <summary>
+/// DX Cluster connection status changed
+/// </summary>
+public record ClusterStatusChangedEvent(
+    string ClusterId,
+    string Name,
+    string Status,  // "connected" | "connecting" | "disconnected" | "error"
+    string? ErrorMessage = null
+);
+
 // ===== QRZ Sync Events =====
 
 /// <summary>

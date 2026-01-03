@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Radio, Zap, Volume2, VolumeX, Filter } from 'lucide-react';
+import { Radio, Zap, Volume2, VolumeX, Settings, ChevronUp, Plus, Trash2, X, Search } from 'lucide-react';
 import { AgGridReact } from 'ag-grid-react';
 import { ColDef, ICellRendererParams, RowClickedEvent } from 'ag-grid-community';
 import 'ag-grid-community/styles/ag-grid.css';
@@ -8,11 +8,15 @@ import 'ag-grid-community/styles/ag-theme-alpine.css';
 import { api, Spot } from '../api/client';
 import { useSignalR } from '../hooks/useSignalR';
 import { GlassPanel } from '../components/GlassPanel';
+import { MultiSelectDropdown, MultiSelectOption } from '../components/MultiSelectDropdown';
 import { getCountryFlag } from '../core/countryFlags';
+import { useSettingsStore, ClusterConnection } from '../store/settingsStore';
+import { useAppStore } from '../store/appStore';
 
 const BAND_RANGES: Record<string, [number, number]> = {
   '160m': [1800, 2000],
   '80m': [3500, 4000],
+  '60m': [5330, 5410],
   '40m': [7000, 7300],
   '30m': [10100, 10150],
   '20m': [14000, 14350],
@@ -22,6 +26,29 @@ const BAND_RANGES: Record<string, [number, number]> = {
   '10m': [28000, 29700],
   '6m': [50000, 54000],
 };
+
+const BAND_OPTIONS: MultiSelectOption[] = [
+  { value: '160m', label: '160m' },
+  { value: '80m', label: '80m' },
+  { value: '60m', label: '60m' },
+  { value: '40m', label: '40m' },
+  { value: '30m', label: '30m' },
+  { value: '20m', label: '20m' },
+  { value: '17m', label: '17m' },
+  { value: '15m', label: '15m' },
+  { value: '12m', label: '12m' },
+  { value: '10m', label: '10m' },
+  { value: '6m', label: '6m' },
+];
+
+const MODE_OPTIONS: MultiSelectOption[] = [
+  { value: 'CW', label: 'CW' },
+  { value: 'SSB', label: 'SSB' },
+  { value: 'FT8', label: 'FT8' },
+  { value: 'FT4', label: 'FT4' },
+  { value: 'RTTY', label: 'RTTY' },
+  { value: 'DIGI', label: 'Digital' },
+];
 
 const getBandFromFrequency = (freq: number): string => {
   for (const [band, [min, max]] of Object.entries(BAND_RANGES)) {
@@ -165,32 +192,286 @@ const TimeCellRenderer = (props: ICellRendererParams<Spot>) => {
   );
 };
 
+// Cluster connection status type
+type ClusterStatusType = 'connected' | 'connecting' | 'disconnected' | 'error';
+
+// Cluster Settings Panel Component
+function ClusterSettingsPanel({
+  connections,
+  onUpdateConnection,
+  onAddConnection,
+  onRemoveConnection,
+  onConnect,
+  onDisconnect,
+  statuses,
+  stationCallsign,
+}: {
+  connections: ClusterConnection[];
+  onUpdateConnection: (id: string, updates: Partial<ClusterConnection>) => void;
+  onAddConnection: () => void;
+  onRemoveConnection: (id: string) => void;
+  onConnect: (id: string) => void;
+  onDisconnect: (id: string) => void;
+  statuses: Record<string, ClusterStatusType>;
+  stationCallsign: string;
+}) {
+  const canAddMore = connections.length < 4;
+
+  const getStatusColor = (status?: ClusterStatusType) => {
+    switch (status) {
+      case 'connected': return 'bg-green-500';
+      case 'connecting': return 'bg-yellow-500 animate-pulse';
+      case 'error': return 'bg-red-500';
+      default: return 'bg-gray-500';
+    }
+  };
+
+  const getStatusText = (status?: ClusterStatusType) => {
+    switch (status) {
+      case 'connected': return 'Connected';
+      case 'connecting': return 'Connecting...';
+      case 'error': return 'Error';
+      default: return 'Disconnected';
+    }
+  };
+
+  return (
+    <div className="space-y-4">
+      {connections.map((conn, index) => {
+        const status = statuses[conn.id];
+        const isConnected = status === 'connected';
+        const isConnecting = status === 'connecting';
+
+        return (
+          <div
+            key={conn.id}
+            className="p-4 bg-dark-800/50 border border-glass-100 rounded-lg space-y-3"
+          >
+            {/* Header with status and remove button */}
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <div className={`w-2.5 h-2.5 rounded-full ${getStatusColor(status)}`} />
+                <span className="text-sm font-medium text-gray-300">
+                  {conn.name || `Cluster ${index + 1}`}
+                </span>
+                <span className="text-xs text-gray-500">
+                  ({getStatusText(status)})
+                </span>
+              </div>
+              <button
+                onClick={() => onRemoveConnection(conn.id)}
+                className="p-1 text-gray-500 hover:text-red-400 transition-colors"
+                title="Remove cluster"
+              >
+                <Trash2 className="w-4 h-4" />
+              </button>
+            </div>
+
+            {/* Configuration Grid */}
+            <div className="grid grid-cols-2 gap-3">
+              {/* Name */}
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Name</label>
+                <input
+                  type="text"
+                  value={conn.name}
+                  onChange={(e) => onUpdateConnection(conn.id, { name: e.target.value })}
+                  placeholder="Cluster name"
+                  className="w-full px-2 py-1.5 bg-dark-900 border border-glass-100 rounded text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-accent-primary/50"
+                />
+              </div>
+
+              {/* Host */}
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Host</label>
+                <input
+                  type="text"
+                  value={conn.host}
+                  onChange={(e) => onUpdateConnection(conn.id, { host: e.target.value })}
+                  placeholder="e.g., de.ve7cc.net"
+                  className="w-full px-2 py-1.5 bg-dark-900 border border-glass-100 rounded text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-accent-primary/50"
+                />
+              </div>
+
+              {/* Port */}
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">Port</label>
+                <input
+                  type="number"
+                  value={conn.port}
+                  onChange={(e) => onUpdateConnection(conn.id, { port: parseInt(e.target.value) || 23 })}
+                  className="w-full px-2 py-1.5 bg-dark-900 border border-glass-100 rounded text-sm text-gray-200 focus:outline-none focus:border-accent-primary/50"
+                />
+              </div>
+
+              {/* Callsign */}
+              <div>
+                <label className="block text-xs text-gray-500 mb-1">
+                  Callsign <span className="text-gray-600">(blank = station)</span>
+                </label>
+                <input
+                  type="text"
+                  value={conn.callsign || ''}
+                  onChange={(e) => onUpdateConnection(conn.id, { callsign: e.target.value || null })}
+                  placeholder={stationCallsign || 'Your callsign'}
+                  className="w-full px-2 py-1.5 bg-dark-900 border border-glass-100 rounded text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-accent-primary/50"
+                />
+              </div>
+            </div>
+
+            {/* Options Row */}
+            <div className="flex items-center justify-between pt-2 border-t border-glass-100">
+              <div className="flex items-center gap-4">
+                {/* Enabled Toggle */}
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={conn.enabled}
+                    onChange={(e) => onUpdateConnection(conn.id, { enabled: e.target.checked })}
+                    className="w-4 h-4 rounded border-glass-200 bg-dark-900 text-accent-primary focus:ring-accent-primary/50"
+                  />
+                  <span className="text-sm text-gray-400">Enabled</span>
+                </label>
+
+                {/* Auto-Reconnect Toggle */}
+                <label className="flex items-center gap-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={conn.autoReconnect}
+                    onChange={(e) => onUpdateConnection(conn.id, { autoReconnect: e.target.checked })}
+                    className="w-4 h-4 rounded border-glass-200 bg-dark-900 text-accent-primary focus:ring-accent-primary/50"
+                  />
+                  <span className="text-sm text-gray-400">Auto-reconnect</span>
+                </label>
+              </div>
+
+              {/* Connect/Disconnect Button */}
+              <button
+                onClick={() => isConnected ? onDisconnect(conn.id) : onConnect(conn.id)}
+                disabled={isConnecting || !conn.host}
+                className={`
+                  px-3 py-1.5 rounded text-sm font-medium transition-colors
+                  ${isConnected
+                    ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
+                    : 'bg-accent-primary/20 text-accent-primary hover:bg-accent-primary/30'
+                  }
+                  disabled:opacity-50 disabled:cursor-not-allowed
+                `}
+              >
+                {isConnecting ? 'Connecting...' : isConnected ? 'Disconnect' : 'Connect'}
+              </button>
+            </div>
+          </div>
+        );
+      })}
+
+      {/* Add Cluster Button */}
+      {canAddMore && (
+        <button
+          onClick={onAddConnection}
+          className="w-full flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-glass-100 rounded-lg text-gray-400 hover:border-accent-primary/50 hover:text-accent-primary transition-colors"
+        >
+          <Plus className="w-4 h-4" />
+          Add Cluster (max 4)
+        </button>
+      )}
+
+      {connections.length === 0 && (
+        <div className="text-center py-6 text-gray-500">
+          <p className="mb-2">No cluster connections configured</p>
+          <button
+            onClick={onAddConnection}
+            className="inline-flex items-center gap-2 px-4 py-2 bg-accent-primary/20 text-accent-primary rounded-lg hover:bg-accent-primary/30 transition-colors"
+          >
+            <Plus className="w-4 h-4" />
+            Add your first cluster
+          </button>
+        </div>
+      )}
+    </div>
+  );
+}
+
 export function ClusterPlugin() {
   const { selectSpot } = useSignalR();
-  const [selectedBand, setSelectedBand] = useState<string>('');
-  const [selectedMode, setSelectedMode] = useState<string>('');
+  const [selectedBands, setSelectedBands] = useState<string[]>([]);
+  const [selectedModes, setSelectedModes] = useState<string[]>([]);
+  const [searchQuery, setSearchQuery] = useState('');
   const [soundEnabled, setSoundEnabled] = useState(false);
+  const [showSettings, setShowSettings] = useState(false);
+
+  // Get cluster settings from store
+  const {
+    settings,
+    updateClusterConnection,
+    addClusterConnection,
+    removeClusterConnection,
+    saveSettings,
+  } = useSettingsStore();
+
+  const clusterConnections = settings.cluster.connections;
+  const stationCallsign = settings.station.callsign;
+
+  // Get cluster statuses from app store (populated via SignalR)
+  const clusterStatusesFromStore = useAppStore((state) => state.clusterStatuses);
+
+  // Convert to simple status map for the settings panel
+  const clusterStatuses = useMemo(() => {
+    const statuses: Record<string, ClusterStatusType> = {};
+    for (const [id, status] of Object.entries(clusterStatusesFromStore)) {
+      statuses[id] = status.status;
+    }
+    return statuses;
+  }, [clusterStatusesFromStore]);
 
   const { data: spots, isLoading } = useQuery({
-    queryKey: ['spots', selectedBand, selectedMode],
-    queryFn: () => api.getSpots({
-      band: selectedBand || undefined,
-      mode: selectedMode || undefined,
-      limit: 100,
-    }),
+    queryKey: ['spots'],
+    queryFn: () => api.getSpots({ limit: 100 }),
     refetchInterval: 30000,
   });
 
-  const filteredSpots = spots?.filter(spot => {
-    if (selectedBand) {
-      const band = getBandFromFrequency(spot.frequency);
-      if (band !== selectedBand) return false;
-    }
-    if (selectedMode && spot.mode?.toUpperCase() !== selectedMode.toUpperCase()) {
-      return false;
-    }
-    return true;
-  });
+  // Filter spots based on selected bands, modes, and search query
+  const filteredSpots = useMemo(() => {
+    if (!spots) return [];
+
+    const query = searchQuery.trim().toLowerCase();
+
+    return spots.filter(spot => {
+      // Fuzzy search filter - matches against multiple fields
+      if (query) {
+        const searchableText = [
+          spot.dxCall,
+          spot.spotter,
+          spot.dxStation?.country || spot.country,
+          spot.comment,
+          getBandFromFrequency(spot.frequency),
+          spot.mode,
+        ].filter(Boolean).join(' ').toLowerCase();
+
+        if (!searchableText.includes(query)) return false;
+      }
+
+      // Band filter
+      if (selectedBands.length > 0) {
+        const band = getBandFromFrequency(spot.frequency);
+        if (!selectedBands.includes(band)) return false;
+      }
+
+      // Mode filter
+      if (selectedModes.length > 0) {
+        let spotMode = spot.mode?.toUpperCase();
+        // Normalize USB/LSB to SSB
+        if (spotMode === 'USB' || spotMode === 'LSB') spotMode = 'SSB';
+        // Try to infer mode if not provided
+        if (!spotMode) {
+          spotMode = inferModeFromFrequency(spot.frequency)?.toUpperCase() || undefined;
+        }
+        if (!spotMode || !selectedModes.includes(spotMode)) return false;
+      }
+
+      return true;
+    });
+  }, [spots, selectedBands, selectedModes, searchQuery]);
 
   const handleRowClick = async (event: RowClickedEvent<Spot>) => {
     const spot = event.data;
@@ -198,6 +479,48 @@ export function ClusterPlugin() {
       await selectSpot(spot.dxCall, spot.frequency, spot.mode);
     }
   };
+
+  const handleUpdateConnection = (id: string, updates: Partial<ClusterConnection>) => {
+    updateClusterConnection(id, updates);
+  };
+
+  const handleAddConnection = () => {
+    addClusterConnection();
+  };
+
+  const handleRemoveConnection = (id: string) => {
+    removeClusterConnection(id);
+  };
+
+  const handleConnect = async (id: string) => {
+    // Save settings first, then trigger connect via API
+    await saveSettings();
+    try {
+      await fetch(`/api/cluster/connect/${id}`, { method: 'POST' });
+    } catch (error) {
+      console.error('Failed to connect cluster:', error);
+    }
+  };
+
+  const handleDisconnect = async (id: string) => {
+    try {
+      await fetch(`/api/cluster/disconnect/${id}`, { method: 'POST' });
+    } catch (error) {
+      console.error('Failed to disconnect cluster:', error);
+    }
+  };
+
+  const clearAllFilters = () => {
+    setSelectedBands([]);
+    setSelectedModes([]);
+    setSearchQuery('');
+  };
+
+  const hasActiveFilters = selectedBands.length > 0 || selectedModes.length > 0 || searchQuery.trim().length > 0;
+  const totalActiveFilters = selectedBands.length + selectedModes.length + (searchQuery.trim() ? 1 : 0);
+
+  // Count connected clusters
+  const connectedCount = Object.values(clusterStatuses).filter(s => s === 'connected').length;
 
   const columnDefs = useMemo<ColDef<Spot>[]>(() => [
     {
@@ -279,6 +602,12 @@ export function ClusterPlugin() {
       icon={<Zap className="w-5 h-5" />}
       actions={
         <div className="flex items-center gap-2">
+          {/* Connected clusters indicator */}
+          {clusterConnections.length > 0 && (
+            <span className="text-xs text-gray-500">
+              {connectedCount}/{clusterConnections.length} connected
+            </span>
+          )}
           <span className="text-sm text-gray-400">
             {filteredSpots?.length || 0} spots
           </span>
@@ -289,72 +618,150 @@ export function ClusterPlugin() {
           >
             {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
           </button>
+          <button
+            onClick={() => setShowSettings(!showSettings)}
+            className={`glass-button p-1.5 ${showSettings ? 'text-accent-primary' : 'text-gray-500'}`}
+            title="Cluster settings"
+          >
+            <Settings className="w-4 h-4" />
+          </button>
         </div>
       }
     >
-      <div className="p-4 space-y-4">
+      <div className="flex flex-col h-full">
+        {/* Collapsible Settings Panel */}
+        <div
+          className={`
+            overflow-hidden transition-all duration-300 ease-in-out
+            ${showSettings ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}
+          `}
+        >
+          <div className="p-4 border-b border-glass-100 bg-dark-900/30">
+            <div className="flex items-center justify-between mb-3">
+              <h4 className="text-sm font-medium text-gray-300">Cluster Connections</h4>
+              <button
+                onClick={() => setShowSettings(false)}
+                className="p-1 text-gray-500 hover:text-gray-300"
+              >
+                <ChevronUp className="w-4 h-4" />
+              </button>
+            </div>
+            <ClusterSettingsPanel
+              connections={clusterConnections}
+              onUpdateConnection={handleUpdateConnection}
+              onAddConnection={handleAddConnection}
+              onRemoveConnection={handleRemoveConnection}
+              onConnect={handleConnect}
+              onDisconnect={handleDisconnect}
+              statuses={clusterStatuses}
+              stationCallsign={stationCallsign}
+            />
+            {/* Save Button */}
+            {clusterConnections.length > 0 && (
+              <div className="mt-4 flex justify-end">
+                <button
+                  onClick={() => saveSettings()}
+                  className="px-4 py-2 bg-accent-primary text-white rounded-lg text-sm font-medium hover:bg-accent-primary/80 transition-colors"
+                >
+                  Save Settings
+                </button>
+              </div>
+            )}
+          </div>
+        </div>
+
         {/* Filters */}
-        <div className="flex gap-3">
-          <select
-            value={selectedBand}
-            onChange={(e) => setSelectedBand(e.target.value)}
-            className="glass-input flex-1"
-          >
-            <option value="">All Bands</option>
-            <option value="160m">160m</option>
-            <option value="80m">80m</option>
-            <option value="40m">40m</option>
-            <option value="30m">30m</option>
-            <option value="20m">20m</option>
-            <option value="17m">17m</option>
-            <option value="15m">15m</option>
-            <option value="12m">12m</option>
-            <option value="10m">10m</option>
-            <option value="6m">6m</option>
-          </select>
+        <div className="p-4 space-y-4 flex-shrink-0">
+          <div className="flex gap-3 items-center">
+            {/* Fuzzy Search Input */}
+            <div className="relative flex-1">
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+              <input
+                type="text"
+                value={searchQuery}
+                onChange={(e) => setSearchQuery(e.target.value)}
+                placeholder="Search call, country, spotter..."
+                className="w-full pl-9 pr-3 py-2 bg-dark-800 border border-glass-100 rounded-lg text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-accent-primary/50"
+              />
+              {searchQuery && (
+                <button
+                  onClick={() => setSearchQuery('')}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-300"
+                >
+                  <X className="w-3.5 h-3.5" />
+                </button>
+              )}
+            </div>
 
-          <select
-            value={selectedMode}
-            onChange={(e) => setSelectedMode(e.target.value)}
-            className="glass-input flex-1"
-          >
-            <option value="">All Modes</option>
-            <option value="CW">CW</option>
-            <option value="SSB">SSB</option>
-            <option value="FT8">FT8</option>
-            <option value="RTTY">RTTY</option>
-          </select>
+            <MultiSelectDropdown
+              options={BAND_OPTIONS}
+              selected={selectedBands}
+              onChange={setSelectedBands}
+              placeholder="All Bands"
+              className="w-32"
+            />
 
-          <button className="glass-button p-2" title="Advanced filters">
-            <Filter className="w-4 h-4" />
-          </button>
+            <MultiSelectDropdown
+              options={MODE_OPTIONS}
+              selected={selectedModes}
+              onChange={setSelectedModes}
+              placeholder="All Modes"
+              className="w-32"
+            />
+
+            {/* Clear All Filters Button */}
+            {hasActiveFilters && (
+              <button
+                onClick={clearAllFilters}
+                className="flex items-center gap-1.5 px-3 py-2 bg-accent-warning/20 text-accent-warning rounded-lg text-sm hover:bg-accent-warning/30 transition-colors whitespace-nowrap"
+                title="Clear all filters"
+              >
+                <X className="w-4 h-4" />
+                <span>Clear ({totalActiveFilters})</span>
+              </button>
+            )}
+          </div>
         </div>
 
         {/* AG Grid Table */}
-        <div className="ag-theme-alpine-dark h-[calc(100vh-280px)]">
-          {isLoading ? (
-            <div className="flex items-center justify-center py-8 text-gray-500">
-              <Radio className="w-4 h-4 animate-spin mr-2" />
-              Loading spots...
-            </div>
-          ) : filteredSpots?.length === 0 ? (
-            <div className="text-center py-8 text-gray-500">
-              No spots available
-            </div>
-          ) : (
-            <AgGridReact<Spot>
-              rowData={filteredSpots}
-              columnDefs={columnDefs}
-              defaultColDef={defaultColDef}
-              rowHeight={36}
-              headerHeight={40}
-              suppressCellFocus={true}
-              animateRows={true}
-              onRowClicked={handleRowClick}
-              rowClass="cursor-pointer hover:bg-dark-600/50"
-              getRowId={(params) => params.data.id}
-            />
-          )}
+        <div className="flex-1 px-4 pb-4 min-h-0">
+          <div className="ag-theme-alpine-dark h-full">
+            {isLoading ? (
+              <div className="flex items-center justify-center py-8 text-gray-500">
+                <Radio className="w-4 h-4 animate-spin mr-2" />
+                Loading spots...
+              </div>
+            ) : filteredSpots?.length === 0 ? (
+              <div className="text-center py-8 text-gray-500">
+                {hasActiveFilters ? (
+                  <>
+                    <p>No spots match your filters</p>
+                    <button
+                      onClick={clearAllFilters}
+                      className="mt-2 text-accent-primary hover:underline"
+                    >
+                      Clear filters
+                    </button>
+                  </>
+                ) : (
+                  'No spots available'
+                )}
+              </div>
+            ) : (
+              <AgGridReact<Spot>
+                rowData={filteredSpots}
+                columnDefs={columnDefs}
+                defaultColDef={defaultColDef}
+                rowHeight={36}
+                headerHeight={40}
+                suppressCellFocus={true}
+                animateRows={true}
+                onRowClicked={handleRowClick}
+                rowClass="cursor-pointer hover:bg-dark-600/50"
+                getRowId={(params) => params.data.id}
+              />
+            )}
+          </div>
         </div>
       </div>
     </GlassPanel>

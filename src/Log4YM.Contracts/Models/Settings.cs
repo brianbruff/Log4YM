@@ -26,6 +26,9 @@ public class UserSettings
     [BsonElement("map")]
     public MapSettings Map { get; set; } = new();
 
+    [BsonElement("cluster")]
+    public ClusterSettings Cluster { get; set; } = new();
+
     [BsonElement("layoutJson")]
     public string? LayoutJson { get; set; }
 
@@ -157,6 +160,36 @@ public class MapSettings
 {
     [BsonElement("tileLayer")]
     public string TileLayer { get; set; } = "dark";
+}
+
+public class ClusterSettings
+{
+    [BsonElement("connections")]
+    public List<ClusterConnection> Connections { get; set; } = new();
+}
+
+public class ClusterConnection
+{
+    [BsonElement("id")]
+    public string Id { get; set; } = Guid.NewGuid().ToString();
+
+    [BsonElement("name")]
+    public string Name { get; set; } = string.Empty;
+
+    [BsonElement("host")]
+    public string Host { get; set; } = string.Empty;
+
+    [BsonElement("port")]
+    public int Port { get; set; } = 23;
+
+    [BsonElement("callsign")]
+    public string? Callsign { get; set; }  // If null, uses station callsign
+
+    [BsonElement("enabled")]
+    public bool Enabled { get; set; } = true;
+
+    [BsonElement("autoReconnect")]
+    public bool AutoReconnect { get; set; } = false;
 }
 
 public class PluginSettings

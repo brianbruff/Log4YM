@@ -50,6 +50,9 @@ public interface ILogHubClient
 
     // QRZ Sync events
     Task OnQrzSyncProgress(QrzSyncProgressEvent evt);
+
+    // DX Cluster events
+    Task OnClusterStatusChanged(ClusterStatusChangedEvent evt);
 }
 
 public class LogHub : Hub<ILogHubClient>
@@ -735,5 +738,10 @@ public static class LogHubExtensions
     public static async Task BroadcastQrzSyncProgress(this IHubContext<LogHub, ILogHubClient> hub, QrzSyncProgressEvent evt)
     {
         await hub.Clients.All.OnQrzSyncProgress(evt);
+    }
+
+    public static async Task BroadcastClusterStatusChanged(this IHubContext<LogHub, ILogHubClient> hub, ClusterStatusChangedEvent evt)
+    {
+        await hub.Clients.All.OnClusterStatusChanged(evt);
     }
 }

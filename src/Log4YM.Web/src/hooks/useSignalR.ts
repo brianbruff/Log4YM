@@ -31,6 +31,7 @@ export function useSignalR() {
     setQrzSyncProgress,
     setSelectedSpot,
     setLogHistoryCallsignFilter,
+    setClusterStatus,
   } = useAppStore();
 
   useEffect(() => {
@@ -206,6 +207,16 @@ export function useSignalR() {
             console.log('QRZ sync progress:', evt.completed, '/', evt.total);
             setQrzSyncProgress(evt);
           },
+          // DX Cluster handler
+          onClusterStatusChanged: (evt) => {
+            console.log('Cluster status changed:', evt.clusterId, evt.status);
+            setClusterStatus(evt.clusterId, {
+              clusterId: evt.clusterId,
+              name: evt.name,
+              status: evt.status,
+              errorMessage: evt.errorMessage,
+            });
+          },
         });
 
         await signalRService.connect();
@@ -227,7 +238,7 @@ export function useSignalR() {
       signalRService.disconnect();
       setConnectionState('disconnected', 0);
     };
-  }, [queryClient, setConnected, setConnectionState, setFocusedCallsign, setFocusedCallsignInfo, setLookingUpCallsign, setRotatorPosition, setRigStatus, setAntennaGeniusStatus, updateAntennaGeniusPort, removeAntennaGeniusDevice, setPgxlStatus, removePgxlDevice, addDiscoveredRadio, removeDiscoveredRadio, setRadioConnectionState, setRadioState, setRadioSlices, addSmartUnlinkRadio, updateSmartUnlinkRadio, removeSmartUnlinkRadio, setSmartUnlinkRadios, setQrzSyncProgress, setSelectedSpot, setLogHistoryCallsignFilter]);
+  }, [queryClient, setConnected, setConnectionState, setFocusedCallsign, setFocusedCallsignInfo, setLookingUpCallsign, setRotatorPosition, setRigStatus, setAntennaGeniusStatus, updateAntennaGeniusPort, removeAntennaGeniusDevice, setPgxlStatus, removePgxlDevice, addDiscoveredRadio, removeDiscoveredRadio, setRadioConnectionState, setRadioState, setRadioSlices, addSmartUnlinkRadio, updateSmartUnlinkRadio, removeSmartUnlinkRadio, setSmartUnlinkRadios, setQrzSyncProgress, setSelectedSpot, setLogHistoryCallsignFilter, setClusterStatus]);
 
   const focusCallsign = useCallback(async (callsign: string, source: string) => {
     setFocusedCallsign(callsign);

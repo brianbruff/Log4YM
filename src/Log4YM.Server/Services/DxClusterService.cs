@@ -1,3 +1,4 @@
+using System.Collections.Concurrent;
 using System.Net.Sockets;
 using System.Text;
 using System.Text.RegularExpressions;
@@ -9,111 +10,464 @@ using Log4YM.Server.Hubs;
 
 namespace Log4YM.Server.Services;
 
-public class DxClusterService : BackgroundService
+public interface IDxClusterService
+{
+    Task ConnectClusterAsync(string clusterId);
+    Task DisconnectClusterAsync(string clusterId);
+    IReadOnlyDictionary<string, ClusterConnectionStatus> GetStatuses();
+    Task StartAsync(CancellationToken cancellationToken);
+    Task StopAsync(CancellationToken cancellationToken);
+}
+
+public record ClusterConnectionStatus(
+    string ClusterId,
+    string Name,
+    string Status,  // "connected" | "connecting" | "disconnected" | "error"
+    string? ErrorMessage = null
+);
+
+public class DxClusterService : IDxClusterService, IHostedService, IDisposable
 {
     private readonly ILogger<DxClusterService> _logger;
     private readonly IHubContext<LogHub, ILogHubClient> _hubContext;
     private readonly IServiceProvider _serviceProvider;
-    private readonly IConfiguration _configuration;
+    private readonly ConcurrentDictionary<string, ClusterConnectionHandler> _connections = new();
+    private readonly ConcurrentDictionary<string, ClusterConnectionStatus> _statuses = new();
+    private readonly ConcurrentDictionary<string, DateTime> _recentSpots = new();
+    private CancellationTokenSource? _cts;
+    private Timer? _cleanupTimer;
+
+    private const int DeduplicationWindowSeconds = 60;
+
+    public DxClusterService(
+        ILogger<DxClusterService> logger,
+        IHubContext<LogHub, ILogHubClient> hubContext,
+        IServiceProvider serviceProvider)
+    {
+        _logger = logger;
+        _hubContext = hubContext;
+        _serviceProvider = serviceProvider;
+    }
+
+    public async Task StartAsync(CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("DX Cluster service starting...");
+        _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
+
+        // Start cleanup timer for deduplication cache
+        _cleanupTimer = new Timer(CleanupRecentSpots, null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
+
+        // Auto-connect enabled clusters with autoReconnect
+        await AutoConnectClustersAsync();
+    }
+
+    public async Task StopAsync(CancellationToken cancellationToken)
+    {
+        _logger.LogInformation("DX Cluster service stopping...");
+        _cts?.Cancel();
+
+        // Disconnect all clusters
+        foreach (var connection in _connections.Values)
+        {
+            await connection.DisconnectAsync();
+        }
+
+        _connections.Clear();
+        _cleanupTimer?.Dispose();
+    }
+
+    public void Dispose()
+    {
+        _cts?.Dispose();
+        _cleanupTimer?.Dispose();
+    }
+
+    private async Task AutoConnectClustersAsync()
+    {
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var settingsRepo = scope.ServiceProvider.GetRequiredService<ISettingsRepository>();
+            var settings = await settingsRepo.GetAsync();
+
+            // If no cluster connections configured, create a default VE7CC entry
+            if (settings?.Cluster?.Connections == null || settings.Cluster.Connections.Count == 0)
+            {
+                _logger.LogInformation("No cluster connections configured, creating default VE7CC cluster");
+                await CreateDefaultClusterAsync(settingsRepo, settings);
+                settings = await settingsRepo.GetAsync();
+            }
+
+            if (settings?.Cluster?.Connections == null) return;
+
+            foreach (var cluster in settings.Cluster.Connections.Where(c => c.Enabled && c.AutoReconnect))
+            {
+                if (!string.IsNullOrEmpty(cluster.Host))
+                {
+                    _logger.LogInformation("Auto-connecting to cluster: {Name} ({Host}:{Port})",
+                        cluster.Name, cluster.Host, cluster.Port);
+                    _ = ConnectClusterInternalAsync(cluster, settings.Station?.Callsign);
+                }
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to auto-connect clusters");
+        }
+    }
+
+    private async Task CreateDefaultClusterAsync(ISettingsRepository settingsRepo, UserSettings? existingSettings)
+    {
+        var defaultCluster = new ClusterConnection
+        {
+            Id = Guid.NewGuid().ToString(),
+            Name = "VE7CC",
+            Host = "dxc.ve7cc.net",
+            Port = 23,
+            Callsign = null, // Will use station callsign
+            Enabled = true,
+            AutoReconnect = true
+        };
+
+        if (existingSettings == null)
+        {
+            existingSettings = new UserSettings
+            {
+                Cluster = new ClusterSettings { Connections = new List<ClusterConnection> { defaultCluster } }
+            };
+        }
+        else
+        {
+            existingSettings.Cluster ??= new ClusterSettings();
+            existingSettings.Cluster.Connections ??= new List<ClusterConnection>();
+            existingSettings.Cluster.Connections.Add(defaultCluster);
+        }
+
+        await settingsRepo.UpsertAsync(existingSettings);
+        _logger.LogInformation("Default VE7CC cluster created and saved");
+    }
+
+    public async Task ConnectClusterAsync(string clusterId)
+    {
+        using var scope = _serviceProvider.CreateScope();
+        var settingsRepo = scope.ServiceProvider.GetRequiredService<ISettingsRepository>();
+        var settings = await settingsRepo.GetAsync();
+
+        var cluster = settings?.Cluster?.Connections?.FirstOrDefault(c => c.Id == clusterId);
+        if (cluster == null)
+        {
+            _logger.LogWarning("Cluster {ClusterId} not found in settings", clusterId);
+            return;
+        }
+
+        await ConnectClusterInternalAsync(cluster, settings?.Station?.Callsign);
+    }
+
+    private async Task ConnectClusterInternalAsync(ClusterConnection config, string? stationCallsign)
+    {
+        if (_connections.ContainsKey(config.Id))
+        {
+            _logger.LogWarning("Cluster {Id} is already connected or connecting", config.Id);
+            return;
+        }
+
+        var callsign = config.Callsign ?? stationCallsign ?? "LOG4YM";
+        var handler = new ClusterConnectionHandler(
+            config.Id,
+            config.Name ?? "Unknown",
+            config.Host,
+            config.Port,
+            callsign,
+            config.AutoReconnect,
+            _logger,
+            OnSpotReceived,
+            OnStatusChanged
+        );
+
+        _connections[config.Id] = handler;
+
+        await handler.ConnectAsync(_cts?.Token ?? CancellationToken.None);
+    }
+
+    public async Task DisconnectClusterAsync(string clusterId)
+    {
+        if (_connections.TryRemove(clusterId, out var handler))
+        {
+            await handler.DisconnectAsync();
+        }
+
+        UpdateStatus(clusterId, "Unknown", "disconnected", null);
+    }
+
+    public IReadOnlyDictionary<string, ClusterConnectionStatus> GetStatuses()
+    {
+        return _statuses;
+    }
+
+    private async Task OnSpotReceived(ParsedSpot spot, string clusterId, string clusterName)
+    {
+        // Deduplication: Check if we've seen this spot recently
+        var dedupKey = GenerateDeduplicationKey(spot);
+        if (!_recentSpots.TryAdd(dedupKey, DateTime.UtcNow))
+        {
+            _logger.LogDebug("Duplicate spot ignored: {DxCall} {Freq} from {Cluster}",
+                spot.DxCall, spot.Frequency, clusterName);
+            return;
+        }
+
+        // Save and broadcast
+        await SaveAndBroadcastSpotAsync(spot, clusterName);
+    }
+
+    private static string GenerateDeduplicationKey(ParsedSpot spot)
+    {
+        // Key: DxCall + rounded frequency (to nearest kHz) + minute timestamp
+        var roundedFreq = Math.Round(spot.Frequency);
+        var minute = spot.Timestamp.Ticks / TimeSpan.TicksPerMinute;
+        return $"{spot.DxCall.ToUpperInvariant()}:{roundedFreq}:{minute}";
+    }
+
+    private void CleanupRecentSpots(object? state)
+    {
+        var cutoff = DateTime.UtcNow.AddSeconds(-DeduplicationWindowSeconds);
+        var keysToRemove = _recentSpots.Where(kvp => kvp.Value < cutoff).Select(kvp => kvp.Key).ToList();
+
+        foreach (var key in keysToRemove)
+        {
+            _recentSpots.TryRemove(key, out _);
+        }
+
+        if (keysToRemove.Count > 0)
+        {
+            _logger.LogDebug("Cleaned up {Count} expired deduplication entries", keysToRemove.Count);
+        }
+    }
+
+    private void OnStatusChanged(string clusterId, string name, string status, string? errorMessage)
+    {
+        UpdateStatus(clusterId, name, status, errorMessage);
+    }
+
+    private void UpdateStatus(string clusterId, string name, string status, string? errorMessage)
+    {
+        var statusObj = new ClusterConnectionStatus(clusterId, name, status, errorMessage);
+        _statuses[clusterId] = statusObj;
+
+        // Broadcast to clients
+        var evt = new ClusterStatusChangedEvent(clusterId, name, status, errorMessage);
+        _ = _hubContext.BroadcastClusterStatusChanged(evt);
+    }
+
+    private async Task SaveAndBroadcastSpotAsync(ParsedSpot parsedSpot, string source)
+    {
+        var spot = new Spot
+        {
+            DxCall = parsedSpot.DxCall,
+            Spotter = parsedSpot.Spotter,
+            Frequency = parsedSpot.Frequency,
+            Mode = parsedSpot.Mode,
+            Comment = parsedSpot.Comment,
+            Source = source,
+            Timestamp = parsedSpot.Timestamp,
+            DxStation = new SpotStationInfo
+            {
+                Country = parsedSpot.Country,
+                Continent = parsedSpot.Continent,
+                Dxcc = parsedSpot.Dxcc,
+                Grid = parsedSpot.Grid
+            }
+        };
+
+        // Save to database using scoped service
+        using var scope = _serviceProvider.CreateScope();
+        var repository = scope.ServiceProvider.GetRequiredService<ISpotRepository>();
+        var savedSpot = await repository.CreateAsync(spot);
+
+        _logger.LogDebug("Spot: {DxCall} on {Freq} by {Spotter} - {Country} (from {Source})",
+            parsedSpot.DxCall, parsedSpot.Frequency, parsedSpot.Spotter, parsedSpot.Country ?? "Unknown", source);
+
+        // Broadcast to clients
+        var evt = new SpotReceivedEvent(
+            savedSpot.Id,
+            savedSpot.DxCall,
+            savedSpot.Spotter,
+            savedSpot.Frequency,
+            savedSpot.Mode,
+            savedSpot.Comment,
+            savedSpot.Timestamp,
+            source,
+            savedSpot.DxStation?.Country,
+            savedSpot.DxStation?.Dxcc
+        );
+
+        await _hubContext.Clients.All.OnSpotReceived(evt);
+    }
+}
+
+internal record ParsedSpot(
+    string DxCall,
+    string Spotter,
+    double Frequency,
+    string? Mode,
+    string? Comment,
+    DateTime Timestamp,
+    string? Country,
+    string? Continent,
+    int? Dxcc,
+    string? Grid
+);
+
+internal class ClusterConnectionHandler
+{
+    private readonly string _id;
+    private readonly string _name;
+    private readonly string _host;
+    private readonly int _port;
+    private readonly string _callsign;
+    private readonly bool _autoReconnect;
+    private readonly ILogger _logger;
+    private readonly Func<ParsedSpot, string, string, Task> _onSpotReceived;
+    private readonly Action<string, string, string, string?> _onStatusChanged;
+    private TcpClient? _tcpClient;
+    private CancellationTokenSource? _connectionCts;
+    private bool _disconnectRequested;
 
     private const int ReconnectDelayMs = 10000;
-    private const int ReadTimeoutMs = 120000; // 2 minutes
+    private const int ReadTimeoutMs = 120000;
 
     // VE7CC cluster format regex
-    // Example: DX de W3LPL:     14025.0  JA1ABC       CW UP 10                        2359Z
-    // Example: DX de K3LR:      21074.0  VK2ABC       FT8                             0001Z JO32
     private static readonly Regex DxSpotRegex = new(
         @"^DX de ([A-Z0-9/]+):\s+(\d+\.?\d*)\s+([A-Z0-9/]+)\s+(.*?)\s+(\d{4})Z(?:\s+([A-Z]{2}\d{2}))?",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
     // VE7CC CC cluster extended format (CC11 format)
-    // Example: CC11^7074^AE1AA^12-Dec-2025^0019Z^FT8  -14 dB 1562 Hz^N2CR-#^1^^RBNFT8^8^5^8^5^NH^NJ^K^K^FN43^FN20^40^43.5/71^
-    // Fields: Type^Freq^DxCall^Date^Time^Comment^Spotter^?^?^Source^CQ^ITU^CQ^ITU^State^State^Country^Country^Grid^Grid^Band^Lat/Lon
     private static readonly Regex CcSpotRegex = new(
         @"^CC\d+\^(\d+\.?\d*)\^([A-Z0-9/]+(?:-[A-Z0-9]+)?)\^[^\^]+\^(\d{4})Z?\^([^\^]*)\^([A-Z0-9/]+(?:-[#0-9]+)?)\^[^\^]*\^[^\^]*\^([^\^]*)\^[^\^]*\^[^\^]*\^[^\^]*\^[^\^]*\^[^\^]*\^[^\^]*\^([^\^]*)\^[^\^]*\^([^\^]*)\^",
         RegexOptions.Compiled | RegexOptions.IgnoreCase);
 
-    public DxClusterService(
-        ILogger<DxClusterService> logger,
-        IHubContext<LogHub, ILogHubClient> hubContext,
-        IServiceProvider serviceProvider,
-        IConfiguration configuration)
+    public ClusterConnectionHandler(
+        string id,
+        string name,
+        string host,
+        int port,
+        string callsign,
+        bool autoReconnect,
+        ILogger logger,
+        Func<ParsedSpot, string, string, Task> onSpotReceived,
+        Action<string, string, string, string?> onStatusChanged)
     {
+        _id = id;
+        _name = name;
+        _host = host;
+        _port = port;
+        _callsign = callsign;
+        _autoReconnect = autoReconnect;
         _logger = logger;
-        _hubContext = hubContext;
-        _serviceProvider = serviceProvider;
-        _configuration = configuration;
+        _onSpotReceived = onSpotReceived;
+        _onStatusChanged = onStatusChanged;
     }
 
-    protected override async Task ExecuteAsync(CancellationToken stoppingToken)
+    public async Task ConnectAsync(CancellationToken externalToken)
     {
-        _logger.LogInformation("DX Cluster service starting...");
+        _disconnectRequested = false;
+        _connectionCts = CancellationTokenSource.CreateLinkedTokenSource(externalToken);
+        var ct = _connectionCts.Token;
 
-        // Get cluster configuration
-        var clusterHost = _configuration.GetValue<string>("DxCluster:Host") ?? "de.ve7cc.net";
-        var clusterPort = _configuration.GetValue<int>("DxCluster:Port", 23);
-        var callsign = _configuration.GetValue<string>("DxCluster:Callsign") ?? "LOG4YM";
-
-        while (!stoppingToken.IsCancellationRequested)
+        while (!ct.IsCancellationRequested && !_disconnectRequested)
         {
             try
             {
-                await ConnectAndReceiveAsync(clusterHost, clusterPort, callsign, stoppingToken);
+                _onStatusChanged(_id, _name, "connecting", null);
+                await ConnectAndReceiveAsync(ct);
             }
-            catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+            catch (OperationCanceledException) when (ct.IsCancellationRequested || _disconnectRequested)
             {
-                _logger.LogInformation("DX Cluster service stopping...");
+                _logger.LogInformation("Cluster {Name} disconnected", _name);
                 break;
             }
             catch (Exception ex)
             {
-                _logger.LogError(ex, "DX Cluster connection error");
+                _logger.LogError(ex, "Cluster {Name} connection error: {Message}", _name, ex.Message);
+                _onStatusChanged(_id, _name, "error", ex.Message);
             }
 
-            if (!stoppingToken.IsCancellationRequested)
+            if (!ct.IsCancellationRequested && !_disconnectRequested)
             {
-                _logger.LogInformation("Reconnecting to DX Cluster in {Delay} seconds...", ReconnectDelayMs / 1000);
-                await Task.Delay(ReconnectDelayMs, stoppingToken);
+                if (_autoReconnect)
+                {
+                    _logger.LogInformation("Reconnecting to cluster {Name} in {Delay} seconds...",
+                        _name, ReconnectDelayMs / 1000);
+                    _onStatusChanged(_id, _name, "disconnected", "Reconnecting...");
+                    try
+                    {
+                        await Task.Delay(ReconnectDelayMs, ct);
+                    }
+                    catch (OperationCanceledException)
+                    {
+                        break;
+                    }
+                }
+                else
+                {
+                    _onStatusChanged(_id, _name, "disconnected", null);
+                    break;
+                }
             }
         }
+
+        _onStatusChanged(_id, _name, "disconnected", null);
     }
 
-    private async Task ConnectAndReceiveAsync(string host, int port, string callsign, CancellationToken ct)
+    public async Task DisconnectAsync()
+    {
+        _disconnectRequested = true;
+        _connectionCts?.Cancel();
+
+        if (_tcpClient?.Connected == true)
+        {
+            _tcpClient.Close();
+        }
+
+        await Task.CompletedTask;
+    }
+
+    private async Task ConnectAndReceiveAsync(CancellationToken ct)
     {
         using var tcpClient = new TcpClient();
+        _tcpClient = tcpClient;
         tcpClient.ReceiveTimeout = ReadTimeoutMs;
 
-        _logger.LogInformation("Connecting to DX Cluster {Host}:{Port}...", host, port);
-        await tcpClient.ConnectAsync(host, port, ct);
+        _logger.LogInformation("Connecting to cluster {Name} at {Host}:{Port}...", _name, _host, _port);
+        await tcpClient.ConnectAsync(_host, _port, ct);
 
         using var stream = tcpClient.GetStream();
         using var reader = new StreamReader(stream, Encoding.ASCII);
         using var writer = new StreamWriter(stream, Encoding.ASCII) { AutoFlush = true };
 
-        _logger.LogInformation("Connected to DX Cluster {Host}:{Port}", host, port);
+        _logger.LogInformation("Connected to cluster {Name}", _name);
+        _onStatusChanged(_id, _name, "connected", null);
 
-        // Wait for login prompt and send callsign
         var loginSent = false;
         var ccModeEnabled = false;
         var ft8Enabled = false;
 
-        while (!ct.IsCancellationRequested && tcpClient.Connected)
+        while (!ct.IsCancellationRequested && tcpClient.Connected && !_disconnectRequested)
         {
             var line = await reader.ReadLineAsync(ct);
             if (line == null)
             {
-                _logger.LogWarning("DX Cluster connection closed by server");
+                _logger.LogWarning("Cluster {Name} connection closed by server", _name);
                 break;
             }
 
             // Log all incoming lines for debugging
-            _logger.LogInformation("Cluster recv: {Line}", line);
+            _logger.LogDebug("Cluster {Name} recv: {Line}", _name, line);
 
             // Handle login prompt
             if (!loginSent && (line.Contains("login:") || line.Contains("call:") || line.Contains("Please enter your call")))
             {
-                _logger.LogInformation("Sending login: {Callsign}", callsign);
-                await writer.WriteLineAsync(callsign);
+                _logger.LogInformation("Sending login to {Name}: {Callsign}", _name, _callsign);
+                await writer.WriteLineAsync(_callsign);
                 loginSent = true;
                 continue;
             }
@@ -122,31 +476,29 @@ public class DxClusterService : BackgroundService
             if (loginSent && !ccModeEnabled && line.Contains("CCC >"))
             {
                 await Task.Delay(500, ct);
-                _logger.LogInformation("Enabling CC cluster mode (human spots only - no skimmers)");
+                _logger.LogInformation("Enabling CC cluster mode on {Name}", _name);
                 await writer.WriteLineAsync("set/ve7cc");
                 ccModeEnabled = true;
                 continue;
             }
 
-            // Disable skimmers after CC mode is confirmed to get human-spotted calls only
-            // Human spots include SSB/Phone which skimmers cannot detect
+            // Disable skimmers after CC mode is confirmed
             if (ccModeEnabled && !ft8Enabled && line.Contains("Enhanced Spots Enabled"))
             {
                 await Task.Delay(200, ct);
-                // Explicitly disable skimmers to only receive human-spotted DX
                 await writer.WriteLineAsync("set/noskimmer");
                 await Task.Delay(200, ct);
                 await writer.WriteLineAsync("set/noft8");
                 ft8Enabled = true;
-                _logger.LogInformation("Skimmers disabled - receiving human spots only (includes SSB/Phone)");
+                _logger.LogInformation("Skimmers disabled on {Name}", _name);
                 continue;
             }
 
             // Handle invalid callsign response
             if (line.Contains("not a valid callsign") || line.Contains("invalid call"))
             {
-                _logger.LogError("Cluster rejected callsign '{Callsign}'. Please configure a valid callsign in appsettings.json under DxCluster:Callsign", callsign);
-                throw new Exception($"Invalid callsign: {callsign}");
+                _logger.LogError("Cluster {Name} rejected callsign '{Callsign}'", _name, _callsign);
+                throw new Exception($"Invalid callsign: {_callsign}");
             }
 
             // Skip empty lines and prompts
@@ -177,19 +529,12 @@ public class DxClusterService : BackgroundService
             await ProcessDxSpotAsync(dxMatch);
             return;
         }
-
-        // Log unrecognized lines for debugging (but not system messages)
-        if (!line.StartsWith("DX de") && !line.StartsWith("CC") && !line.Contains("***"))
-        {
-            _logger.LogDebug("Unrecognized cluster line: {Line}", line);
-        }
     }
 
     private async Task ProcessCcSpotAsync(Match match)
     {
         try
         {
-            // Groups from regex: 1=freq, 2=dxCall, 3=time, 4=comment, 5=spotter, 6=source, 7=country, 8=grid
             var frequency = double.Parse(match.Groups[1].Value, System.Globalization.CultureInfo.InvariantCulture);
             var dxCall = match.Groups[2].Value.ToUpper();
             var timeStr = match.Groups[3].Value;
@@ -199,25 +544,113 @@ public class DxClusterService : BackgroundService
             var country = match.Groups[7].Value;
             var grid = match.Groups[8].Value;
 
-            // Parse mode from comment, or infer from frequency
             var mode = ExtractMode(comment) ?? InferModeFromFrequency(frequency);
-
-            // Create timestamp from time string (HHMM format, assume today)
             var timestamp = ParseSpotTime(timeStr);
-
-            // Map country prefix to full country name
             var (countryName, continent) = GetCountryFromPrefix(country);
 
-            _logger.LogInformation("Spot: {DxCall} {Freq} {Mode} by {Spotter} - {Country}",
-                dxCall, frequency, mode ?? "?", spotter, countryName ?? country);
+            var spot = new ParsedSpot(
+                dxCall, spotter, frequency, mode, comment, timestamp,
+                countryName ?? country, continent, null, grid
+            );
 
-            await SaveAndBroadcastSpotAsync(
-                dxCall, spotter, frequency, mode, comment, timestamp, countryName ?? country, continent, null, grid);
+            await _onSpotReceived(spot, _id, _name);
         }
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to parse CC spot: {Line}", match.Value);
         }
+    }
+
+    private async Task ProcessDxSpotAsync(Match match)
+    {
+        try
+        {
+            var spotter = match.Groups[1].Value.ToUpper();
+            var frequency = double.Parse(match.Groups[2].Value, System.Globalization.CultureInfo.InvariantCulture);
+            var dxCall = match.Groups[3].Value.ToUpper();
+            var comment = match.Groups[4].Value.Trim();
+            var timeStr = match.Groups[5].Value;
+            var grid = match.Groups[6].Success ? match.Groups[6].Value.ToUpper() : null;
+
+            var mode = ExtractMode(comment) ?? InferModeFromFrequency(frequency);
+            var timestamp = ParseSpotTime(timeStr);
+
+            var spot = new ParsedSpot(
+                dxCall, spotter, frequency, mode, comment, timestamp,
+                null, null, null, grid
+            );
+
+            await _onSpotReceived(spot, _id, _name);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to parse DX spot: {Line}", match.Value);
+        }
+    }
+
+    private static string? ExtractMode(string comment)
+    {
+        var commentUpper = comment.ToUpper();
+
+        if (commentUpper.Contains("FT8")) return "FT8";
+        if (commentUpper.Contains("FT4")) return "FT4";
+        if (commentUpper.Contains("RTTY")) return "RTTY";
+        if (commentUpper.Contains("PSK")) return "PSK31";
+        if (commentUpper.Contains("SSB") || commentUpper.Contains("USB") || commentUpper.Contains("LSB")) return "SSB";
+        if (commentUpper.Contains("CW")) return "CW";
+        if (commentUpper.Contains("AM")) return "AM";
+        if (commentUpper.Contains("FM")) return "FM";
+        if (commentUpper.Contains("DIGI")) return "DIGI";
+        if (commentUpper.Contains("JT65")) return "JT65";
+        if (commentUpper.Contains("JT9")) return "JT9";
+
+        return null;
+    }
+
+    private static string InferModeFromFrequency(double frequencyKhz)
+    {
+        if (frequencyKhz >= 1800 && frequencyKhz < 2000)
+            return frequencyKhz >= 1843 ? "SSB" : "CW";
+        if (frequencyKhz >= 3500 && frequencyKhz < 4000)
+            return frequencyKhz >= 3600 ? "SSB" : "CW";
+        if (frequencyKhz >= 7000 && frequencyKhz < 7300)
+            return frequencyKhz >= 7125 ? "SSB" : "CW";
+        if (frequencyKhz >= 10100 && frequencyKhz < 10150)
+            return "CW";
+        if (frequencyKhz >= 14000 && frequencyKhz < 14350)
+            return frequencyKhz >= 14150 ? "SSB" : "CW";
+        if (frequencyKhz >= 18068 && frequencyKhz < 18168)
+            return frequencyKhz >= 18110 ? "SSB" : "CW";
+        if (frequencyKhz >= 21000 && frequencyKhz < 21450)
+            return frequencyKhz >= 21200 ? "SSB" : "CW";
+        if (frequencyKhz >= 24890 && frequencyKhz < 24990)
+            return frequencyKhz >= 24930 ? "SSB" : "CW";
+        if (frequencyKhz >= 28000 && frequencyKhz < 29700)
+            return frequencyKhz >= 28300 ? "SSB" : "CW";
+        if (frequencyKhz >= 50000 && frequencyKhz < 54000)
+            return frequencyKhz >= 50100 ? "SSB" : "CW";
+
+        return "SSB";
+    }
+
+    private static DateTime ParseSpotTime(string timeStr)
+    {
+        if (timeStr.Length == 4 &&
+            int.TryParse(timeStr.Substring(0, 2), out var hours) &&
+            int.TryParse(timeStr.Substring(2, 2), out var minutes))
+        {
+            var now = DateTime.UtcNow;
+            var spotTime = new DateTime(now.Year, now.Month, now.Day, hours, minutes, 0, DateTimeKind.Utc);
+
+            if (spotTime > now.AddMinutes(5))
+            {
+                spotTime = spotTime.AddDays(-1);
+            }
+
+            return spotTime;
+        }
+
+        return DateTime.UtcNow;
     }
 
     private static readonly Dictionary<string, (string Country, string Continent)> PrefixToCountry = new(StringComparer.OrdinalIgnoreCase)
@@ -287,7 +720,7 @@ public class DxClusterService : BackgroundService
 
         // Additional
         ["8Q"] = ("Maldives", "AS"), ["4S"] = ("Sri Lanka", "AS"), ["AP"] = ("Pakistan", "AS"),
-        ["YT"] = ("Serbia", "EU"), ["YU"] = ("Serbia", "EU"),
+        ["YT"] = ("Serbia", "EU"),
         ["B"] = ("China", "AS"), ["BD"] = ("China", "AS"), ["BH"] = ("China", "AS"),
         ["BU"] = ("Taiwan", "AS"),
     };
@@ -297,11 +730,9 @@ public class DxClusterService : BackgroundService
         if (string.IsNullOrEmpty(prefix))
             return (null, null);
 
-        // Try exact match first
         if (PrefixToCountry.TryGetValue(prefix, out var result))
             return result;
 
-        // Try progressively shorter prefixes (for compound prefixes like KH6, VP2M)
         for (int len = Math.Min(prefix.Length, 4); len >= 1; len--)
         {
             var shortPrefix = prefix.Substring(0, len);
@@ -310,167 +741,5 @@ public class DxClusterService : BackgroundService
         }
 
         return (null, null);
-    }
-
-    private async Task ProcessDxSpotAsync(Match match)
-    {
-        try
-        {
-            var spotter = match.Groups[1].Value.ToUpper();
-            var frequency = double.Parse(match.Groups[2].Value, System.Globalization.CultureInfo.InvariantCulture);
-            var dxCall = match.Groups[3].Value.ToUpper();
-            var comment = match.Groups[4].Value.Trim();
-            var timeStr = match.Groups[5].Value;
-            var grid = match.Groups[6].Success ? match.Groups[6].Value.ToUpper() : null;
-
-            var mode = ExtractMode(comment) ?? InferModeFromFrequency(frequency);
-            var timestamp = ParseSpotTime(timeStr);
-
-            await SaveAndBroadcastSpotAsync(
-                dxCall, spotter, frequency, mode, comment, timestamp, null, null, null, grid);
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to parse DX spot: {Line}", match.Value);
-        }
-    }
-
-    private async Task SaveAndBroadcastSpotAsync(
-        string dxCall, string spotter, double frequency, string? mode, string? comment,
-        DateTime timestamp, string? country, string? continent, int? dxcc, string? grid = null)
-    {
-        var spot = new Spot
-        {
-            DxCall = dxCall,
-            Spotter = spotter,
-            Frequency = frequency,
-            Mode = mode,
-            Comment = comment,
-            Source = "DX Cluster",
-            Timestamp = timestamp,
-            DxStation = new SpotStationInfo
-            {
-                Country = country,
-                Continent = continent,
-                Dxcc = dxcc,
-                Grid = grid
-            }
-        };
-
-        // Save to database using scoped service
-        using var scope = _serviceProvider.CreateScope();
-        var repository = scope.ServiceProvider.GetRequiredService<ISpotRepository>();
-        var savedSpot = await repository.CreateAsync(spot);
-
-        _logger.LogDebug("Spot: {DxCall} on {Freq} by {Spotter} - {Country}",
-            dxCall, frequency, spotter, country ?? "Unknown");
-
-        // Broadcast to clients
-        var evt = new SpotReceivedEvent(
-            savedSpot.Id,
-            savedSpot.DxCall,
-            savedSpot.Spotter,
-            savedSpot.Frequency,
-            savedSpot.Mode,
-            savedSpot.Comment,
-            savedSpot.Timestamp,
-            savedSpot.Source ?? "DX Cluster",
-            savedSpot.DxStation?.Country,
-            savedSpot.DxStation?.Dxcc
-        );
-
-        await _hubContext.Clients.All.OnSpotReceived(evt);
-    }
-
-    private static string? ExtractMode(string comment)
-    {
-        var commentUpper = comment.ToUpper();
-
-        // Check for common modes in comment
-        if (commentUpper.Contains("FT8")) return "FT8";
-        if (commentUpper.Contains("FT4")) return "FT4";
-        if (commentUpper.Contains("RTTY")) return "RTTY";
-        if (commentUpper.Contains("PSK")) return "PSK31";
-        if (commentUpper.Contains("SSB") || commentUpper.Contains("USB") || commentUpper.Contains("LSB")) return "SSB";
-        if (commentUpper.Contains("CW")) return "CW";
-        if (commentUpper.Contains("AM")) return "AM";
-        if (commentUpper.Contains("FM")) return "FM";
-        if (commentUpper.Contains("DIGI")) return "DIGI";
-        if (commentUpper.Contains("JT65")) return "JT65";
-        if (commentUpper.Contains("JT9")) return "JT9";
-
-        return null; // Will be inferred from frequency if null
-    }
-
-    /// <summary>
-    /// Infers mode from frequency when not explicitly specified in the comment.
-    /// Phone (SSB) portions of amateur bands are typically in the upper segments.
-    /// </summary>
-    private static string InferModeFromFrequency(double frequencyKhz)
-    {
-        // 160m: 1800-2000 kHz - Phone above 1843
-        if (frequencyKhz >= 1800 && frequencyKhz < 2000)
-            return frequencyKhz >= 1843 ? "SSB" : "CW";
-
-        // 80m: 3500-4000 kHz - Phone above 3600
-        if (frequencyKhz >= 3500 && frequencyKhz < 4000)
-            return frequencyKhz >= 3600 ? "SSB" : "CW";
-
-        // 40m: 7000-7300 kHz - Phone above 7125 (varies by region)
-        if (frequencyKhz >= 7000 && frequencyKhz < 7300)
-            return frequencyKhz >= 7125 ? "SSB" : "CW";
-
-        // 30m: 10100-10150 kHz - CW/Digital only, no phone
-        if (frequencyKhz >= 10100 && frequencyKhz < 10150)
-            return "CW";
-
-        // 20m: 14000-14350 kHz - Phone above 14150
-        if (frequencyKhz >= 14000 && frequencyKhz < 14350)
-            return frequencyKhz >= 14150 ? "SSB" : "CW";
-
-        // 17m: 18068-18168 kHz - Phone above 18110
-        if (frequencyKhz >= 18068 && frequencyKhz < 18168)
-            return frequencyKhz >= 18110 ? "SSB" : "CW";
-
-        // 15m: 21000-21450 kHz - Phone above 21200
-        if (frequencyKhz >= 21000 && frequencyKhz < 21450)
-            return frequencyKhz >= 21200 ? "SSB" : "CW";
-
-        // 12m: 24890-24990 kHz - Phone above 24930
-        if (frequencyKhz >= 24890 && frequencyKhz < 24990)
-            return frequencyKhz >= 24930 ? "SSB" : "CW";
-
-        // 10m: 28000-29700 kHz - Phone above 28300
-        if (frequencyKhz >= 28000 && frequencyKhz < 29700)
-            return frequencyKhz >= 28300 ? "SSB" : "CW";
-
-        // 6m: 50000-54000 kHz - Phone above 50100
-        if (frequencyKhz >= 50000 && frequencyKhz < 54000)
-            return frequencyKhz >= 50100 ? "SSB" : "CW";
-
-        // Default to SSB for unknown frequencies
-        return "SSB";
-    }
-
-    private static DateTime ParseSpotTime(string timeStr)
-    {
-        // Time is in HHMM format (UTC)
-        if (timeStr.Length == 4 &&
-            int.TryParse(timeStr.Substring(0, 2), out var hours) &&
-            int.TryParse(timeStr.Substring(2, 2), out var minutes))
-        {
-            var now = DateTime.UtcNow;
-            var spotTime = new DateTime(now.Year, now.Month, now.Day, hours, minutes, 0, DateTimeKind.Utc);
-
-            // If the spot time is in the future, it's probably from yesterday
-            if (spotTime > now.AddMinutes(5))
-            {
-                spotTime = spotTime.AddDays(-1);
-            }
-
-            return spotTime;
-        }
-
-        return DateTime.UtcNow;
     }
 }

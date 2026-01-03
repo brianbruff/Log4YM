@@ -106,7 +106,9 @@ builder.Services.AddSingleton<RotatorService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<RotatorService>());
 
 // Register DX Cluster service
-builder.Services.AddHostedService<DxClusterService>();
+builder.Services.AddSingleton<DxClusterService>();
+builder.Services.AddSingleton<IDxClusterService>(sp => sp.GetRequiredService<DxClusterService>());
+builder.Services.AddHostedService(sp => sp.GetRequiredService<DxClusterService>());
 
 var app = builder.Build();
 

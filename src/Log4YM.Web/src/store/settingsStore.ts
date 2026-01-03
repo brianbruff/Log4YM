@@ -57,6 +57,20 @@ export interface MapSettings {
   tileLayer: 'osm' | 'dark' | 'satellite' | 'terrain';
 }
 
+export interface ClusterConnection {
+  id: string;
+  name: string;
+  host: string;
+  port: number;
+  callsign: string | null;  // If null, uses station callsign
+  enabled: boolean;
+  autoReconnect: boolean;
+}
+
+export interface ClusterSettings {
+  connections: ClusterConnection[];
+}
+
 export interface Settings {
   station: StationSettings;
   qrz: QrzSettings;
@@ -64,6 +78,7 @@ export interface Settings {
   rotator: RotatorSettings;
   radio: RadioSettings;
   map: MapSettings;
+  cluster: ClusterSettings;
 }
 
 export type SettingsSection = 'station' | 'qrz' | 'rotator' | 'logbook' | 'database' | 'appearance' | 'about';
@@ -92,6 +107,10 @@ interface SettingsState {
   updateRadioSettings: (radio: Partial<RadioSettings>) => void;
   updateTciSettings: (tci: Partial<TciSettings>) => void;
   updateMapSettings: (map: Partial<MapSettings>) => void;
+  updateClusterSettings: (cluster: Partial<ClusterSettings>) => void;
+  updateClusterConnection: (connectionId: string, connection: Partial<ClusterConnection>) => void;
+  addClusterConnection: () => void;
+  removeClusterConnection: (connectionId: string) => void;
 
   // Persistence (MongoDB only - no localStorage)
   saveSettings: () => Promise<void>;
@@ -147,6 +166,9 @@ const defaultSettings: Settings = {
   },
   map: {
     tileLayer: 'dark',
+  },
+  cluster: {
+    connections: [],
   },
 };
 
@@ -239,6 +261,70 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
       isDirty: true,
     })),
 
+  // Cluster settings
+  updateClusterSettings: (cluster) =>
+    set((state) => ({
+      settings: {
+        ...state.settings,
+        cluster: { ...state.settings.cluster, ...cluster },
+      },
+      isDirty: true,
+    })),
+
+  // Update a specific cluster connection by ID
+  updateClusterConnection: (connectionId, connection) =>
+    set((state) => ({
+      settings: {
+        ...state.settings,
+        cluster: {
+          ...state.settings.cluster,
+          connections: state.settings.cluster.connections.map((c) =>
+            c.id === connectionId ? { ...c, ...connection } : c
+          ),
+        },
+      },
+      isDirty: true,
+    })),
+
+  // Add a new cluster connection
+  addClusterConnection: () =>
+    set((state) => {
+      const newConnection: ClusterConnection = {
+        id: crypto.randomUUID(),
+        name: `Cluster ${state.settings.cluster.connections.length + 1}`,
+        host: '',
+        port: 23,
+        callsign: null,
+        enabled: true,
+        autoReconnect: false,
+      };
+      return {
+        settings: {
+          ...state.settings,
+          cluster: {
+            ...state.settings.cluster,
+            connections: [...state.settings.cluster.connections, newConnection],
+          },
+        },
+        isDirty: true,
+      };
+    }),
+
+  // Remove a cluster connection by ID
+  removeClusterConnection: (connectionId) =>
+    set((state) => ({
+      settings: {
+        ...state.settings,
+        cluster: {
+          ...state.settings.cluster,
+          connections: state.settings.cluster.connections.filter(
+            (c) => c.id !== connectionId
+          ),
+        },
+      },
+      isDirty: true,
+    })),
+
   // Save to backend (MongoDB via API)
   saveSettings: async () => {
     const { isLoaded } = get();
@@ -288,6 +374,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
             tci: { ...defaultSettings.radio.tci, ...settings.radio?.tci },
           },
           map: { ...defaultSettings.map, ...settings.map },
+          cluster: { ...defaultSettings.cluster, ...settings.cluster },
         };
         set({ settings: mergedSettings, isDirty: false, isLoaded: true });
       } else {

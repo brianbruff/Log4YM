@@ -1,4 +1,4 @@
-import { useEffect, useState, useCallback, useRef } from 'react';
+import { useEffect, useState } from 'react';
 import {
   X,
   Settings,
@@ -18,22 +18,14 @@ import {
   Compass,
   Wifi,
   WifiOff,
-  FileText,
-  Upload,
-  Download,
-  XCircle,
-  AlertTriangle,
   Loader2,
-  FileDown,
   Database,
   Server,
   ExternalLink,
 } from 'lucide-react';
-import { useMutation, useQueryClient } from '@tanstack/react-query';
 import { useSettingsStore, SettingsSection } from '../store/settingsStore';
 import { useAppStore } from '../store/appStore';
 import { useSetupStore } from '../store/setupStore';
-import { api, AdifImportResponse } from '../api/client';
 
 // Settings navigation items
 const SETTINGS_SECTIONS: { id: SettingsSection; name: string; icon: React.ReactNode; description: string }[] = [
@@ -54,12 +46,6 @@ const SETTINGS_SECTIONS: { id: SettingsSection; name: string; icon: React.ReactN
     name: 'Rotator',
     icon: <Compass className="w-5 h-5" />,
     description: 'Hamlib rotctld connection',
-  },
-  {
-    id: 'logbook',
-    name: 'Logbook',
-    icon: <FileText className="w-5 h-5" />,
-    description: 'Import and export ADIF files',
   },
   {
     id: 'database',
@@ -552,230 +538,6 @@ function RotatorSettingsSection() {
   );
 }
 
-// Logbook Settings Section
-function LogbookSettingsSection() {
-  const queryClient = useQueryClient();
-  const fileInputRef = useRef<HTMLInputElement>(null);
-  const [importResult, setImportResult] = useState<AdifImportResponse | null>(null);
-  const [skipDuplicates, setSkipDuplicates] = useState(true);
-
-  // Import mutation
-  const importMutation = useMutation({
-    mutationFn: ({ file, skipDuplicates }: { file: File; skipDuplicates: boolean }) =>
-      api.importAdif(file, { skipDuplicates }),
-    onSuccess: (data) => {
-      setImportResult(data);
-      queryClient.invalidateQueries({ queryKey: ['qsos'] });
-      queryClient.invalidateQueries({ queryKey: ['statistics'] });
-    },
-  });
-
-  // Export mutation
-  const exportMutation = useMutation({
-    mutationFn: () => api.exportAdif(),
-    onSuccess: (blob) => {
-      downloadBlob(blob, `log4ym_export_${new Date().toISOString().slice(0, 10)}.adi`);
-    },
-  });
-
-  const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
-    const file = e.target.files?.[0];
-    if (file) {
-      importMutation.mutate({ file, skipDuplicates });
-    }
-    // Reset input so same file can be selected again
-    if (fileInputRef.current) {
-      fileInputRef.current.value = '';
-    }
-  }, [skipDuplicates, importMutation]);
-
-  const handleDrop = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-    const file = e.dataTransfer.files?.[0];
-    if (file && (file.name.endsWith('.adi') || file.name.endsWith('.adif') || file.name.endsWith('.xml'))) {
-      importMutation.mutate({ file, skipDuplicates });
-    }
-  }, [skipDuplicates, importMutation]);
-
-  const handleDragOver = useCallback((e: React.DragEvent) => {
-    e.preventDefault();
-  }, []);
-
-  const handleExport = useCallback(() => {
-    exportMutation.mutate();
-  }, [exportMutation]);
-
-  const downloadBlob = (blob: Blob, filename: string) => {
-    const url = URL.createObjectURL(blob);
-    const a = document.createElement('a');
-    a.href = url;
-    a.download = filename;
-    document.body.appendChild(a);
-    a.click();
-    document.body.removeChild(a);
-    URL.revokeObjectURL(url);
-  };
-
-  return (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-semibold text-gray-100 mb-1">Logbook Management</h3>
-        <p className="text-sm text-gray-500">
-          Import and export your logbook in ADIF format.
-        </p>
-      </div>
-
-      {/* Import Section */}
-      <div className="p-4 bg-dark-700/50 rounded-lg border border-glass-100">
-        <h4 className="font-semibold text-gray-200 flex items-center gap-2 mb-4">
-          <Upload className="w-4 h-4 text-accent-primary" />
-          Import ADIF
-        </h4>
-
-        {/* Drop Zone */}
-        <div
-          onDrop={handleDrop}
-          onDragOver={handleDragOver}
-          onClick={() => fileInputRef.current?.click()}
-          className={`
-            border-2 border-dashed rounded-lg p-6 text-center cursor-pointer transition-colors
-            ${importMutation.isPending
-              ? 'border-accent-primary/50 bg-accent-primary/10'
-              : 'border-glass-200 hover:border-accent-primary/50 hover:bg-dark-600/30'
-            }
-          `}
-        >
-          {importMutation.isPending ? (
-            <div className="flex flex-col items-center gap-2">
-              <Loader2 className="w-8 h-8 animate-spin text-accent-primary" />
-              <p className="text-gray-400">Importing...</p>
-            </div>
-          ) : (
-            <>
-              <FileText className="w-10 h-10 mx-auto mb-2 text-gray-500" />
-              <p className="text-gray-300 mb-1">Drop ADIF file here or click to browse</p>
-              <p className="text-xs text-gray-500">Supports .adi, .adif, and .xml files</p>
-            </>
-          )}
-        </div>
-
-        <input
-          ref={fileInputRef}
-          type="file"
-          accept=".adi,.adif,.xml"
-          onChange={handleFileSelect}
-          className="hidden"
-        />
-
-        {/* Options */}
-        <div className="flex items-center gap-2 mt-4">
-          <input
-            type="checkbox"
-            id="skipDuplicates"
-            checked={skipDuplicates}
-            onChange={e => setSkipDuplicates(e.target.checked)}
-            className="w-4 h-4 rounded border-gray-600 text-accent-primary focus:ring-accent-primary"
-          />
-          <label htmlFor="skipDuplicates" className="text-sm text-gray-400">
-            Skip duplicate QSOs (same callsign, date, time, band, mode)
-          </label>
-        </div>
-      </div>
-
-      {/* Import Results */}
-      {importResult && (
-        <div className="p-4 bg-dark-700/50 rounded-lg border border-glass-100">
-          <h4 className="font-semibold text-gray-200 flex items-center gap-2 mb-3">
-            {importResult.errorCount === 0 && importResult.importedCount > 0 ? (
-              <CheckCircle className="w-4 h-4 text-green-400" />
-            ) : importResult.errorCount > 0 ? (
-              <AlertTriangle className="w-4 h-4 text-yellow-400" />
-            ) : (
-              <XCircle className="w-4 h-4 text-red-400" />
-            )}
-            Import Results
-          </h4>
-
-          <div className="grid grid-cols-4 gap-4 mb-4">
-            <div className="text-center">
-              <p className="text-2xl font-bold text-accent-primary">{importResult.totalRecords}</p>
-              <p className="text-xs text-gray-500">Total Records</p>
-            </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-green-400">{importResult.importedCount}</p>
-              <p className="text-xs text-gray-500">Imported</p>
-            </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-yellow-400">{importResult.skippedDuplicates}</p>
-              <p className="text-xs text-gray-500">Duplicates</p>
-            </div>
-            <div className="text-center">
-              <p className="text-2xl font-bold text-red-400">{importResult.errorCount}</p>
-              <p className="text-xs text-gray-500">Errors</p>
-            </div>
-          </div>
-
-          {importResult.errors.length > 0 && (
-            <div className="max-h-24 overflow-auto bg-dark-800/50 rounded p-2 mb-3">
-              {importResult.errors.map((error, i) => (
-                <p key={i} className="text-sm text-red-400 flex items-start gap-2 py-1">
-                  <XCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
-                  {error}
-                </p>
-              ))}
-            </div>
-          )}
-
-          <button
-            onClick={() => setImportResult(null)}
-            className="text-sm text-gray-400 hover:text-gray-300"
-          >
-            Dismiss
-          </button>
-        </div>
-      )}
-
-      {/* Export Section */}
-      <div className="p-4 bg-dark-700/50 rounded-lg border border-glass-100">
-        <h4 className="font-semibold text-gray-200 flex items-center gap-2 mb-4">
-          <Download className="w-4 h-4 text-accent-success" />
-          Export ADIF
-        </h4>
-
-        <p className="text-sm text-gray-400 mb-4">
-          Export all QSOs from your logbook to an ADIF file. The file will be downloaded to your browser.
-        </p>
-
-        <button
-          onClick={handleExport}
-          disabled={exportMutation.isPending}
-          className="w-full glass-button py-3 bg-accent-success/20 hover:bg-accent-success/30 disabled:opacity-50 flex items-center justify-center gap-2"
-        >
-          {exportMutation.isPending ? (
-            <>
-              <Loader2 className="w-5 h-5 animate-spin" />
-              Exporting...
-            </>
-          ) : (
-            <>
-              <FileDown className="w-5 h-5" />
-              Export All QSOs to ADIF
-            </>
-          )}
-        </button>
-      </div>
-
-      {/* Info */}
-      <div className="pt-4 border-t border-glass-100">
-        <p className="text-xs text-gray-600">
-          ADIF (Amateur Data Interchange Format) is the standard format for exchanging amateur radio log data.
-          Duplicate detection uses callsign, date, time, band, and mode to identify matching QSOs.
-        </p>
-      </div>
-    </div>
-  );
-}
-
 // Database Settings Section
 function DatabaseSettingsSection() {
   const {
@@ -1140,8 +902,6 @@ export function SettingsPanel() {
         return <QrzSettingsSection />;
       case 'rotator':
         return <RotatorSettingsSection />;
-      case 'logbook':
-        return <LogbookSettingsSection />;
       case 'database':
         return <DatabaseSettingsSection />;
       case 'appearance':

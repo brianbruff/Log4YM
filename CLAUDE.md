@@ -67,7 +67,7 @@ npm run package:all
 ## Key URLs in Development
 
 - Vite Dev Server: http://localhost:5173 (frontend with HMR)
-- .NET Backend: http://localhost:5000 (API and SignalR hubs)
+- .NET Backend: http://localhost:5050 (API and SignalR hubs)
 - Vite proxies `/api` and `/hubs` requests to the backend automatically
 
 ## Git Commit Instructions

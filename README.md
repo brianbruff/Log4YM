@@ -61,7 +61,7 @@ cd Log4YM
 docker-compose up -d
 ```
 
-Open http://localhost:5000 in your browser.
+Open http://localhost:5050 in your browser.
 
 ---
 
@@ -92,7 +92,7 @@ npm install
 npm run dev
 ```
 
-The backend runs on http://localhost:5000, frontend dev server on http://localhost:5173.
+The backend runs on http://localhost:5050, frontend dev server on http://localhost:5173.
 
 #### Build Desktop App from Source
 
@@ -245,7 +245,7 @@ Then access via `https://192.168.1.100:5173` (accept the self-signed certificate
 
 **For Docker/Production:**
 
-The server listens on both HTTP (5000) and HTTPS (5001). Access via HTTPS for remote clients that need the 3D Globe.
+The server listens on both HTTP (5050) and HTTPS (5051). Access via HTTPS for remote clients that need the 3D Globe.
 
 ### Why is this needed?
 

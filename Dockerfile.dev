@@ -15,7 +15,7 @@ RUN dotnet restore
 # Copy source
 COPY src/ ./src/
 
-EXPOSE 5000
+EXPOSE 5050
 
 # Run with hot reload
-ENTRYPOINT ["dotnet", "watch", "run", "--project", "src/Log4YM.Server", "--urls", "http://+:5000"]
+ENTRYPOINT ["dotnet", "watch", "run", "--project", "src/Log4YM.Server", "--urls", "http://+:5050"]

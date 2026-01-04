@@ -81,7 +81,7 @@ export interface Settings {
   cluster: ClusterSettings;
 }
 
-export type SettingsSection = 'station' | 'qrz' | 'rotator' | 'logbook' | 'database' | 'appearance' | 'about';
+export type SettingsSection = 'station' | 'qrz' | 'rotator' | 'database' | 'appearance' | 'about';
 
 interface SettingsState {
   // Settings data

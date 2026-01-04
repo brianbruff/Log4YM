@@ -416,7 +416,16 @@ export function LogEntryPlugin() {
             <input
               type="text"
               value={formData.frequency}
-              onChange={(e) => setFormData(prev => ({ ...prev, frequency: e.target.value }))}
+              onChange={(e) => {
+                const frequency = e.target.value;
+                const freqKhz = parseFloat(frequency);
+                const newBand = !isNaN(freqKhz) ? getBandFromFrequency(freqKhz * 1000) : null;
+                setFormData(prev => ({
+                  ...prev,
+                  frequency,
+                  band: newBand || prev.band,
+                }));
+              }}
               placeholder="14250"
               className={`glass-input w-full font-mono text-sm ${
                 followRadio && currentRadioState ? 'border-accent-success/30' : ''

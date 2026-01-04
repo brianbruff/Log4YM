@@ -24,7 +24,7 @@ const VITE_DEV_PORT = 5173;
 /**
  * Find an available port starting from the given port
  */
-async function findAvailablePort(startPort = 5000) {
+async function findAvailablePort(startPort = 5050) {
   return new Promise((resolve, reject) => {
     const server = net.createServer();
     server.listen(startPort, '127.0.0.1', () => {
@@ -77,9 +77,9 @@ function getBackendPath() {
  */
 async function startBackend() {
   if (isDevMode) {
-    // In dev mode, assume backend is already running on port 5000
-    backendPort = 5000;
-    log.info('Dev mode: Using existing backend on port 5000');
+    // In dev mode, assume backend is already running on port 5050
+    backendPort = 5050;
+    log.info('Dev mode: Using existing backend on port 5050');
     return;
   }
 

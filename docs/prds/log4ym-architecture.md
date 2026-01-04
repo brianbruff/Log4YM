@@ -1791,15 +1791,15 @@ services:
       context: .
       dockerfile: src/Log4YM.Server/Dockerfile
     ports:
-      - "5000:5000"              # HTTP
-      - "5001:5001"              # HTTPS (optional)
+      - "5050:5050"              # HTTP
+      - "5051:5051"              # HTTPS (optional)
     volumes:
       - ./config:/app/config      # Configuration files
     devices:
       - /dev/ttyUSB0:/dev/ttyUSB0 # Rotator serial port
       - /dev/ttyUSB1:/dev/ttyUSB1 # Radio CAT port
     environment:
-      - ASPNETCORE_URLS=http://+:5000
+      - ASPNETCORE_URLS=http://+:5050
       - ASPNETCORE_ENVIRONMENT=Production
       - MongoDB__ConnectionString=mongodb://mongodb:27017
       - MongoDB__DatabaseName=log4ym
@@ -1845,7 +1845,7 @@ volumes:
 
 FROM mcr.microsoft.com/dotnet/aspnet:10.0 AS base
 WORKDIR /app
-EXPOSE 5000
+EXPOSE 5050
 
 FROM mcr.microsoft.com/dotnet/sdk:10.0 AS build
 WORKDIR /src

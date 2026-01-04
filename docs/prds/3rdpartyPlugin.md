@@ -94,7 +94,7 @@ The workflow for a developer and user (who may be the same person) is as follows
 2.  **Generate an API Key:** The user runs Log4YM, navigates to the `Settings -> API Keys` page, and generates a new API key for the plugin.
 
 3.  **Configure the Plugin:** The user provides the plugin with two pieces of information:
-    - The network address of the Log4YM server (e.g., `localhost:5000`).
+    - The network address of the Log4YM server (e.g., `localhost:5050`).
     - The generated API key.
 
 4.  **Run the Plugin:** The user starts the plugin as a separate process (e.g., by running `python my_plugin.py` or double-clicking an executable). The plugin then connects to Log4YM over the network.
@@ -124,7 +124,7 @@ import websockets
 import requests
 
 LOG4YM_HOST = "localhost"
-LOG4YM_PORT = 5000 # Adjust to the correct port
+LOG4YM_PORT = 5050 # Adjust to the correct port
 API_KEY = "your_generated_api_key"
 
 API_BASE_URL = f"http://{LOG4YM_HOST}:{LOG4YM_PORT}/api"

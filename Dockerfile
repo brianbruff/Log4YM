@@ -35,7 +35,7 @@ RUN apk add --no-cache icu-libs
 
 # Set environment
 ENV DOTNET_SYSTEM_GLOBALIZATION_INVARIANT=false
-ENV ASPNETCORE_URLS=http://+:5000
+ENV ASPNETCORE_URLS=http://+:5050
 ENV ASPNETCORE_ENVIRONMENT=Production
 
 # Copy published app
@@ -45,6 +45,6 @@ COPY --from=backend-build /app/publish .
 RUN addgroup -S log4ym && adduser -S log4ym -G log4ym
 USER log4ym
 
-EXPOSE 5000
+EXPOSE 5050
 
 ENTRYPOINT ["dotnet", "Log4YM.Server.dll"]

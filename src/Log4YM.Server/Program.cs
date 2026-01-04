@@ -8,7 +8,7 @@ var builder = WebApplication.CreateBuilder(args);
 
 // Note: URLs are controlled via ASPNETCORE_URLS environment variable
 // When running from Electron, main.js sets this to http://localhost:{port}
-// For standalone development, run with: ASPNETCORE_URLS=http://localhost:5000 dotnet run
+// For standalone development, run with: ASPNETCORE_URLS=http://localhost:5050 dotnet run
 // We don't use UseUrls() here as it would override the environment variable
 
 // Configure Serilog

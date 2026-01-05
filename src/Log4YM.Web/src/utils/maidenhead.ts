@@ -10,8 +10,8 @@
  * @returns { lat, lon } coordinates, or null if invalid
  * 
  * Examples:
- * - JO20cx (Belgium) -> { lat: 50.9375, lon: 4.125 }
- * - IO63 (Ireland) -> { lat: 53.4375, lon: -8.958333 }
+ * - JO20cx (Belgium) -> { lat: 50.979, lon: 4.208 }
+ * - IO63 (Ireland) -> { lat: 53.5, lon: -7.0 }
  */
 export function gridToLatLon(grid: string): { lat: number; lon: number } | null {
   if (!grid) return null;
@@ -51,12 +51,13 @@ export function gridToLatLon(grid: string): { lat: number; lon: number } | null 
   const squareLat = parseInt(square[1]) * 1;
   
   // Convert subsquare (letters) to offsets within the square
-  // Each subsquare is 5' (0.083333°) longitude × 2.5' (0.041667°) latitude
+  // Each square contains 24x24 subsquares
+  const SUBSQUARES_PER_SQUARE = 24;
   let subsquareLon = 0;
   let subsquareLat = 0;
   if (subsquare) {
-    subsquareLon = (subsquare.charCodeAt(0) - 'A'.charCodeAt(0)) * (2 / 24);  // 2° / 24 subsquares
-    subsquareLat = (subsquare.charCodeAt(1) - 'A'.charCodeAt(0)) * (1 / 24);  // 1° / 24 subsquares
+    subsquareLon = (subsquare.charCodeAt(0) - 'A'.charCodeAt(0)) * (2 / SUBSQUARES_PER_SQUARE);  // 2° / 24 subsquares
+    subsquareLat = (subsquare.charCodeAt(1) - 'A'.charCodeAt(0)) * (1 / SUBSQUARES_PER_SQUARE);  // 1° / 24 subsquares
   }
   
   // Calculate final coordinates
@@ -68,8 +69,8 @@ export function gridToLatLon(grid: string): { lat: number; lon: number } | null 
   // Add half the grid square size to get center
   if (subsquare) {
     // Subsquare specified: center of subsquare
-    lon += (2 / 24) / 2;  // Half subsquare width
-    lat += (1 / 24) / 2;  // Half subsquare height
+    lon += (2 / SUBSQUARES_PER_SQUARE) / 2;  // Half subsquare width
+    lat += (1 / SUBSQUARES_PER_SQUARE) / 2;  // Half subsquare height
   } else {
     // No subsquare: center of square
     lon += 1;  // Half of 2° square width

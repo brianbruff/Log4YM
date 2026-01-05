@@ -556,6 +556,37 @@ export function GlobePlugin() {
     }
   }, [focusedCallsignInfo]);
 
+  // Update globe center and marker when station coordinates change
+  useEffect(() => {
+    if (globeRef.current) {
+      // Update point of view
+      const currentPov = globeRef.current.pointOfView();
+      globeRef.current.pointOfView({ 
+        lat: stationLat, 
+        lng: stationLon, 
+        altitude: currentPov.altitude 
+      });
+      
+      // Update station marker
+      const markerData = [{
+        lat: stationLat,
+        lng: stationLon,
+        label: stationGrid || 'Station',
+        color: '#fbbf24',
+        size: 0.05
+      }];
+      
+      globeRef.current
+        .pointsData(markerData)
+        .pointLat('lat')
+        .pointLng('lng')
+        .pointColor('color')
+        .pointAltitude(0.01)
+        .pointRadius('size')
+        .pointResolution(12);
+    }
+  }, [stationLat, stationLon, stationGrid, settings.station.latitude, settings.station.longitude, settings.station.gridSquare]);
+
   const toggleFullscreen = useCallback(() => {
     if (!containerRef.current) return;
 

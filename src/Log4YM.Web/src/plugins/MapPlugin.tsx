@@ -200,7 +200,7 @@ export function MapPlugin() {
     if (mapRef.current) {
       mapRef.current.setView([stationLat, stationLon], mapRef.current.getZoom());
     }
-  }, [stationLat, stationLon]);
+  }, [stationLat, stationLon, settings.station.latitude, settings.station.longitude, settings.station.gridSquare]);
 
   // Handle click on map to set bearing (only when rotator enabled)
   const handleBearingClick = useCallback((azimuth: number) => {

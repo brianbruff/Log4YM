@@ -76,7 +76,7 @@ const PLUGINS: Record<string, { name: string; icon: React.ReactNode; component: 
 
 export function App() {
   const layoutRef = useRef<Layout>(null);
-  const { layout, setLayout, resetLayout: resetLayoutStore } = useLayoutStore();
+  const { layout, setLayout, resetLayout: resetLayoutStore, loadFromMongo: loadLayout } = useLayoutStore();
   const { loadSettings, openSettings } = useSettingsStore();
   const { fetchStatus } = useSetupStore();
   const [model, setModel] = useState<Model>(() => Model.fromJson(layout));
@@ -91,10 +91,11 @@ export function App() {
   // Initialize SignalR connection
   useSignalR();
 
-  // Load settings from MongoDB on mount (will gracefully fail if not connected)
+  // Load settings and layout from MongoDB on mount (will gracefully fail if not connected)
   useEffect(() => {
     loadSettings();
-  }, [loadSettings]);
+    loadLayout();
+  }, [loadSettings, loadLayout]);
 
   // Listen for Electron menu commands (Settings via Cmd+,)
   useEffect(() => {
@@ -110,7 +111,7 @@ export function App() {
     }
   }, [openSettings]);
 
-  // Update model when layout store changes (e.g., from localStorage hydration)
+  // Update model when layout store changes (e.g., from MongoDB load)
   useEffect(() => {
     setModel(Model.fromJson(layout));
   }, [layout]);
@@ -130,7 +131,7 @@ export function App() {
     return existing;
   }, [model]);
 
-  // Debounced save to localStorage (and MongoDB in background)
+  // Debounced save to MongoDB
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
 
   // Save layout changes (debounced)

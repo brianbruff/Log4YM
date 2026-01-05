@@ -6,6 +6,7 @@ import { useAppStore } from '../store/appStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { useSignalR } from '../hooks/useSignalR';
 import { GlassPanel } from '../components/GlassPanel';
+import { gridToLatLon } from '../utils/maidenhead';
 
 import 'leaflet/dist/leaflet.css';
 
@@ -161,9 +162,31 @@ export function MapPlugin() {
   // Rotator is enabled in settings
   const rotatorEnabled = settings.rotator.enabled;
 
-  // Station coordinates
-  const stationLat = DEFAULT_LAT;
-  const stationLon = DEFAULT_LON;
+  // Station coordinates - prioritize lat/lon from settings, fall back to grid square, then defaults
+  let stationLat = DEFAULT_LAT;
+  let stationLon = DEFAULT_LON;
+  
+  // First priority: explicit lat/lon in settings
+  if (settings.station.latitude != null && settings.station.longitude != null) {
+    stationLat = settings.station.latitude;
+    stationLon = settings.station.longitude;
+  } 
+  // Second priority: convert grid square to coordinates
+  else if (settings.station.gridSquare) {
+    const coords = gridToLatLon(settings.station.gridSquare);
+    if (coords) {
+      stationLat = coords.lat;
+      stationLon = coords.lon;
+    }
+  }
+  // Third priority: use stationGrid from appStore (legacy support)
+  else if (stationGrid) {
+    const coords = gridToLatLon(stationGrid);
+    if (coords) {
+      stationLat = coords.lat;
+      stationLon = coords.lon;
+    }
+  }
 
   // Update azimuth from rotator position only
   useEffect(() => {
@@ -171,6 +194,13 @@ export function MapPlugin() {
       setCurrentAzimuth(rotatorPosition.currentAzimuth);
     }
   }, [rotatorPosition]);
+
+  // Update map center when station coordinates change
+  useEffect(() => {
+    if (mapRef.current) {
+      mapRef.current.setView([stationLat, stationLon], mapRef.current.getZoom());
+    }
+  }, [stationLat, stationLon]);
 
   // Handle click on map to set bearing (only when rotator enabled)
   const handleBearingClick = useCallback((azimuth: number) => {

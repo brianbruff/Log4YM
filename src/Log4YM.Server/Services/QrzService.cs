@@ -263,6 +263,25 @@ public class QrzService : IQrzService
                 return null;
             }
 
+            var rawLat = GetElementValueNs(callsignElement, "lat");
+            var rawLon = GetElementValueNs(callsignElement, "lon");
+            var parsedLat = ParseDouble(rawLat);
+            var parsedLon = ParseDouble(rawLon);
+
+            // Log raw values for debugging coordinate issues
+            _logger.LogDebug("QRZ coordinates for {Callsign}: raw lat={RawLat}, lon={RawLon}, parsed lat={ParsedLat}, lon={ParsedLon}",
+                callsign, rawLat, rawLon, parsedLat, parsedLon);
+
+            // Validate and normalize coordinates - detect microdegrees (degrees * 1,000,000)
+            var latitude = NormalizeCoordinate(parsedLat, isLatitude: true);
+            var longitude = NormalizeCoordinate(parsedLon, isLatitude: false);
+
+            if (latitude != parsedLat || longitude != parsedLon)
+            {
+                _logger.LogWarning("QRZ coordinates for {Callsign} were in microdegree format and have been normalized: ({OrigLat}, {OrigLon}) -> ({NormLat}, {NormLon})",
+                    callsign, parsedLat, parsedLon, latitude, longitude);
+            }
+
             return new QrzCallsignInfo(
                 Callsign: GetElementValueNs(callsignElement, "call") ?? callsign,
                 Name: GetElementValueNs(callsignElement, "name"),
@@ -272,8 +291,8 @@ public class QrzService : IQrzService
                 State: GetElementValueNs(callsignElement, "state"),
                 Country: GetElementValueNs(callsignElement, "country"),
                 Grid: GetElementValueNs(callsignElement, "grid"),
-                Latitude: ParseDouble(GetElementValueNs(callsignElement, "lat")),
-                Longitude: ParseDouble(GetElementValueNs(callsignElement, "lon")),
+                Latitude: latitude,
+                Longitude: longitude,
                 Dxcc: ParseInt(GetElementValueNs(callsignElement, "dxcc")),
                 CqZone: ParseInt(GetElementValueNs(callsignElement, "cqzone")),
                 ItuZone: ParseInt(GetElementValueNs(callsignElement, "ituzone")),
@@ -502,6 +521,35 @@ public class QrzService : IQrzService
     {
         if (string.IsNullOrEmpty(value)) return null;
         return DateTime.TryParse(value, out var result) ? result : null;
+    }
+
+    /// <summary>
+    /// Normalize coordinates that may be in microdegree format (degrees * 1,000,000).
+    /// Valid latitude range: -90 to 90, longitude range: -180 to 180.
+    /// If values are outside this range but within microdegree range, convert them.
+    /// </summary>
+    private static double? NormalizeCoordinate(double? value, bool isLatitude)
+    {
+        if (!value.HasValue) return null;
+
+        var v = value.Value;
+        var maxValid = isLatitude ? 90.0 : 180.0;
+
+        // Check if value is already in valid range
+        if (Math.Abs(v) <= maxValid)
+        {
+            return v;
+        }
+
+        // Check if value looks like microdegrees (within valid range when divided by 1,000,000)
+        var normalized = v / 1_000_000.0;
+        if (Math.Abs(normalized) <= maxValid)
+        {
+            return normalized;
+        }
+
+        // Value is invalid even after normalization - return null
+        return null;
     }
 }
 

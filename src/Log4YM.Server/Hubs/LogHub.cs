@@ -125,12 +125,21 @@ public class LogHub : Hub<ILogHubClient>
                 if (settings?.Station != null && info.Latitude.HasValue && info.Longitude.HasValue
                     && settings.Station.Latitude.HasValue && settings.Station.Longitude.HasValue)
                 {
-                    var stationLat = settings.Station.Latitude.Value;
-                    var stationLon = settings.Station.Longitude.Value;
-                    if (stationLat != 0 && stationLon != 0)
+                    // Normalize station coordinates in case they were stored in microdegree format
+                    var stationLat = NormalizeCoordinate(settings.Station.Latitude.Value, isLatitude: true);
+                    var stationLon = NormalizeCoordinate(settings.Station.Longitude.Value, isLatitude: false);
+
+                    if (stationLat.HasValue && stationLon.HasValue && stationLat != 0 && stationLon != 0)
                     {
-                        bearing = CalculateBearing(stationLat, stationLon, info.Latitude.Value, info.Longitude.Value);
-                        distance = CalculateDistance(stationLat, stationLon, info.Latitude.Value, info.Longitude.Value);
+                        bearing = CalculateBearing(stationLat.Value, stationLon.Value, info.Latitude.Value, info.Longitude.Value);
+                        distance = CalculateDistance(stationLat.Value, stationLon.Value, info.Latitude.Value, info.Longitude.Value);
+
+                        // Log if coordinates were normalized (helps diagnose issues)
+                        if (stationLat != settings.Station.Latitude || stationLon != settings.Station.Longitude)
+                        {
+                            _logger.LogWarning("Station coordinates were in microdegree format: ({OrigLat}, {OrigLon}) -> ({NormLat}, {NormLon})",
+                                settings.Station.Latitude, settings.Station.Longitude, stationLat, stationLon);
+                        }
                     }
                 }
 
@@ -202,6 +211,30 @@ public class LogHub : Hub<ILogHubClient>
 
     private static double ToRadians(double degrees) => degrees * Math.PI / 180;
     private static double ToDegrees(double radians) => radians * 180 / Math.PI;
+
+    /// <summary>
+    /// Normalize coordinates that may be in microdegree format (degrees * 1,000,000).
+    /// </summary>
+    private static double? NormalizeCoordinate(double value, bool isLatitude)
+    {
+        var maxValid = isLatitude ? 90.0 : 180.0;
+
+        // Check if value is already in valid range
+        if (Math.Abs(value) <= maxValid)
+        {
+            return value;
+        }
+
+        // Check if value looks like microdegrees (within valid range when divided by 1,000,000)
+        var normalized = value / 1_000_000.0;
+        if (Math.Abs(normalized) <= maxValid)
+        {
+            return normalized;
+        }
+
+        // Value is invalid even after normalization
+        return null;
+    }
 
     private static string? BuildFullName(string? firstName, string? lastName)
     {

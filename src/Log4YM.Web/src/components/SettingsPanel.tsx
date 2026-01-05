@@ -24,7 +24,6 @@ import {
   ExternalLink,
 } from 'lucide-react';
 import { useSettingsStore, SettingsSection } from '../store/settingsStore';
-import { useAppStore } from '../store/appStore';
 import { useSetupStore } from '../store/setupStore';
 
 // Settings navigation items
@@ -70,15 +69,10 @@ const SETTINGS_SECTIONS: { id: SettingsSection; name: string; icon: React.ReactN
 // Station Settings Section
 function StationSettingsSection() {
   const { settings, updateStationSettings } = useSettingsStore();
-  const { setStationInfo } = useAppStore();
   const station = settings.station;
 
-  // Sync station info to app store when callsign/grid changes
-  useEffect(() => {
-    if (station.callsign || station.gridSquare) {
-      setStationInfo(station.callsign, station.gridSquare);
-    }
-  }, [station.callsign, station.gridSquare, setStationInfo]);
+  // Station info sync to app store is now handled in App.tsx
+  // to ensure it runs even when settings panel is not open
 
   return (
     <div className="space-y-6">

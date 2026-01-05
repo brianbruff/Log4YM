@@ -138,6 +138,26 @@ export function GlobePlugin() {
   // Track target bearing separately from rotator azimuth
   const targetBearingRef = useRef<number | null>(null);
 
+  // Helper function to update globe marker
+  const updateGlobeMarker = useCallback((globe: GlobeInstance, lat: number, lon: number, label: string) => {
+    const markerData = [{
+      lat,
+      lng: lon,
+      label,
+      color: '#fbbf24',
+      size: 0.05
+    }];
+    
+    globe
+      .pointsData(markerData)
+      .pointLat('lat')
+      .pointLng('lng')
+      .pointColor('color')
+      .pointAltitude(0.01)
+      .pointRadius('size')
+      .pointResolution(12);
+  }, []);
+
   // Render the beam visualization (rotator beam + target line)
   const renderBeam = useCallback((azimuth: number, isConnected: boolean, targetBearing: number | null) => {
     if (!globeRef.current) return;
@@ -382,30 +402,16 @@ export function GlobePlugin() {
         .pointOfView({ lat: stationLat, lng: stationLon, altitude: 2.5 })
         .enablePointerInteraction(true);
 
-      // Add station marker
-      const markerData = [{
-        lat: stationLat,
-        lng: stationLon,
-        label: stationGrid || 'Station',
-        color: '#fbbf24', // Yellow to match beam color
-        size: 0.05
-      }];
-
-      globe
-        .pointsData(markerData)
-        .pointLat('lat')
-        .pointLng('lng')
-        .pointColor('color')
-        .pointAltitude(0.01)
-        .pointRadius('size')
-        .pointResolution(12)
-        .pointLabel((d: unknown) => {
-          const data = d as { label: string };
-          return `<div style="text-align: center; padding: 5px; background: rgba(0, 0, 0, 0.8); border-radius: 3px; color: white;">
-            <div style="font-weight: bold;">${data.label}</div>
-            <div style="font-size: 0.8em;">Station Location</div>
-          </div>`;
-        });
+      // Add station marker with tooltip
+      updateGlobeMarker(globe, stationLat, stationLon, stationGrid || 'Station');
+      
+      globe.pointLabel((d: unknown) => {
+        const data = d as { label: string };
+        return `<div style="text-align: center; padding: 5px; background: rgba(0, 0, 0, 0.8); border-radius: 3px; color: white;">
+          <div style="font-weight: bold;">${data.label}</div>
+          <div style="font-size: 0.8em;">Station Location</div>
+        </div>`;
+      });
 
       // Handle globe clicks to set azimuth - use refs to avoid stale closures
       // Only allow commanding rotator when enabled
@@ -568,24 +574,9 @@ export function GlobePlugin() {
       });
       
       // Update station marker
-      const markerData = [{
-        lat: stationLat,
-        lng: stationLon,
-        label: stationGrid || 'Station',
-        color: '#fbbf24',
-        size: 0.05
-      }];
-      
-      globeRef.current
-        .pointsData(markerData)
-        .pointLat('lat')
-        .pointLng('lng')
-        .pointColor('color')
-        .pointAltitude(0.01)
-        .pointRadius('size')
-        .pointResolution(12);
+      updateGlobeMarker(globeRef.current, stationLat, stationLon, stationGrid || 'Station');
     }
-  }, [stationLat, stationLon, stationGrid, settings.station.latitude, settings.station.longitude, settings.station.gridSquare]);
+  }, [stationLat, stationLon, stationGrid, settings.station.latitude, settings.station.longitude, settings.station.gridSquare, updateGlobeMarker]);
 
   const toggleFullscreen = useCallback(() => {
     if (!containerRef.current) return;

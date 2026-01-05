@@ -11,6 +11,7 @@ import { Globe as Globe3D } from 'lucide-react';
 import { useLayoutStore, defaultLayout } from './store/layoutStore';
 import { useSettingsStore } from './store/settingsStore';
 import { useSetupStore } from './store/setupStore';
+import { useAppStore } from './store/appStore';
 
 import 'flexlayout-react/style/dark.css';
 
@@ -77,8 +78,9 @@ const PLUGINS: Record<string, { name: string; icon: React.ReactNode; component: 
 export function App() {
   const layoutRef = useRef<Layout>(null);
   const { layout, setLayout, resetLayout: resetLayoutStore, loadFromMongo: loadLayout } = useLayoutStore();
-  const { loadSettings, openSettings } = useSettingsStore();
+  const { loadSettings, openSettings, settings } = useSettingsStore();
   const { fetchStatus } = useSetupStore();
+  const { setStationInfo } = useAppStore();
   const [model, setModel] = useState<Model>(() => Model.fromJson(layout));
   const [showPanelPicker, setShowPanelPicker] = useState(false);
   const [targetTabSetId, setTargetTabSetId] = useState<string | null>(null);
@@ -96,6 +98,15 @@ export function App() {
     loadSettings();
     loadLayout();
   }, [loadSettings, loadLayout]);
+
+  // Sync station info to app store whenever settings change
+  // This ensures map/globe components have access to station coordinates
+  // even when the settings panel is not open
+  useEffect(() => {
+    if (settings.station.callsign || settings.station.gridSquare) {
+      setStationInfo(settings.station.callsign, settings.station.gridSquare);
+    }
+  }, [settings.station.callsign, settings.station.gridSquare, setStationInfo]);
 
   // Listen for Electron menu commands (Settings via Cmd+,)
   useEffect(() => {

@@ -6,7 +6,7 @@ services:
       context: .
       dockerfile: Dockerfile
     ports:
-      - "5000:5000"
+      - "5050:5050"
     environment:
       - ASPNETCORE_ENVIRONMENT=Production
       - MongoDB__ConnectionString=mongodb://mongodb:27017

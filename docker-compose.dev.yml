@@ -17,7 +17,7 @@ services:
       dockerfile: Dockerfile.dev
     environment:
       - ASPNETCORE_ENVIRONMENT=Development
-      - ASPNETCORE_URLS=http://+:5000
+      - ASPNETCORE_URLS=http://+:5050
       - MongoDB__ConnectionString=mongodb://mongodb:27017
       - MongoDB__DatabaseName=log4ym_dev
     volumes:
@@ -29,7 +29,7 @@ services:
       - log4ym-network
     # Expose for debugging but not required for nginx proxy
     expose:
-      - "5000"
+      - "5050"
 
   frontend:
     image: node:20-alpine

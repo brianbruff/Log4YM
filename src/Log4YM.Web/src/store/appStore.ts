@@ -155,8 +155,8 @@ export const useAppStore = create<AppState>((set) => ({
   setRigStatus: (status) => set({ rigStatus: status }),
 
   // Station
-  stationCallsign: 'EI6LF',
-  stationGrid: 'IO63',
+  stationCallsign: '',
+  stationGrid: '',
   setStationInfo: (callsign, grid) => set({ stationCallsign: callsign, stationGrid: grid }),
 
   // Antenna Genius

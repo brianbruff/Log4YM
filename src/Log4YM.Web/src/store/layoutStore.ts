@@ -5,7 +5,7 @@ import type { IJsonModel } from 'flexlayout-react';
 // Default layout configuration
 export const defaultLayout: IJsonModel = {
   global: {
-    tabEnableFloat: true,
+    tabEnableFloat: false,
     tabSetMinWidth: 100,
     tabSetMinHeight: 100,
     borderMinSize: 100,

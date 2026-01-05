@@ -4,6 +4,7 @@ import { useAppStore } from '../store/appStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { useSignalR } from '../hooks/useSignalR';
 import { GlassPanel } from '../components/GlassPanel';
+import { gridToLatLon } from '../utils/maidenhead';
 // Globe is dynamically imported to catch WebGL errors at load time
 
 // Default station location (can be overridden by store)
@@ -62,9 +63,31 @@ export function GlobePlugin() {
   const rotatorEnabled = settings.rotator.enabled;
   const [isFullscreen, setIsFullscreen] = useState(false);
 
-  // Get station coordinates from grid or use defaults
-  const stationLat = DEFAULT_LAT;
-  const stationLon = DEFAULT_LON;
+  // Get station coordinates from settings - prioritize lat/lon, fall back to grid square, then defaults
+  let stationLat = DEFAULT_LAT;
+  let stationLon = DEFAULT_LON;
+  
+  // First priority: explicit lat/lon in settings
+  if (settings.station.latitude != null && settings.station.longitude != null) {
+    stationLat = settings.station.latitude;
+    stationLon = settings.station.longitude;
+  } 
+  // Second priority: convert grid square to coordinates
+  else if (settings.station.gridSquare) {
+    const coords = gridToLatLon(settings.station.gridSquare);
+    if (coords) {
+      stationLat = coords.lat;
+      stationLon = coords.lon;
+    }
+  }
+  // Third priority: use stationGrid from appStore (legacy support)
+  else if (stationGrid) {
+    const coords = gridToLatLon(stationGrid);
+    if (coords) {
+      stationLat = coords.lat;
+      stationLon = coords.lon;
+    }
+  }
 
   // Calculate azimuth between two points
   const calculateAzimuth = useCallback((lat1: number, lon1: number, lat2: number, lon2: number) => {

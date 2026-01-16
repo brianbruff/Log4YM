@@ -382,30 +382,18 @@ export function GlobePlugin() {
         .pointOfView({ lat: stationLat, lng: stationLon, altitude: 2.5 })
         .enablePointerInteraction(true);
 
-      // Add station marker
-      const markerData = [{
-        lat: stationLat,
-        lng: stationLon,
-        label: stationGrid || 'Station',
-        color: '#fbbf24', // Yellow to match beam color
-        size: 0.05
-      }];
-
+      // Configure marker appearance (data will be set by effect)
       globe
-        .pointsData(markerData)
+        .pointsData([]) // Initial empty - will be populated by effect
         .pointLat('lat')
         .pointLng('lng')
         .pointColor('color')
-        .pointAltitude(0.01)
+        .pointAltitude((d: unknown) => {
+          const data = d as { type: string };
+          return data.type === 'target' ? 0.015 : 0.01;
+        })
         .pointRadius('size')
-        .pointResolution(12)
-        .pointLabel((d: unknown) => {
-          const data = d as { label: string };
-          return `<div style="text-align: center; padding: 5px; background: rgba(0, 0, 0, 0.8); border-radius: 3px; color: white;">
-            <div style="font-weight: bold;">${data.label}</div>
-            <div style="font-size: 0.8em;">Station Location</div>
-          </div>`;
-        });
+        .pointResolution(12);
 
       // Handle globe clicks to set azimuth - use refs to avoid stale closures
       // Only allow commanding rotator when enabled
@@ -555,6 +543,71 @@ export function GlobePlugin() {
       targetBearingRef.current = null;
     }
   }, [focusedCallsignInfo]);
+
+  // Update globe markers when focused callsign changes
+  useEffect(() => {
+    if (!globeRef.current) return;
+
+    // Build marker data array - always include station
+    const markerData: Array<{
+      lat: number;
+      lng: number;
+      label: string;
+      color: string;
+      size: number;
+      type: 'station' | 'target';
+    }> = [{
+      lat: stationLat,
+      lng: stationLon,
+      label: stationGrid || 'Station',
+      color: '#fbbf24', // Yellow to match beam color
+      size: 0.05,
+      type: 'station',
+    }];
+
+    // Add target marker if we have focused callsign with coordinates
+    if (focusedCallsignInfo?.latitude != null && focusedCallsignInfo?.longitude != null) {
+      markerData.push({
+        lat: focusedCallsignInfo.latitude,
+        lng: focusedCallsignInfo.longitude,
+        label: focusedCallsignInfo.callsign,
+        color: '#f97316', // Orange for target (matches map plugin)
+        size: 0.04,
+        type: 'target',
+      });
+    }
+
+    globeRef.current
+      .pointsData(markerData)
+      .pointLat('lat')
+      .pointLng('lng')
+      .pointColor('color')
+      .pointAltitude((d: unknown) => {
+        const data = d as { type: string };
+        return data.type === 'target' ? 0.015 : 0.01; // Target slightly higher
+      })
+      .pointRadius('size')
+      .pointResolution(12)
+      .pointLabel((d: unknown) => {
+        const data = d as { label: string; type: string };
+        if (data.type === 'station') {
+          return `<div style="text-align: center; padding: 5px; background: rgba(0, 0, 0, 0.8); border-radius: 3px; color: white;">
+            <div style="font-weight: bold;">${data.label}</div>
+            <div style="font-size: 0.8em;">Station Location</div>
+          </div>`;
+        } else {
+          // Target marker
+          const info = focusedCallsignInfo;
+          return `<div style="text-align: center; padding: 5px; background: rgba(0, 0, 0, 0.8); border-radius: 3px; color: white;">
+            <div style="font-weight: bold; color: #f97316;">${data.label}</div>
+            ${info?.grid ? `<div style="font-size: 0.8em;">${info.grid}</div>` : ''}
+            ${info?.bearing != null ? `<div style="font-size: 0.8em; color: #60a5fa;">
+              ${info.bearing.toFixed(0)}° / ${Math.round(info.distance ?? 0)} km
+            </div>` : ''}
+          </div>`;
+        }
+      });
+  }, [focusedCallsignInfo, stationLat, stationLon, stationGrid]);
 
   const toggleFullscreen = useCallback(() => {
     if (!containerRef.current) return;

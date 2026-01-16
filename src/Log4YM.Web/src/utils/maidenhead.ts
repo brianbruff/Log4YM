@@ -106,17 +106,35 @@ export function calculateDistance(lat1: number, lon1: number, lat2: number, lon2
 export function calculateBearing(lat1: number, lon1: number, lat2: number, lon2: number): number {
   const toRad = Math.PI / 180;
   const toDeg = 180 / Math.PI;
-  
+
   const dLon = (lon2 - lon1) * toRad;
   const lat1Rad = lat1 * toRad;
   const lat2Rad = lat2 * toRad;
-  
+
   const y = Math.sin(dLon) * Math.cos(lat2Rad);
   const x = Math.cos(lat1Rad) * Math.sin(lat2Rad) -
       Math.sin(lat1Rad) * Math.cos(lat2Rad) * Math.cos(dLon);
-  
+
   let bearing = Math.atan2(y, x) * toDeg;
   bearing = (bearing + 360) % 360;
-  
+
   return bearing;
+}
+
+/**
+ * Get animation duration in seconds based on distance between two points
+ * Uses distance thresholds for smooth visual experience:
+ * - < 500 km: 2 seconds (same country/nearby)
+ * - 500-2000 km: 3 seconds (regional)
+ * - 2000-5000 km: 4 seconds (continental)
+ * - > 5000 km: 5 seconds (intercontinental)
+ *
+ * @param distanceKm Distance in kilometers
+ * @returns Animation duration in seconds
+ */
+export function getAnimationDuration(distanceKm: number): number {
+  if (distanceKm < 500) return 2;
+  if (distanceKm < 2000) return 3;
+  if (distanceKm < 5000) return 4;
+  return 5;
 }

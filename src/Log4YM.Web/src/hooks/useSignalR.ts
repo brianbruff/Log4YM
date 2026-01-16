@@ -236,7 +236,8 @@ export function useSignalR() {
 
     return () => {
       signalRService.disconnect();
-      setConnectionState('disconnected', 0);
+      // Don't set connection state here - let the signalR service handle it
+      // This prevents showing "Connection Lost" during React StrictMode or tab operations
     };
   }, [queryClient, setConnected, setConnectionState, setFocusedCallsign, setFocusedCallsignInfo, setLookingUpCallsign, setRotatorPosition, setRigStatus, setAntennaGeniusStatus, updateAntennaGeniusPort, removeAntennaGeniusDevice, setPgxlStatus, removePgxlDevice, addDiscoveredRadio, removeDiscoveredRadio, setRadioConnectionState, setRadioState, setRadioSlices, addSmartUnlinkRadio, updateSmartUnlinkRadio, removeSmartUnlinkRadio, setSmartUnlinkRadios, setQrzSyncProgress, setSelectedSpot, setLogHistoryCallsignFilter, setClusterStatus]);
 

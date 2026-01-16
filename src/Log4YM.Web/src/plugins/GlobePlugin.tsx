@@ -5,6 +5,7 @@ import { useSettingsStore } from '../store/settingsStore';
 import { useSignalR } from '../hooks/useSignalR';
 import { GlassPanel } from '../components/GlassPanel';
 import { gridToLatLon } from '../utils/maidenhead';
+import type { CallsignLookedUpEvent } from '../api/signalr';
 // Globe is dynamically imported to catch WebGL errors at load time
 
 // Default station location (can be overridden by store)
@@ -137,6 +138,10 @@ export function GlobePlugin() {
 
   // Track target bearing separately from rotator azimuth
   const targetBearingRef = useRef<number | null>(null);
+  
+  // Track focused callsign info for label callback
+  const focusedCallsignInfoRef = useRef<CallsignLookedUpEvent | null>(null);
+  focusedCallsignInfoRef.current = focusedCallsignInfo;
 
   // Render the beam visualization (rotator beam + target line)
   const renderBeam = useCallback((azimuth: number, isConnected: boolean, targetBearing: number | null) => {
@@ -393,7 +398,26 @@ export function GlobePlugin() {
           return data.type === 'target' ? 0.015 : 0.01;
         })
         .pointRadius('size')
-        .pointResolution(12);
+        .pointResolution(12)
+        .pointLabel((d: unknown) => {
+          const data = d as { label: string; type: string };
+          if (data.type === 'station') {
+            return `<div style="text-align: center; padding: 5px; background: rgba(0, 0, 0, 0.8); border-radius: 3px; color: white;">
+              <div style="font-weight: bold;">${data.label}</div>
+              <div style="font-size: 0.8em;">Station Location</div>
+            </div>`;
+          } else {
+            // Target marker - use ref to access latest focusedCallsignInfo
+            const info = focusedCallsignInfoRef.current;
+            return `<div style="text-align: center; padding: 5px; background: rgba(0, 0, 0, 0.8); border-radius: 3px; color: white;">
+              <div style="font-weight: bold; color: #f97316;">${data.label}</div>
+              ${info?.grid ? `<div style="font-size: 0.8em;">${info.grid}</div>` : ''}
+              ${info?.bearing != null ? `<div style="font-size: 0.8em; color: #60a5fa;">
+                ${info.bearing.toFixed(0)}° / ${Math.round(info.distance ?? 0)} km
+              </div>` : ''}
+            </div>`;
+          }
+        });
 
       // Handle globe clicks to set azimuth - use refs to avoid stale closures
       // Only allow commanding rotator when enabled
@@ -577,36 +601,8 @@ export function GlobePlugin() {
       });
     }
 
-    globeRef.current
-      .pointsData(markerData)
-      .pointLat('lat')
-      .pointLng('lng')
-      .pointColor('color')
-      .pointAltitude((d: unknown) => {
-        const data = d as { type: string };
-        return data.type === 'target' ? 0.015 : 0.01; // Target slightly higher
-      })
-      .pointRadius('size')
-      .pointResolution(12)
-      .pointLabel((d: unknown) => {
-        const data = d as { label: string; type: string };
-        if (data.type === 'station') {
-          return `<div style="text-align: center; padding: 5px; background: rgba(0, 0, 0, 0.8); border-radius: 3px; color: white;">
-            <div style="font-weight: bold;">${data.label}</div>
-            <div style="font-size: 0.8em;">Station Location</div>
-          </div>`;
-        } else {
-          // Target marker
-          const info = focusedCallsignInfo;
-          return `<div style="text-align: center; padding: 5px; background: rgba(0, 0, 0, 0.8); border-radius: 3px; color: white;">
-            <div style="font-weight: bold; color: #f97316;">${data.label}</div>
-            ${info?.grid ? `<div style="font-size: 0.8em;">${info.grid}</div>` : ''}
-            ${info?.bearing != null ? `<div style="font-size: 0.8em; color: #60a5fa;">
-              ${info.bearing.toFixed(0)}° / ${Math.round(info.distance ?? 0)} km
-            </div>` : ''}
-          </div>`;
-        }
-      });
+    // Update marker data (configuration is already set during initialization)
+    globeRef.current.pointsData(markerData);
   }, [focusedCallsignInfo, stationLat, stationLon, stationGrid]);
 
   const toggleFullscreen = useCallback(() => {

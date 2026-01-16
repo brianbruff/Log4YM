@@ -5,11 +5,22 @@ import { useSettingsStore } from '../store/settingsStore';
 import { useSignalR } from '../hooks/useSignalR';
 import { GlassPanel } from '../components/GlassPanel';
 import { gridToLatLon } from '../utils/maidenhead';
+import type { CallsignLookedUpEvent } from '../api/signalr';
 // Globe is dynamically imported to catch WebGL errors at load time
 
 // Default station location (can be overridden by store)
 const DEFAULT_LAT = 52.6667; // IO52RN - Limerick
 const DEFAULT_LON = -8.6333;
+
+// Marker data structure for globe points
+interface GlobeMarkerData {
+  lat: number;
+  lng: number;
+  label: string;
+  color: string;
+  size: number;
+  type: 'station' | 'target';
+}
 
 interface GlobeInstance {
   (element: HTMLElement): GlobeInstance;
@@ -137,6 +148,10 @@ export function GlobePlugin() {
 
   // Track target bearing separately from rotator azimuth
   const targetBearingRef = useRef<number | null>(null);
+  
+  // Track focused callsign info for label callback
+  const focusedCallsignInfoRef = useRef<CallsignLookedUpEvent | null>(null);
+  focusedCallsignInfoRef.current = focusedCallsignInfo;
 
   // Render the beam visualization (rotator beam + target line)
   const renderBeam = useCallback((azimuth: number, isConnected: boolean, targetBearing: number | null) => {
@@ -382,29 +397,36 @@ export function GlobePlugin() {
         .pointOfView({ lat: stationLat, lng: stationLon, altitude: 2.5 })
         .enablePointerInteraction(true);
 
-      // Add station marker
-      const markerData = [{
-        lat: stationLat,
-        lng: stationLon,
-        label: stationGrid || 'Station',
-        color: '#fbbf24', // Yellow to match beam color
-        size: 0.05
-      }];
-
+      // Configure marker appearance (data will be set by effect)
       globe
-        .pointsData(markerData)
+        .pointsData([]) // Initial empty - will be populated by effect
         .pointLat('lat')
         .pointLng('lng')
         .pointColor('color')
-        .pointAltitude(0.01)
+        .pointAltitude((d: unknown) => {
+          const data = d as GlobeMarkerData;
+          return data.type === 'target' ? 0.015 : 0.01;
+        })
         .pointRadius('size')
         .pointResolution(12)
         .pointLabel((d: unknown) => {
-          const data = d as { label: string };
-          return `<div style="text-align: center; padding: 5px; background: rgba(0, 0, 0, 0.8); border-radius: 3px; color: white;">
-            <div style="font-weight: bold;">${data.label}</div>
-            <div style="font-size: 0.8em;">Station Location</div>
-          </div>`;
+          const data = d as GlobeMarkerData;
+          if (data.type === 'station') {
+            return `<div style="text-align: center; padding: 5px; background: rgba(0, 0, 0, 0.8); border-radius: 3px; color: white;">
+              <div style="font-weight: bold;">${data.label}</div>
+              <div style="font-size: 0.8em;">Station Location</div>
+            </div>`;
+          } else {
+            // Target marker - use ref to access latest focusedCallsignInfo
+            const info = focusedCallsignInfoRef.current;
+            return `<div style="text-align: center; padding: 5px; background: rgba(0, 0, 0, 0.8); border-radius: 3px; color: white;">
+              <div style="font-weight: bold; color: #f97316;">${data.label}</div>
+              ${info?.grid ? `<div style="font-size: 0.8em;">${info.grid}</div>` : ''}
+              ${info?.bearing != null ? `<div style="font-size: 0.8em; color: #60a5fa;">
+                ${info.bearing.toFixed(0)}° / ${Math.round(info.distance ?? 0)} km
+              </div>` : ''}
+            </div>`;
+          }
         });
 
       // Handle globe clicks to set azimuth - use refs to avoid stale closures
@@ -555,6 +577,36 @@ export function GlobePlugin() {
       targetBearingRef.current = null;
     }
   }, [focusedCallsignInfo]);
+
+  // Update globe markers when focused callsign changes
+  useEffect(() => {
+    if (!globeRef.current) return;
+
+    // Build marker data array - always include station
+    const markerData: GlobeMarkerData[] = [{
+      lat: stationLat,
+      lng: stationLon,
+      label: stationGrid || 'Station',
+      color: '#fbbf24', // Yellow to match beam color
+      size: 0.05,
+      type: 'station',
+    }];
+
+    // Add target marker if we have focused callsign with coordinates
+    if (focusedCallsignInfo?.latitude != null && focusedCallsignInfo?.longitude != null) {
+      markerData.push({
+        lat: focusedCallsignInfo.latitude,
+        lng: focusedCallsignInfo.longitude,
+        label: focusedCallsignInfo.callsign,
+        color: '#f97316', // Orange for target (matches map plugin)
+        size: 0.04,
+        type: 'target',
+      });
+    }
+
+    // Update marker data (configuration is already set during initialization)
+    globeRef.current.pointsData(markerData);
+  }, [focusedCallsignInfo, stationLat, stationLon, stationGrid]);
 
   const toggleFullscreen = useCallback(() => {
     if (!containerRef.current) return;

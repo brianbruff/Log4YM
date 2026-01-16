@@ -12,6 +12,16 @@ import type { CallsignLookedUpEvent } from '../api/signalr';
 const DEFAULT_LAT = 52.6667; // IO52RN - Limerick
 const DEFAULT_LON = -8.6333;
 
+// Marker data structure for globe points
+interface GlobeMarkerData {
+  lat: number;
+  lng: number;
+  label: string;
+  color: string;
+  size: number;
+  type: 'station' | 'target';
+}
+
 interface GlobeInstance {
   (element: HTMLElement): GlobeInstance;
   globeImageUrl(url: string): GlobeInstance;
@@ -394,13 +404,13 @@ export function GlobePlugin() {
         .pointLng('lng')
         .pointColor('color')
         .pointAltitude((d: unknown) => {
-          const data = d as { type: string };
+          const data = d as GlobeMarkerData;
           return data.type === 'target' ? 0.015 : 0.01;
         })
         .pointRadius('size')
         .pointResolution(12)
         .pointLabel((d: unknown) => {
-          const data = d as { label: string; type: string };
+          const data = d as GlobeMarkerData;
           if (data.type === 'station') {
             return `<div style="text-align: center; padding: 5px; background: rgba(0, 0, 0, 0.8); border-radius: 3px; color: white;">
               <div style="font-weight: bold;">${data.label}</div>
@@ -573,14 +583,7 @@ export function GlobePlugin() {
     if (!globeRef.current) return;
 
     // Build marker data array - always include station
-    const markerData: Array<{
-      lat: number;
-      lng: number;
-      label: string;
-      color: string;
-      size: number;
-      type: 'station' | 'target';
-    }> = [{
+    const markerData: GlobeMarkerData[] = [{
       lat: stationLat,
       lng: stationLon,
       label: stationGrid || 'Station',

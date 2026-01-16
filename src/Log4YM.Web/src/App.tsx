@@ -5,7 +5,7 @@ import { Header } from './components/Header';
 import { StatusBar } from './components/StatusBar';
 import { SettingsPanel } from './components/SettingsPanel';
 import { ConnectionOverlay } from './components/ConnectionOverlay';
-import { useSignalR } from './hooks/useSignalR';
+import { useSignalRConnection } from './hooks/useSignalR';
 import { LogEntryPlugin, LogHistoryPlugin, ClusterPlugin, MapPlugin, RotatorPlugin, GlobePlugin, AntennaGeniusPlugin, PgxlPlugin, SmartUnlinkPlugin, RigPlugin, QrzProfilePlugin } from './plugins';
 import { Globe as Globe3D } from 'lucide-react';
 import { useLayoutStore, defaultLayout } from './store/layoutStore';
@@ -90,8 +90,8 @@ export function App() {
     fetchStatus();
   }, [fetchStatus]);
 
-  // Initialize SignalR connection
-  useSignalR();
+  // Initialize SignalR connection (only called here, not in plugins)
+  useSignalRConnection();
 
   // Load settings and layout from MongoDB on mount (will gracefully fail if not connected)
   useEffect(() => {

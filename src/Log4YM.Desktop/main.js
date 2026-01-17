@@ -10,6 +10,15 @@ if (process.platform === 'darwin') {
   app.setName('Log4YM');
 }
 
+// Enable GPU acceleration and WebGL for 3D globe support
+// Some Macs with integrated GPUs may have these disabled by default
+app.commandLine.appendSwitch('ignore-gpu-blacklist');
+app.commandLine.appendSwitch('enable-gpu-rasterization');
+app.commandLine.appendSwitch('enable-zero-copy');
+// Ensure WebGL is available - some systems need this explicitly enabled
+app.commandLine.appendSwitch('enable-webgl');
+app.commandLine.appendSwitch('enable-webgl2-compute-context');
+
 // Configure logging
 log.transports.file.level = 'info';
 log.transports.console.level = 'debug';
@@ -186,6 +195,10 @@ function createWindow() {
     backgroundColor: '#0a0a0f',
     show: false // Don't show until ready
   });
+
+  // Clear cache on startup to ensure fresh assets are loaded
+  // This prevents stale chunk references after updates
+  mainWindow.webContents.session.clearCache();
 
   // Load the appropriate URL based on dev mode
   const loadUrl = useViteDevServer

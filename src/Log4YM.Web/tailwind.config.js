@@ -26,10 +26,10 @@ export default {
           300: '#6e6e6e',        // Muted text
         },
         accent: {
-          primary: '#0078d4',    // VS Code blue (focus/selection)
-          secondary: '#3794ff',  // Lighter blue
+          primary: '#3b82f6',    // A brighter blue
+          secondary: '#60a5fa',  // A lighter blue for text
           success: '#4ec9b0',    // VS Code teal/cyan
-          warning: '#dcdcaa',    // VS Code yellow
+          warning: '#facc15',    // A brighter yellow
           danger: '#f14c4c',     // VS Code red
           info: '#9cdcfe',       // VS Code light blue
         },
@@ -46,7 +46,7 @@ export default {
       boxShadow: {
         'glass': '0 8px 32px 0 rgba(0, 0, 0, 0.5)',
         'glass-sm': '0 4px 16px 0 rgba(0, 0, 0, 0.35)',
-        'glow': '0 0 20px rgba(0, 120, 212, 0.3)',
+        'glow': '0 0 20px rgba(59, 130, 246, 0.4)',
         'glow-success': '0 0 20px rgba(78, 201, 176, 0.3)',
       },
       backgroundImage: {
@@ -59,8 +59,8 @@ export default {
       },
       keyframes: {
         glow: {
-          '0%': { boxShadow: '0 0 5px rgba(0, 120, 212, 0.2)' },
-          '100%': { boxShadow: '0 0 20px rgba(0, 120, 212, 0.4)' },
+          '0%': { boxShadow: '0 0 5px rgba(59, 130, 246, 0.2)' },
+          '100%': { boxShadow: '0 0 20px rgba(59, 130, 246, 0.5)' },
         }
       }
     },

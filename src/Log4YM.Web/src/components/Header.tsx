@@ -14,7 +14,8 @@ export function Header() {
             {/* Main circle with left notch cutout */}
             <path
               d="M20 2 A18 18 0 1 1 20 38 A18 18 0 0 1 20 2 M8 14 L8 26 A12 12 0 0 0 8 14"
-              fill="#f97316"
+              fill="currentColor"
+              className="text-accent-primary"
             />
             {/* Semi-circle cutout on left */}
             <circle cx="8" cy="20" r="8" fill="#1a1b23" />
@@ -26,11 +27,11 @@ export function Header() {
         </div>
         <div>
           <h1 className="text-xl font-bold tracking-wide">
-            <span className="text-orange-500">LOG</span>
-            <span className="text-orange-500">4</span>
-            <span className="text-orange-500">YM</span>
+            <span className="text-accent-warning">LOG</span>
+            <span className="text-accent-warning">4</span>
+            <span className="text-accent-warning">YM 📡</span>
           </h1>
-          <p className="text-[10px] text-orange-500/80 tracking-widest uppercase -mt-0.5">Hamradio Logging</p>
+          <p className="text-[10px] text-accent-warning/80 tracking-widest uppercase -mt-0.5">Hamradio Logging</p>
         </div>
       </div>
 

@@ -8,7 +8,7 @@
   }
 
   body {
-    @apply bg-dark-900 text-gray-100 antialiased;
+    @apply bg-dark-900 text-accent-secondary antialiased;
     font-family: 'Inter', system-ui, -apple-system, sans-serif;
   }
 

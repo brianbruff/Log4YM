@@ -60,6 +60,7 @@ export function RigPlugin() {
     getHamlibConfig,
     connectHamlibRig,
     disconnectHamlibRig,
+    deleteHamlibConfig,
     connectTci,
     disconnectTci,
   } = useSignalR();
@@ -213,14 +214,31 @@ export function RigPlugin() {
     await saveSettings();
   };
 
-  const handleRemoveRig = async () => {
-    // Clear the saved rig configuration
+  const handleRemoveRig = async (radioId: string) => {
+    const radio = discoveredRadios.get(radioId);
+    
+    // Disconnect if currently connected
+    if (selectedRadioId === radioId) {
+      if (radio?.type === "Hamlib" || radioId.startsWith("hamlib-")) {
+        await disconnectHamlibRig();
+      } else if (radio?.type === "Tci" || radioId.startsWith("tci-")) {
+        await disconnectTci(radioId);
+      }
+      setSelectedRadio(null);
+    }
+    
+    // Delete saved configuration based on radio type
+    if (radio?.type === "Hamlib" || radioId.startsWith("hamlib-")) {
+      // Delete Hamlib config from backend
+      await deleteHamlibConfig();
+      // Reset local state
+      setHamlibConfig(defaultHamlibConfig);
+      setRigSearch("");
+    }
+    
+    // Clear the saved rig settings
     updateRadioSettings({ activeRigType: null, autoReconnect: false });
     await saveSettings();
-    // Reset local state
-    setHamlibConfig(defaultHamlibConfig);
-    setRigSearch("");
-    setSelectedRadio(null);
   };
 
   const handleConnectHamlib = async () => {
@@ -953,7 +971,7 @@ export function RigPlugin() {
                         )}
                       </button>
                       <button
-                        onClick={handleRemoveRig}
+                        onClick={() => handleRemoveRig(radio.id)}
                         className="px-3 py-1.5 text-xs font-medium flex items-center gap-1.5 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-all"
                         title="Remove saved rig"
                       >

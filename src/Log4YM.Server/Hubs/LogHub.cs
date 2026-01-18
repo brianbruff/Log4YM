@@ -628,6 +628,18 @@ public class LogHub : Hub<ILogHubClient>
     }
 
     /// <summary>
+    /// Delete saved Hamlib configuration
+    /// </summary>
+    public async Task DeleteHamlibConfig()
+    {
+        _logger.LogInformation("Deleting saved Hamlib configuration");
+        await _hamlibService.DeleteConfigAsync();
+        
+        // Request updated radio status to reflect the removal
+        await RequestRadioStatus();
+    }
+
+    /// <summary>
     /// Connect directly to a TCI server without discovery
     /// </summary>
     public async Task ConnectTci(string host, int port = 50001, string? name = null)
@@ -672,7 +684,7 @@ public class LogHub : Hub<ILogHubClient>
             await Clients.Caller.OnRadioDiscovered(radio);
         }
 
-        foreach (var radio in _hamlibService.GetDiscoveredRadios())
+        foreach (var radio in await _hamlibService.GetDiscoveredRadiosAsync())
         {
             await Clients.Caller.OnRadioDiscovered(radio);
         }

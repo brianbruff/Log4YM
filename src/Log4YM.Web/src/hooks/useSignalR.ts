@@ -351,6 +351,10 @@ export function useSignalR() {
     await signalRService.disconnectHamlibRig();
   }, []);
 
+  const deleteHamlibConfig = useCallback(async () => {
+    await signalRService.deleteHamlibConfig();
+  }, []);
+
   // Legacy rigctld methods (kept for backwards compatibility)
   const connectHamlib = useCallback(async (host: string, port: number = 4532, name?: string) => {
     // Map to new native Hamlib with network connection type
@@ -439,6 +443,7 @@ export function useSignalR() {
     getHamlibStatus,
     connectHamlibRig,
     disconnectHamlibRig,
+    deleteHamlibConfig,
     // Hamlib (legacy rigctld compatibility)
     connectHamlib,
     disconnectHamlib,

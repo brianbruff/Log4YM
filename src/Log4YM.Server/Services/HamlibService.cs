@@ -414,21 +414,64 @@ public class HamlibService : BackgroundService
     }
 
     /// <summary>
-    /// Get discovered radios (just the current connection if any)
+    /// Delete saved configuration from MongoDB
     /// </summary>
-    public IEnumerable<RadioDiscoveredEvent> GetDiscoveredRadios()
+    public async Task DeleteConfigAsync()
     {
-        if (_radioId == null || _config == null) yield break;
+        if (_database == null) return;
 
-        yield return new RadioDiscoveredEvent(
-            _radioId,
-            RadioType.Hamlib,
-            _config.ModelName,
-            _config.ConnectionType == Native.Hamlib.HamlibConnectionType.Network ? _config.Hostname ?? "" : _config.SerialPort ?? "",
-            _config.ConnectionType == Native.Hamlib.HamlibConnectionType.Network ? _config.NetworkPort : 0,
-            null,
-            null
-        );
+        try
+        {
+            var collection = _database.GetCollection<HamlibRigConfig>(CollectionName);
+            await collection.DeleteOneAsync(c => c.Id == ConfigDocId);
+            _logger.LogInformation("Deleted Hamlib config from MongoDB");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to delete Hamlib config from MongoDB");
+        }
+    }
+
+    /// <summary>
+    /// Get discovered radios (includes saved configuration even if not connected)
+    /// </summary>
+    public async Task<IEnumerable<RadioDiscoveredEvent>> GetDiscoveredRadiosAsync()
+    {
+        var radios = new List<RadioDiscoveredEvent>();
+
+        // If we're currently connected, return the active connection
+        if (_radioId != null && _config != null)
+        {
+            radios.Add(new RadioDiscoveredEvent(
+                _radioId,
+                RadioType.Hamlib,
+                _config.ModelName,
+                _config.ConnectionType == Native.Hamlib.HamlibConnectionType.Network ? _config.Hostname ?? "" : _config.SerialPort ?? "",
+                _config.ConnectionType == Native.Hamlib.HamlibConnectionType.Network ? _config.NetworkPort : 0,
+                null,
+                null
+            ));
+        }
+        // If not connected but we have a saved config, show that
+        else
+        {
+            var savedConfig = await LoadConfigAsync();
+            if (savedConfig != null)
+            {
+                var radioId = $"hamlib-{savedConfig.ModelId}";
+                radios.Add(new RadioDiscoveredEvent(
+                    radioId,
+                    RadioType.Hamlib,
+                    savedConfig.ModelName,
+                    savedConfig.ConnectionType == Native.Hamlib.HamlibConnectionType.Network ? savedConfig.Hostname ?? "" : savedConfig.SerialPort ?? "",
+                    savedConfig.ConnectionType == Native.Hamlib.HamlibConnectionType.Network ? savedConfig.NetworkPort : 0,
+                    null,
+                    null
+                ));
+            }
+        }
+
+        return radios;
     }
 
     /// <summary>

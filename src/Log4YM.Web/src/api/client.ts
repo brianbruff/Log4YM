@@ -300,6 +300,28 @@ class ApiClient {
 
     return response.blob();
   }
+
+  // AI
+  async generateTalkPoints(request: GenerateTalkPointsRequest): Promise<GenerateTalkPointsResponse> {
+    return this.fetch<GenerateTalkPointsResponse>('/ai/talk-points', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  async chat(request: ChatRequest): Promise<ChatResponse> {
+    return this.fetch<ChatResponse>('/ai/chat', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  async testApiKey(request: TestApiKeyRequest): Promise<TestApiKeyResponse> {
+    return this.fetch<TestApiKeyResponse>('/ai/test-key', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
 }
 
 // QRZ Types
@@ -376,6 +398,64 @@ export interface SpaceWeatherData {
   kIndex: number;
   sunspotNumber: number;
   timestamp: string;
+}
+
+// AI Types
+export interface GenerateTalkPointsRequest {
+  callsign: string;
+  currentBand?: string;
+  currentMode?: string;
+}
+
+export interface GenerateTalkPointsResponse {
+  callsign: string;
+  previousQsos: PreviousQsoSummary[];
+  qrzProfile?: QrzProfileSummary;
+  talkPoints: string[];
+  generatedText: string;
+}
+
+export interface PreviousQsoSummary {
+  qsoDate: string;
+  band: string;
+  mode: string;
+  rstSent?: string;
+  rstRcvd?: string;
+  comment?: string;
+}
+
+export interface QrzProfileSummary {
+  name?: string;
+  location?: string;
+  grid?: string;
+  bio?: string;
+  interests?: string;
+}
+
+export interface ChatRequest {
+  callsign: string;
+  question: string;
+  conversationHistory?: ChatMessage[];
+}
+
+export interface ChatResponse {
+  answer: string;
+}
+
+export interface ChatMessage {
+  role: string; // "user" or "assistant"
+  content: string;
+}
+
+export interface TestApiKeyRequest {
+  provider: string; // "anthropic" or "openai"
+  apiKey: string;
+  model: string;
+}
+
+export interface TestApiKeyResponse {
+  isValid: boolean;
+  errorMessage?: string;
 }
 
 export const api = new ApiClient();

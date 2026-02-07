@@ -79,6 +79,16 @@ export interface ClusterSettings {
   connections: ClusterConnection[];
 }
 
+export interface AiSettings {
+  provider: 'anthropic' | 'openai';
+  apiKey: string;
+  model: string;
+  autoGenerateTalkPoints: boolean;
+  includeQrzProfile: boolean;
+  includeQsoHistory: boolean;
+  includeSpotComments: boolean;
+}
+
 export interface Settings {
   station: StationSettings;
   qrz: QrzSettings;
@@ -88,9 +98,10 @@ export interface Settings {
   map: MapSettings;
   cluster: ClusterSettings;
   header: HeaderSettings;
+  ai: AiSettings;
 }
 
-export type SettingsSection = 'station' | 'qrz' | 'rotator' | 'database' | 'appearance' | 'header' | 'about';
+export type SettingsSection = 'station' | 'qrz' | 'rotator' | 'database' | 'appearance' | 'header' | 'ai' | 'about';
 
 interface SettingsState {
   // Settings data
@@ -119,6 +130,7 @@ interface SettingsState {
   updateClusterSettings: (cluster: Partial<ClusterSettings>) => void;
   updateClusterConnection: (connectionId: string, connection: Partial<ClusterConnection>) => void;
   updateHeaderSettings: (header: Partial<HeaderSettings>) => void;
+  updateAiSettings: (ai: Partial<AiSettings>) => void;
   addClusterConnection: () => void;
   removeClusterConnection: (connectionId: string) => void;
 
@@ -186,6 +198,15 @@ const defaultSettings: Settings = {
     sizeMultiplier: 1.0,
     showWeather: true,
     weatherLocation: '',
+  },
+  ai: {
+    provider: 'anthropic',
+    apiKey: '',
+    model: 'claude-sonnet-4.5',
+    autoGenerateTalkPoints: true,
+    includeQrzProfile: true,
+    includeQsoHistory: true,
+    includeSpotComments: false,
   },
 };
 
@@ -284,6 +305,16 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
       settings: {
         ...state.settings,
         header: { ...state.settings.header, ...header },
+      },
+      isDirty: true,
+    })),
+
+  // AI settings
+  updateAiSettings: (ai) =>
+    set((state) => ({
+      settings: {
+        ...state.settings,
+        ai: { ...state.settings.ai, ...ai },
       },
       isDirty: true,
     })),

@@ -137,6 +137,9 @@ public class RadioSettings
     [BsonElement("autoReconnect")]
     public bool AutoReconnect { get; set; } = false;
 
+    [BsonElement("autoConnectRigId")]
+    public string? AutoConnectRigId { get; set; }
+
     [BsonElement("tci")]
     public TciSettings Tci { get; set; } = new();
 }

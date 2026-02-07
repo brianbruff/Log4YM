@@ -49,6 +49,7 @@ export function RigPlugin() {
     radioStates,
     selectedRadioId,
     setSelectedRadio,
+    removeDiscoveredRadio,
   } = useAppStore();
 
   const {
@@ -60,14 +61,16 @@ export function RigPlugin() {
     getHamlibConfig,
     connectHamlibRig,
     disconnectHamlibRig,
+    deleteHamlibConfig,
     connectTci,
     disconnectTci,
+    deleteTciConfig,
   } = useSignalR();
 
   // Radio settings from store (persisted to database)
   const { settings, updateRadioSettings, updateTciSettings, saveSettings } = useSettingsStore();
   const tciSettings = settings.radio.tci;
-  const { autoReconnect } = settings.radio;
+  const { autoReconnect, autoConnectRigId } = settings.radio;
 
   // TCI form state
   const [showTciForm, setShowTciForm] = useState(false);
@@ -209,18 +212,81 @@ export function RigPlugin() {
   };
 
   const handleToggleAutoReconnect = async () => {
-    updateRadioSettings({ autoReconnect: !autoReconnect });
+    if (!autoReconnect && selectedRadioId) {
+      // Enabling: target the currently selected rig
+      handleToggleAutoReconnectForRig(selectedRadioId);
+      return;
+    }
+    // Disabling: clear targeting
+    updateRadioSettings({
+      autoReconnect: false,
+      autoConnectRigId: null,
+    });
     await saveSettings();
   };
 
-  const handleRemoveRig = async () => {
-    // Clear the saved rig configuration
-    updateRadioSettings({ activeRigType: null, autoReconnect: false });
+  const handleToggleAutoReconnectForRig = async (radioId: string) => {
+    if (autoConnectRigId === radioId && autoReconnect) {
+      // Already targeting this rig — disable
+      updateRadioSettings({
+        autoReconnect: false,
+        autoConnectRigId: null,
+      });
+    } else {
+      // Enable and target this specific rig
+      const radio = discoveredRadios.get(radioId);
+      const rigType = radio?.type === "Hamlib" || radioId.startsWith("hamlib-")
+        ? "hamlib" as const
+        : radio?.type === "Tci" || radioId.startsWith("tci-")
+          ? "tci" as const
+          : null;
+      updateRadioSettings({
+        autoReconnect: true,
+        autoConnectRigId: radioId,
+        activeRigType: rigType,
+      });
+    }
     await saveSettings();
-    // Reset local state
-    setHamlibConfig(defaultHamlibConfig);
-    setRigSearch("");
-    setSelectedRadio(null);
+  };
+
+  const handleRemoveRig = async (radioId: string) => {
+    try {
+      const radio = discoveredRadios.get(radioId);
+      const isHamlib = radio?.type === "Hamlib" || radioId.startsWith("hamlib-");
+      const isTci = radio?.type === "Tci" || radioId.startsWith("tci-");
+
+      // Disconnect if currently connected
+      const connState = radioConnectionStates.get(radioId);
+      if (connState && connState !== "Disconnected") {
+        if (isHamlib) {
+          await disconnectHamlibRig();
+        } else if (isTci) {
+          await disconnectTci(radioId);
+        } else {
+          await disconnectRadio(radioId);
+        }
+      }
+
+      // Delete saved configuration based on radio type
+      if (isHamlib) {
+        await deleteHamlibConfig();
+        setHamlibConfig(defaultHamlibConfig);
+        setRigSearch("");
+      } else if (isTci) {
+        await deleteTciConfig();
+        updateTciSettings({ host: "localhost", port: 50001, name: "", autoConnect: false });
+      }
+
+      // Remove from UI immediately
+      removeDiscoveredRadio(radioId);
+      setSelectedRadio(null);
+
+      // Clear rig settings
+      updateRadioSettings({ activeRigType: null, autoReconnect: false, autoConnectRigId: null });
+      await saveSettings();
+    } catch (error) {
+      console.error("Failed to remove rig:", error);
+    }
   };
 
   const handleConnectHamlib = async () => {
@@ -926,8 +992,13 @@ export function RigPlugin() {
                         )}
                       </div>
                       <div>
-                        <div className="text-sm font-medium text-gray-200">
+                        <div className="text-sm font-medium text-gray-200 flex items-center gap-1.5">
                           {radio.nickname || radio.model}
+                          {autoReconnect && autoConnectRigId === radio.id && (
+                            <span title="Auto-connect enabled">
+                              <RefreshCw className="w-3 h-3 text-accent-primary" />
+                            </span>
+                          )}
                         </div>
                         <div className="text-xs text-gray-500 font-mono">
                           {radio.ipAddress}{radio.port ? `:${radio.port}` : ""}
@@ -935,6 +1006,17 @@ export function RigPlugin() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleToggleAutoReconnectForRig(radio.id)}
+                        title={autoReconnect && autoConnectRigId === radio.id ? "Disable auto-reconnect" : "Enable auto-reconnect"}
+                        className={`p-1.5 rounded transition-all ${
+                          autoReconnect && autoConnectRigId === radio.id
+                            ? "bg-accent-primary/20 text-accent-primary"
+                            : "bg-dark-700 text-gray-500 hover:text-gray-400"
+                        }`}
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${autoReconnect && autoConnectRigId === radio.id ? "" : "opacity-50"}`} />
+                      </button>
                       <button
                         onClick={() => handleConnect(radio.id)}
                         disabled={isConnecting}
@@ -953,7 +1035,7 @@ export function RigPlugin() {
                         )}
                       </button>
                       <button
-                        onClick={handleRemoveRig}
+                        onClick={() => handleRemoveRig(radio.id)}
                         className="px-3 py-1.5 text-xs font-medium flex items-center gap-1.5 bg-red-500/20 text-red-400 rounded-lg hover:bg-red-500/30 transition-all"
                         title="Remove saved rig"
                       >

@@ -126,6 +126,7 @@ public class RotatorSettings
     };
 }
 
+[BsonIgnoreExtraElements]
 public class RadioSettings
 {
     [BsonElement("followRadio")]

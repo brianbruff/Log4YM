@@ -192,6 +192,11 @@ class ApiClient {
     return this.fetch('/plugins');
   }
 
+  // Space Weather
+  async getSpaceWeather(): Promise<SpaceWeatherData> {
+    return this.fetch('/spaceweather');
+  }
+
   // QRZ
   async getQrzSubscription(): Promise<QrzSubscriptionResponse> {
     return this.fetch('/qrz/subscription');
@@ -363,6 +368,14 @@ export interface AdifExportRequest {
   fromDate?: string;
   toDate?: string;
   qsoIds?: string[];
+}
+
+// Space Weather Types
+export interface SpaceWeatherData {
+  solarFluxIndex: number;
+  kIndex: number;
+  sunspotNumber: number;
+  timestamp: string;
 }
 
 export const api = new ApiClient();

@@ -1,12 +1,11 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { Layout, Model, TabNode, TabSetNode, BorderNode, ITabSetRenderValues, Actions, DockLocation } from 'flexlayout-react';
-import { X, Radio, Book, Zap, LayoutGrid, Antenna, Plus, Map, Compass, Gauge, User } from 'lucide-react';
-import { Header } from './components/Header';
+import { X, Radio, Book, Zap, LayoutGrid, Antenna, Plus, Map, Compass, Gauge, User, Clock } from 'lucide-react';
 import { StatusBar } from './components/StatusBar';
 import { SettingsPanel } from './components/SettingsPanel';
 import { ConnectionOverlay } from './components/ConnectionOverlay';
 import { useSignalRConnection } from './hooks/useSignalR';
-import { LogEntryPlugin, LogHistoryPlugin, ClusterPlugin, MapPlugin, RotatorPlugin, GlobePlugin, AntennaGeniusPlugin, PgxlPlugin, SmartUnlinkPlugin, RigPlugin, QrzProfilePlugin } from './plugins';
+import { LogEntryPlugin, LogHistoryPlugin, ClusterPlugin, MapPlugin, RotatorPlugin, GlobePlugin, AntennaGeniusPlugin, PgxlPlugin, SmartUnlinkPlugin, RigPlugin, QrzProfilePlugin, HeaderPlugin } from './plugins';
 import { Globe as Globe3D } from 'lucide-react';
 import { useLayoutStore, defaultLayout } from './store/layoutStore';
 import { useSettingsStore } from './store/settingsStore';
@@ -71,6 +70,11 @@ const PLUGINS: Record<string, { name: string; icon: React.ReactNode; component: 
     name: 'QRZ Profile',
     icon: <User className="w-4 h-4" />,
     component: QrzProfilePlugin,
+  },
+  'header-bar': {
+    name: 'Header Bar',
+    icon: <Clock className="w-4 h-4" />,
+    component: HeaderPlugin,
   },
 };
 
@@ -237,8 +241,6 @@ export function App() {
 
   return (
     <div className="h-screen flex flex-col bg-dark-900 text-gray-100">
-      <Header />
-
       <main className="flex-1 relative overflow-hidden">
         <Layout
           ref={layoutRef}

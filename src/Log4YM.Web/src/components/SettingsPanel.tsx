@@ -59,6 +59,12 @@ const SETTINGS_SECTIONS: { id: SettingsSection; name: string; icon: React.ReactN
     description: 'Theme and display options',
   },
   {
+    id: 'header',
+    name: 'Header Bar',
+    icon: <Eye className="w-5 h-5" />,
+    description: 'Customize header display settings',
+  },
+  {
     id: 'about',
     name: 'About',
     icon: <Info className="w-5 h-5" />,
@@ -816,6 +822,116 @@ function AppearanceSettingsSection() {
   );
 }
 
+// Header Settings Section
+function HeaderSettingsSection() {
+  const { settings, updateHeaderSettings } = useSettingsStore();
+  const header = settings.header;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold text-gray-100 mb-1">Header Bar Settings</h3>
+        <p className="text-sm text-gray-500">Customize the header bar display with space weather indices and time formats.</p>
+      </div>
+
+      <div className="space-y-4">
+        {/* Time Format */}
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
+            Time Format (Local)
+          </label>
+          <div className="flex gap-2">
+            <button
+              onClick={() => updateHeaderSettings({ timeFormat: '12h' })}
+              className={`flex-1 px-4 py-2 rounded-lg border transition-colors ${
+                header.timeFormat === '12h'
+                  ? 'bg-accent-primary/10 border-accent-primary text-accent-primary'
+                  : 'bg-dark-700/50 border-glass-100 text-gray-400 hover:bg-dark-700'
+              }`}
+            >
+              12-Hour
+            </button>
+            <button
+              onClick={() => updateHeaderSettings({ timeFormat: '24h' })}
+              className={`flex-1 px-4 py-2 rounded-lg border transition-colors ${
+                header.timeFormat === '24h'
+                  ? 'bg-accent-primary/10 border-accent-primary text-accent-primary'
+                  : 'bg-dark-700/50 border-glass-100 text-gray-400 hover:bg-dark-700'
+              }`}
+            >
+              24-Hour
+            </button>
+          </div>
+          <p className="text-xs text-gray-500">You can also click the local time in the header to toggle formats.</p>
+        </div>
+
+        {/* Size Multiplier */}
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
+            Header Size
+          </label>
+          <div className="grid grid-cols-4 gap-2">
+            {[0.75, 1.0, 1.25, 1.5].map((size) => (
+              <button
+                key={size}
+                onClick={() => updateHeaderSettings({ sizeMultiplier: size })}
+                className={`px-4 py-2 rounded-lg border transition-colors ${
+                  header.sizeMultiplier === size
+                    ? 'bg-accent-primary/10 border-accent-primary text-accent-primary'
+                    : 'bg-dark-700/50 border-glass-100 text-gray-400 hover:bg-dark-700'
+                }`}
+              >
+                {size === 1.0 ? 'Normal' : `${size}x`}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-gray-500">Adjust the size of text and spacing in the header bar.</p>
+        </div>
+
+        {/* Show Weather */}
+        <label className="flex items-center justify-between p-4 bg-dark-700/50 rounded-lg border border-glass-100 cursor-pointer hover:bg-dark-700 transition-colors">
+          <div className="flex items-center gap-3">
+            <Globe className="w-5 h-5 text-accent-primary" />
+            <div>
+              <div className="font-medium text-gray-100">Show Weather</div>
+              <div className="text-sm text-gray-500">Display current weather in header (requires station coordinates)</div>
+            </div>
+          </div>
+          <input
+            type="checkbox"
+            checked={header.showWeather}
+            onChange={(e) => updateHeaderSettings({ showWeather: e.target.checked })}
+            className="w-5 h-5 rounded border-glass-100 bg-dark-700 text-accent-primary focus:ring-accent-primary focus:ring-offset-0"
+          />
+        </label>
+
+        {/* Info Box */}
+        <div className="p-4 bg-accent-primary/5 border border-accent-primary/20 rounded-lg">
+          <h4 className="font-medium text-accent-primary mb-2 flex items-center gap-2">
+            <Info className="w-4 h-4" />
+            About the Header Bar
+          </h4>
+          <div className="text-sm text-gray-400 space-y-2">
+            <p>
+              The header bar displays essential operating information inspired by OpenHamClock:
+            </p>
+            <ul className="list-disc list-inside space-y-1 ml-2">
+              <li><strong className="text-cyan-400">UTC Time</strong>: Essential for logging (always 24-hour format)</li>
+              <li><strong className="text-amber-400">Local Time</strong>: Your system time (clickable to toggle format)</li>
+              <li><strong className="text-amber-400">SFI</strong>: Solar Flux Index (higher is better for HF)</li>
+              <li><strong className="text-green-500">K-Index</strong>: Geomagnetic activity (turns <span className="text-red-500">red</span> when ≥4)</li>
+              <li><strong className="text-cyan-400">SSN</strong>: Sunspot Number (indicates solar activity)</li>
+            </ul>
+            <p className="pt-2 text-xs">
+              Space weather data refreshes every 15 minutes. Weather data requires latitude/longitude in Station settings.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // About Section
 function AboutSection() {
   return (
@@ -900,6 +1016,8 @@ export function SettingsPanel() {
         return <DatabaseSettingsSection />;
       case 'appearance':
         return <AppearanceSettingsSection />;
+      case 'header':
+        return <HeaderSettingsSection />;
       case 'about':
         return <AboutSection />;
       default:

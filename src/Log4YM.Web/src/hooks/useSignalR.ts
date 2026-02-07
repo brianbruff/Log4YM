@@ -1,13 +1,18 @@
-import { useEffect, useCallback } from 'react';
+import { useEffect, useCallback, useRef } from 'react';
 import { useQueryClient } from '@tanstack/react-query';
 import { signalRService, type SmartUnlinkRadioDto, type HamlibRigConfigDto, type SignalRConnectionState } from '../api/signalr';
 import { useAppStore, type ConnectionState } from '../store/appStore';
 import { useSettingsStore } from '../store/settingsStore';
 
-export function useSignalR() {
+/**
+ * Hook for managing the SignalR connection lifecycle.
+ * Should ONLY be called once in App.tsx - not in plugins or other components.
+ * This handles connection setup, event handlers, and cleanup.
+ */
+export function useSignalRConnection() {
   const queryClient = useQueryClient();
+  const connectionInitialized = useRef(false);
   const {
-    setConnected,
     setConnectionState,
     setFocusedCallsign,
     setFocusedCallsignInfo,
@@ -24,6 +29,7 @@ export function useSignalR() {
     setRadioConnectionState,
     setRadioState,
     setRadioSlices,
+    clearRadioState,
     addSmartUnlinkRadio,
     updateSmartUnlinkRadio,
     removeSmartUnlinkRadio,
@@ -35,6 +41,11 @@ export function useSignalR() {
   } = useAppStore();
 
   useEffect(() => {
+    // Prevent double initialization (React StrictMode)
+    if (connectionInitialized.current) {
+      return;
+    }
+    connectionInitialized.current = true;
     // Set up connection state callback - maps SignalR state to app state
     signalRService.setConnectionStateCallback((state: SignalRConnectionState, attempt: number) => {
       setConnectionState(state as ConnectionState, attempt);
@@ -176,6 +187,10 @@ export function useSignalR() {
           onRadioConnectionStateChanged: (evt) => {
             console.log('Radio connection state:', evt.radioId, evt.state);
             setRadioConnectionState(evt.radioId, evt.state);
+            // Clear stale frequency/mode data when disconnected or errored
+            if (evt.state === 'Disconnected' || evt.state === 'Error') {
+              clearRadioState(evt.radioId);
+            }
           },
           onRadioStateChanged: (evt) => {
             console.log('Radio state:', evt.radioId, evt.frequencyHz, evt.mode);
@@ -234,11 +249,27 @@ export function useSignalR() {
 
     connect();
 
+    // Cleanup only runs when the App itself unmounts (app closing)
+    // The connectionInitialized ref prevents this from running on StrictMode re-renders
     return () => {
+      connectionInitialized.current = false;
       signalRService.disconnect();
-      setConnectionState('disconnected', 0);
     };
-  }, [queryClient, setConnected, setConnectionState, setFocusedCallsign, setFocusedCallsignInfo, setLookingUpCallsign, setRotatorPosition, setRigStatus, setAntennaGeniusStatus, updateAntennaGeniusPort, removeAntennaGeniusDevice, setPgxlStatus, removePgxlDevice, addDiscoveredRadio, removeDiscoveredRadio, setRadioConnectionState, setRadioState, setRadioSlices, addSmartUnlinkRadio, updateSmartUnlinkRadio, removeSmartUnlinkRadio, setSmartUnlinkRadios, setQrzSyncProgress, setSelectedSpot, setLogHistoryCallsignFilter, setClusterStatus]);
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+}
+
+/**
+ * Hook for accessing SignalR methods.
+ * Can be called from any component - does NOT manage connection lifecycle.
+ * Connection is managed by useSignalRConnection in App.tsx.
+ */
+export function useSignalR() {
+  const {
+    setFocusedCallsign,
+    setFocusedCallsignInfo,
+    setLookingUpCallsign,
+  } = useAppStore();
 
   const focusCallsign = useCallback(async (callsign: string, source: string) => {
     setFocusedCallsign(callsign);
@@ -325,6 +356,10 @@ export function useSignalR() {
     await signalRService.disconnectHamlibRig();
   }, []);
 
+  const deleteHamlibConfig = useCallback(async () => {
+    await signalRService.deleteHamlibConfig();
+  }, []);
+
   // Legacy rigctld methods (kept for backwards compatibility)
   const connectHamlib = useCallback(async (host: string, port: number = 4532, name?: string) => {
     // Map to new native Hamlib with network connection type
@@ -355,6 +390,10 @@ export function useSignalR() {
 
   const disconnectHamlib = useCallback(async (_radioId: string) => {
     await signalRService.disconnectHamlibRig();
+  }, []);
+
+  const deleteTciConfig = useCallback(async () => {
+    await signalRService.deleteTciConfig();
   }, []);
 
   // TCI direct connection methods
@@ -413,12 +452,14 @@ export function useSignalR() {
     getHamlibStatus,
     connectHamlibRig,
     disconnectHamlibRig,
+    deleteHamlibConfig,
     // Hamlib (legacy rigctld compatibility)
     connectHamlib,
     disconnectHamlib,
     // TCI direct connection
     connectTci,
     disconnectTci,
+    deleteTciConfig,
     // SmartUnlink
     addSmartUnlinkRadio: addSmartUnlinkRadioFn,
     updateSmartUnlinkRadio: updateSmartUnlinkRadioFn,

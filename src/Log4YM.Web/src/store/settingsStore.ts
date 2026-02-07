@@ -50,6 +50,7 @@ export interface RadioSettings {
   followRadio: boolean;
   activeRigType: RigType;
   autoReconnect: boolean;
+  autoConnectRigId: string | null;
   tci: TciSettings;
 }
 
@@ -157,6 +158,7 @@ const defaultSettings: Settings = {
     followRadio: true,
     activeRigType: null,
     autoReconnect: false,
+    autoConnectRigId: null,
     tci: {
       host: 'localhost',
       port: 50001,
@@ -371,6 +373,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
             ...settings.radio,
             activeRigType: settings.radio?.activeRigType ?? null,
             autoReconnect: settings.radio?.autoReconnect ?? false,
+            autoConnectRigId: settings.radio?.autoConnectRigId ?? null,
             tci: { ...defaultSettings.radio.tci, ...settings.radio?.tci },
           },
           map: { ...defaultSettings.map, ...settings.map },

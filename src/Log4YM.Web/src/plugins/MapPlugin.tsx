@@ -6,7 +6,7 @@ import { useAppStore } from '../store/appStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { useSignalR } from '../hooks/useSignalR';
 import { GlassPanel } from '../components/GlassPanel';
-import { gridToLatLon } from '../utils/maidenhead';
+import { gridToLatLon, calculateDistance, getAnimationDuration } from '../utils/maidenhead';
 
 import 'leaflet/dist/leaflet.css';
 
@@ -149,6 +149,7 @@ function getDestinationPoint(lat: number, lon: number, azimuth: number, distance
 export function MapPlugin() {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
+  const lastTargetCoordsRef = useRef<{ lat: number; lon: number } | null>(null);
   const { stationGrid, rotatorPosition, focusedCallsignInfo } = useAppStore();
   const { settings, updateMapSettings, saveSettings } = useSettingsStore();
   const { commandRotator } = useSignalR();
@@ -201,6 +202,40 @@ export function MapPlugin() {
       mapRef.current.setView([stationLat, stationLon], mapRef.current.getZoom());
     }
   }, [stationLat, stationLon]);
+
+  // Fly to target when focused callsign changes with distance-based animation
+  useEffect(() => {
+    if (!mapRef.current) return;
+
+    const targetLat = focusedCallsignInfo?.latitude;
+    const targetLon = focusedCallsignInfo?.longitude;
+
+    // Only fly if we have valid target coordinates
+    if (targetLat == null || targetLon == null) return;
+
+    // Calculate distance for animation duration
+    let duration = 2; // Default duration
+    const lastCoords = lastTargetCoordsRef.current;
+
+    if (lastCoords) {
+      // Calculate distance from previous target
+      const distance = calculateDistance(lastCoords.lat, lastCoords.lon, targetLat, targetLon);
+      duration = getAnimationDuration(distance);
+    } else {
+      // First target - calculate distance from station
+      const distance = calculateDistance(stationLat, stationLon, targetLat, targetLon);
+      duration = getAnimationDuration(distance);
+    }
+
+    // Update last coordinates ref
+    lastTargetCoordsRef.current = { lat: targetLat, lon: targetLon };
+
+    // Fly to target with calculated duration
+    mapRef.current.flyTo([targetLat, targetLon], 5, {
+      duration: duration,
+      easeLinearity: 0.1, // Smooth curved motion
+    });
+  }, [focusedCallsignInfo?.latitude, focusedCallsignInfo?.longitude, stationLat, stationLon]);
 
   // Handle click on map to set bearing (only when rotator enabled)
   const handleBearingClick = useCallback((azimuth: number) => {

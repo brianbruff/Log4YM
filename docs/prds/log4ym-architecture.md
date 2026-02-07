@@ -350,7 +350,7 @@ log4ym/
 │       ├── src/
 │       │   ├── PluginBase.ts
 │       │   ├── hooks/
-│       │   │   ├── useSignalR.ts
+│       │   │   ├── useSignalR.ts       # useSignalRConnection (App only) + useSignalR (plugins)
 │       │   │   └── useEventBus.ts
 │       │   └── components/
 │       └── package.json
@@ -975,6 +975,58 @@ export function useEvent<K extends keyof EventMap>(
   return [value, publish] as const;
 }
 ```
+
+#### SignalR Connection Hooks
+
+The SignalR integration uses a split-hook pattern to prevent connection issues when plugins mount/unmount:
+
+```typescript
+// src/Log4YM.Web/src/hooks/useSignalR.ts
+
+/**
+ * useSignalRConnection - Manages connection lifecycle
+ * ONLY called once in App.tsx - handles connect/disconnect
+ */
+export function useSignalRConnection() {
+  const connectionInitialized = useRef(false);
+
+  useEffect(() => {
+    // Prevent double initialization (React StrictMode)
+    if (connectionInitialized.current) return;
+    connectionInitialized.current = true;
+
+    // Set up callbacks, handlers, and connect...
+    signalRService.connect();
+
+    // Cleanup only on app unmount
+    return () => {
+      connectionInitialized.current = false;
+      signalRService.disconnect();
+    };
+  }, []);
+}
+
+/**
+ * useSignalR - Returns methods for interacting with SignalR
+ * Safe to call from any plugin - no connection management
+ */
+export function useSignalR() {
+  // Returns: focusCallsign, selectSpot, commandRotator, etc.
+  // No useEffect that manages connection!
+}
+```
+
+**Why this pattern?**
+
+Without the split, closing any FlexLayout tab would trigger the connection overlay:
+1. Each plugin calling `useSignalR()` ran the connection useEffect
+2. When a plugin unmounted (tab closed), cleanup called `disconnect()`
+3. This showed "Connection Lost" even though the app was still connected
+
+The split ensures:
+- Connection lifecycle is managed exactly once in `App.tsx`
+- Plugins can safely use `useSignalR()` for methods without side effects
+- Tab operations never trigger false disconnect events
 
 #### Event Flow Example
 

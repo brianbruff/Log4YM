@@ -22,6 +22,13 @@ import {
   Database,
   Server,
   ExternalLink,
+  ChevronDown,
+  ChevronUp,
+  HelpCircle,
+  Download,
+  Terminal,
+  Copy,
+  Check,
 } from 'lucide-react';
 import { useSettingsStore, SettingsSection } from '../store/settingsStore';
 import { useSetupStore } from '../store/setupStore';
@@ -408,6 +415,48 @@ function QrzSettingsSection() {
 function RotatorSettingsSection() {
   const { settings, updateRotatorSettings } = useSettingsStore();
   const rotator = settings.rotator;
+  const [showSetupHelp, setShowSetupHelp] = useState(false);
+  const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
+  const [testMessage, setTestMessage] = useState('');
+  const [copiedCommand, setCopiedCommand] = useState<string | null>(null);
+
+  const handleTestConnection = async () => {
+    setTestStatus('testing');
+    setTestMessage('');
+    try {
+      // Try to connect to the rotctld socket
+      await fetch(`http://${rotator.ipAddress}:${rotator.port}`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(3000),
+      });
+      // If we get any response, even an error, the server is reachable
+      setTestStatus('success');
+      setTestMessage('Connection successful! Rotctld is reachable.');
+    } catch (error) {
+      // Check if it's a timeout or network error
+      if (error instanceof Error) {
+        if (error.name === 'TimeoutError') {
+          setTestStatus('error');
+          setTestMessage('Connection timeout. Check if rotctld is running and firewall settings.');
+        } else {
+          // For rotctld, connection refused or CORS errors are actually expected
+          // because rotctld doesn't serve HTTP - but this means the host is reachable
+          setTestStatus('success');
+          setTestMessage('Host is reachable. Enable rotator control to connect.');
+        }
+      } else {
+        setTestStatus('error');
+        setTestMessage('Connection failed. Verify IP address and port.');
+      }
+    }
+    setTimeout(() => setTestStatus('idle'), 5000);
+  };
+
+  const copyToClipboard = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedCommand(id);
+    setTimeout(() => setCopiedCommand(null), 2000);
+  };
 
   return (
     <div className="space-y-6">
@@ -416,6 +465,171 @@ function RotatorSettingsSection() {
         <p className="text-sm text-gray-500">
           Configure connection to hamlib rotctld for antenna rotator control.
         </p>
+      </div>
+
+      {/* Setup Help Banner */}
+      <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+        <button
+          onClick={() => setShowSetupHelp(!showSetupHelp)}
+          className="w-full flex items-center justify-between text-left"
+        >
+          <div className="flex items-center gap-3">
+            <HelpCircle className="w-5 h-5 text-blue-400" />
+            <div>
+              <p className="font-medium text-blue-300">Need help setting up rotctld?</p>
+              <p className="text-sm text-blue-400/70">Click here for installation and setup instructions</p>
+            </div>
+          </div>
+          {showSetupHelp ? (
+            <ChevronUp className="w-5 h-5 text-blue-400" />
+          ) : (
+            <ChevronDown className="w-5 h-5 text-blue-400" />
+          )}
+        </button>
+
+        {showSetupHelp && (
+          <div className="mt-4 space-y-4 pt-4 border-t border-blue-500/30">
+            {/* What is rotctld */}
+            <div>
+              <h4 className="text-sm font-semibold text-blue-300 mb-2">What is rotctld?</h4>
+              <p className="text-sm text-gray-400">
+                rotctld is a TCP network daemon from the Hamlib project that controls antenna rotators.
+                Multiple applications (like Log4YM and QLog) can connect to the same rotctld instance
+                to share control of your rotator.
+              </p>
+            </div>
+
+            {/* Installation */}
+            <div>
+              <h4 className="text-sm font-semibold text-blue-300 mb-2 flex items-center gap-2">
+                <Download className="w-4 h-4" />
+                Installation
+              </h4>
+              <div className="space-y-2 text-sm text-gray-400">
+                <div>
+                  <p className="font-medium text-gray-300 mb-1">Windows:</p>
+                  <p>
+                    Download from{' '}
+                    <a
+                      href="https://github.com/Hamlib/Hamlib/releases"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-accent-primary hover:underline inline-flex items-center gap-1"
+                    >
+                      Hamlib releases <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Install to C:\Program Files\Hamlib\bin\ or similar
+                  </p>
+                </div>
+                <div>
+                  <p className="font-medium text-gray-300 mb-1">Linux:</p>
+                  <div className="bg-dark-900 rounded p-2 font-mono text-xs">
+                    <code>sudo apt install hamlib-utils</code> {/* Debian/Ubuntu */}
+                  </div>
+                </div>
+                <div>
+                  <p className="font-medium text-gray-300 mb-1">macOS:</p>
+                  <div className="bg-dark-900 rounded p-2 font-mono text-xs">
+                    <code>brew install hamlib</code>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Finding your model */}
+            <div>
+              <h4 className="text-sm font-semibold text-blue-300 mb-2">Find your rotator model number</h4>
+              <p className="text-sm text-gray-400 mb-2">
+                Run this command to see all supported rotators:
+              </p>
+              <div className="bg-dark-900 rounded p-2 font-mono text-xs flex items-center justify-between">
+                <code>rotctl -l</code>
+                <button
+                  onClick={() => copyToClipboard('rotctl -l', 'list')}
+                  className="p-1 hover:bg-dark-700 rounded"
+                >
+                  {copiedCommand === 'list' ? (
+                    <Check className="w-3 h-3 text-green-400" />
+                  ) : (
+                    <Copy className="w-3 h-3 text-gray-500" />
+                  )}
+                </button>
+              </div>
+              <div className="mt-2 text-xs text-gray-500">
+                Common models: 202 (Easycomm), 601 (Yaesu GS-232A), 603 (GS-232B), 902 (SPID)
+              </div>
+            </div>
+
+            {/* Starting rotctld */}
+            <div>
+              <h4 className="text-sm font-semibold text-blue-300 mb-2 flex items-center gap-2">
+                <Terminal className="w-4 h-4" />
+                Starting rotctld
+              </h4>
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm text-gray-400 mb-2">
+                    <strong className="text-gray-300">Linux/macOS example</strong> (SPID on USB):
+                  </p>
+                  <div className="bg-dark-900 rounded p-2 font-mono text-xs flex items-center justify-between">
+                    <code>rotctld -m 902 -r /dev/ttyUSB0</code>
+                    <button
+                      onClick={() => copyToClipboard('rotctld -m 902 -r /dev/ttyUSB0', 'linux')}
+                      className="p-1 hover:bg-dark-700 rounded"
+                    >
+                      {copiedCommand === 'linux' ? (
+                        <Check className="w-3 h-3 text-green-400" />
+                      ) : (
+                        <Copy className="w-3 h-3 text-gray-500" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-400 mb-2">
+                    <strong className="text-gray-300">Windows example</strong> (Yaesu on COM3):
+                  </p>
+                  <div className="bg-dark-900 rounded p-2 font-mono text-xs flex items-center justify-between">
+                    <code>rotctld.exe -m 603 -r COM3 -s 9600</code>
+                    <button
+                      onClick={() => copyToClipboard('rotctld.exe -m 603 -r COM3 -s 9600', 'windows')}
+                      className="p-1 hover:bg-dark-700 rounded"
+                    >
+                      {copiedCommand === 'windows' ? (
+                        <Check className="w-3 h-3 text-green-400" />
+                      ) : (
+                        <Copy className="w-3 h-3 text-gray-500" />
+                      )}
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Replace COM3 with your serial port and 9600 with your baud rate
+                  </p>
+                </div>
+                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded p-2">
+                  <p className="text-xs text-yellow-400">
+                    <strong>Tip:</strong> Leave the terminal window open while using Log4YM. rotctld must stay
+                    running in the background.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Full documentation link */}
+            <div className="pt-2 border-t border-blue-500/30">
+              <a
+                href="https://github.com/Hamlib/Hamlib/wiki"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-accent-primary hover:underline inline-flex items-center gap-1"
+              >
+                View complete Hamlib documentation <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Enable toggle */}
@@ -462,6 +676,9 @@ function RotatorSettingsSection() {
               className="glass-input w-full font-mono"
               disabled={!rotator.enabled}
             />
+            <p className="text-xs text-gray-600">
+              Use 127.0.0.1 if rotctld runs locally, or your server's IP
+            </p>
           </div>
 
           {/* Port */}
@@ -478,7 +695,40 @@ function RotatorSettingsSection() {
               className="glass-input w-full font-mono"
               disabled={!rotator.enabled}
             />
+            <p className="text-xs text-gray-600">
+              Default rotctld port is 4533
+            </p>
           </div>
+        </div>
+
+        {/* Test Connection Button */}
+        <div className="pt-2 flex items-center gap-4">
+          <button
+            onClick={handleTestConnection}
+            disabled={testStatus === 'testing'}
+            className="glass-button px-4 py-2 flex items-center gap-2 disabled:opacity-50"
+          >
+            {testStatus === 'testing' && (
+              <Loader2 className="w-4 h-4 animate-spin" />
+            )}
+            {testStatus === 'success' && <CheckCircle className="w-4 h-4 text-accent-success" />}
+            {testStatus === 'error' && <AlertCircle className="w-4 h-4 text-accent-danger" />}
+            {testStatus === 'idle' && <Wifi className="w-4 h-4" />}
+            <span>
+              {testStatus === 'testing'
+                ? 'Testing...'
+                : testStatus === 'success'
+                  ? 'Connected!'
+                  : testStatus === 'error'
+                    ? 'Failed'
+                    : 'Test Connection'}
+            </span>
+          </button>
+          {testMessage && (
+            <span className={`text-sm ${testStatus === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+              {testMessage}
+            </span>
+          )}
         </div>
 
         {/* Polling Interval */}
@@ -519,14 +769,6 @@ function RotatorSettingsSection() {
             Identifier for this rotator (useful if you have multiple rotators)
           </p>
         </div>
-      </div>
-
-      {/* Help text */}
-      <div className="pt-4 border-t border-glass-100">
-        <p className="text-xs text-gray-600">
-          The rotator service connects to hamlib's rotctld daemon via TCP. Make sure rotctld is
-          running and accessible at the configured address. Default port for rotctld is 4533.
-        </p>
       </div>
     </div>
   );

@@ -8,9 +8,14 @@ import { calculateSunTimes, formatTime } from '../utils/sunTimes';
 const WEEKDAYS = ['SUN', 'MON', 'TUE', 'WED', 'THU', 'FRI', 'SAT'];
 const MONTHS = ['JAN', 'FEB', 'MAR', 'APR', 'MAY', 'JUN', 'JUL', 'AUG', 'SEP', 'OCT', 'NOV', 'DEC'];
 
+// SVG viewBox is fixed; we scale via the viewBox to fill the container
+const VB = 200; // viewBox size (square)
+const CX = VB / 2; // center X
+const CY = VB / 2; // center Y
+const R = 85; // clock radius within the 200x200 viewBox
+
 export function AnalogClockPlugin() {
   const [time, setTime] = useState(new Date());
-  const [containerSize, setContainerSize] = useState({ width: 0, height: 0 });
   const containerRef = useRef<HTMLDivElement>(null);
   const { stationGrid } = useAppStore();
 
@@ -22,36 +27,13 @@ export function AnalogClockPlugin() {
     return () => clearInterval(interval);
   }, []);
 
-  // Observe container size
-  useEffect(() => {
-    if (!containerRef.current) return;
-
-    const resizeObserver = new ResizeObserver((entries) => {
-      for (const entry of entries) {
-        const { width, height } = entry.contentRect;
-        setContainerSize({ width, height });
-      }
-    });
-
-    resizeObserver.observe(containerRef.current);
-    return () => resizeObserver.disconnect();
-  }, []);
-
   // Calculate sunrise/sunset times
   const sunTimes = (() => {
     if (!stationGrid) return null;
-
     const coords = gridToLatLon(stationGrid);
     if (!coords) return null;
-
     return calculateSunTimes(coords.lat, coords.lon, time);
   })();
-
-  // Calculate clock dimensions
-  const size = Math.min(containerSize.width, containerSize.height) * 0.8;
-  const centerX = containerSize.width / 2;
-  const centerY = containerSize.height / 2;
-  const radius = size / 2;
 
   // Calculate hand angles
   const hours = time.getHours();
@@ -62,137 +44,115 @@ export function AnalogClockPlugin() {
   const minuteAngle = (minutes / 60) * 360 + (seconds / 60) * 6;
   const hourAngle = ((hours % 12) / 12) * 360 + (minutes / 60) * 30;
 
-  // Calculate hand lengths
-  const hourHandLength = radius * 0.5;
-  const minuteHandLength = radius * 0.7;
-  const secondHandLength = radius * 0.85;
-
-  // Calculate hand positions
-  const getHandPosition = (angle: number, length: number) => {
+  // Hand endpoint helper
+  const handEnd = (angle: number, length: number) => {
     const rad = (angle - 90) * (Math.PI / 180);
     return {
-      x: centerX + length * Math.cos(rad),
-      y: centerY + length * Math.sin(rad),
+      x: CX + length * Math.cos(rad),
+      y: CY + length * Math.sin(rad),
     };
   };
 
-  const hourHand = getHandPosition(hourAngle, hourHandLength);
-  const minuteHand = getHandPosition(minuteAngle, minuteHandLength);
-  const secondHand = getHandPosition(secondAngle, secondHandLength);
+  const hourHand = handEnd(hourAngle, R * 0.5);
+  const minuteHand = handEnd(minuteAngle, R * 0.7);
+  const secondHand = handEnd(secondAngle, R * 0.85);
 
-  // Get date info
+  // Date info
   const dayOfWeek = WEEKDAYS[time.getDay()];
   const month = MONTHS[time.getMonth()];
   const date = time.getDate();
 
-  // Calculate tick positions
-  const renderTicks = () => {
-    const ticks = [];
-    for (let i = 0; i < 60; i++) {
-      const angle = (i / 60) * 360;
-      const isMajor = i % 5 === 0;
-      const tickLength = isMajor ? radius * 0.1 : radius * 0.05;
-      const tickWidth = isMajor ? 2 : 1;
-      const startRadius = radius * 0.9;
+  // Tick marks
+  const ticks = [];
+  for (let i = 0; i < 60; i++) {
+    const angle = (i / 60) * 360;
+    const isMajor = i % 5 === 0;
+    const rad = (angle - 90) * (Math.PI / 180);
+    const outerR = R * 0.95;
+    const innerR = isMajor ? R * 0.82 : R * 0.88;
 
-      const rad = (angle - 90) * (Math.PI / 180);
-      const x1 = centerX + startRadius * Math.cos(rad);
-      const y1 = centerY + startRadius * Math.sin(rad);
-      const x2 = centerX + (startRadius - tickLength) * Math.cos(rad);
-      const y2 = centerY + (startRadius - tickLength) * Math.sin(rad);
+    ticks.push(
+      <line
+        key={i}
+        x1={CX + outerR * Math.cos(rad)}
+        y1={CY + outerR * Math.sin(rad)}
+        x2={CX + innerR * Math.cos(rad)}
+        y2={CY + innerR * Math.sin(rad)}
+        stroke={isMajor ? '#9ca3af' : '#4b5563'}
+        strokeWidth={isMajor ? 1.5 : 0.5}
+        strokeLinecap="round"
+      />
+    );
+  }
 
-      ticks.push(
-        <line
-          key={i}
-          x1={x1}
-          y1={y1}
-          x2={x2}
-          y2={y2}
-          stroke={isMajor ? '#9ca3af' : '#4b5563'}
-          strokeWidth={tickWidth}
-          strokeLinecap="round"
-        />
-      );
-    }
-    return ticks;
-  };
-
-  // Calculate hour number positions
-  const renderHourNumbers = () => {
-    const numbers = [];
-    for (let i = 1; i <= 12; i++) {
-      const angle = (i / 12) * 360;
-      const rad = (angle - 90) * (Math.PI / 180);
-      const numberRadius = radius * 0.75;
-      const x = centerX + numberRadius * Math.cos(rad);
-      const y = centerY + numberRadius * Math.sin(rad);
-
-      numbers.push(
-        <text
-          key={i}
-          x={x}
-          y={y}
-          textAnchor="middle"
-          dominantBaseline="central"
-          fill="#9ca3af"
-          fontSize={radius * 0.12}
-          fontWeight="500"
-          fontFamily="system-ui, -apple-system, sans-serif"
-        >
-          {i}
-        </text>
-      );
-    }
-    return numbers;
-  };
+  // Hour numbers
+  const hourNumbers = [];
+  for (let i = 1; i <= 12; i++) {
+    const angle = (i / 12) * 360;
+    const rad = (angle - 90) * (Math.PI / 180);
+    const numR = R * 0.7;
+    hourNumbers.push(
+      <text
+        key={i}
+        x={CX + numR * Math.cos(rad)}
+        y={CY + numR * Math.sin(rad)}
+        textAnchor="middle"
+        dominantBaseline="central"
+        fill="#9ca3af"
+        fontSize={R * 0.14}
+        fontWeight="500"
+        fontFamily="system-ui, -apple-system, sans-serif"
+      >
+        {i}
+      </text>
+    );
+  }
 
   return (
     <GlassPanel
       title="Analog Clock"
       icon={<Clock className="w-5 h-5" />}
     >
-      <div ref={containerRef} className="relative w-full h-full flex flex-col items-center justify-center p-4">
+      <div ref={containerRef} className="w-full h-full flex flex-col items-center justify-center p-2 select-none">
         {/* Date info above clock */}
-        <div className="absolute top-6 left-0 right-0 flex justify-between px-8">
-          <div className="text-sm font-semibold text-gray-300">
-            {dayOfWeek}
-          </div>
-          <div className="text-sm font-semibold text-gray-300">
-            {month} {date}
-          </div>
+        <div className="flex w-full justify-between px-4 pb-1 shrink-0">
+          <span className="text-xs font-semibold text-gray-300 tracking-wider">{dayOfWeek}</span>
+          <span className="text-xs font-semibold text-gray-300 tracking-wider">{month} {date}</span>
         </div>
 
-        {/* Clock face */}
-        {size > 0 && (
+        {/* Clock face — SVG uses viewBox so it scales to fill available space */}
+        <div className="flex-1 w-full min-h-0">
           <svg
-            width={containerSize.width}
-            height={containerSize.height * 0.7}
-            className="flex-1"
+            viewBox={`0 0 ${VB} ${VB}`}
+            width="100%"
+            height="100%"
+            preserveAspectRatio="xMidYMid meet"
           >
             {/* Clock circle */}
             <circle
-              cx={centerX}
-              cy={centerY}
-              r={radius}
+              cx={CX}
+              cy={CY}
+              r={R}
               fill="transparent"
               stroke="#374151"
-              strokeWidth={2}
+              strokeWidth={1.5}
             />
 
-            {/* Hour ticks */}
-            {renderTicks()}
+            {/* Tick marks */}
+            {ticks}
 
             {/* Hour numbers */}
-            {renderHourNumbers()}
+            {hourNumbers}
 
             {/* LOCAL label */}
             <text
-              x={centerX}
-              y={centerY - radius * 0.4}
+              x={CX}
+              y={CY - R * 0.35}
               textAnchor="middle"
-              fill="#9ca3af"
-              fontSize={radius * 0.08}
+              fill="#6b7280"
+              fontSize={R * 0.09}
               fontWeight="400"
+              letterSpacing="0.1em"
               fontFamily="system-ui, -apple-system, sans-serif"
             >
               LOCAL
@@ -200,57 +160,63 @@ export function AnalogClockPlugin() {
 
             {/* Hour hand */}
             <line
-              x1={centerX}
-              y1={centerY}
+              x1={CX}
+              y1={CY}
               x2={hourHand.x}
               y2={hourHand.y}
               stroke="#d1d5db"
-              strokeWidth={radius * 0.04}
+              strokeWidth={3}
               strokeLinecap="round"
             />
 
             {/* Minute hand */}
             <line
-              x1={centerX}
-              y1={centerY}
+              x1={CX}
+              y1={CY}
               x2={minuteHand.x}
               y2={minuteHand.y}
               stroke="#d1d5db"
-              strokeWidth={radius * 0.03}
+              strokeWidth={2}
               strokeLinecap="round"
             />
 
             {/* Second hand */}
             <line
-              x1={centerX}
-              y1={centerY}
+              x1={CX}
+              y1={CY}
               x2={secondHand.x}
               y2={secondHand.y}
               stroke="#ef4444"
-              strokeWidth={radius * 0.015}
+              strokeWidth={0.8}
               strokeLinecap="round"
             />
 
             {/* Center dot */}
             <circle
-              cx={centerX}
-              cy={centerY}
-              r={radius * 0.05}
+              cx={CX}
+              cy={CY}
+              r={3}
               fill="#d1d5db"
             />
+            <circle
+              cx={CX}
+              cy={CY}
+              r={1.5}
+              fill="#ef4444"
+            />
           </svg>
-        )}
+        </div>
 
         {/* Sunrise/Sunset info below clock */}
-        <div className="absolute bottom-6 left-0 right-0 flex justify-between px-8">
-          <div className="flex items-center gap-2 text-sm text-gray-300">
-            <Sun className="w-4 h-4 text-yellow-500" />
+        <div className="flex w-full justify-between px-4 pt-1 shrink-0">
+          <div className="flex items-center gap-1.5 text-xs text-gray-300">
+            <Sun className="w-3.5 h-3.5 text-yellow-500" />
             <span className="font-mono">
               {sunTimes ? formatTime(sunTimes.sunrise) : '--:--'}
             </span>
           </div>
-          <div className="flex items-center gap-2 text-sm text-gray-300">
-            <Moon className="w-4 h-4 text-blue-300" />
+          <div className="flex items-center gap-1.5 text-xs text-gray-300">
+            <Moon className="w-3.5 h-3.5 text-blue-300" />
             <span className="font-mono">
               {sunTimes ? formatTime(sunTimes.sunset) : '--:--'}
             </span>

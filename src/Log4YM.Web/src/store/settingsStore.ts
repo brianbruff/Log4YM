@@ -57,6 +57,13 @@ export interface MapSettings {
   tileLayer: 'osm' | 'dark' | 'satellite' | 'terrain';
 }
 
+export interface HeaderSettings {
+  timeFormat: '12h' | '24h';
+  sizeMultiplier: number;  // 0.75, 1.0, 1.25, 1.5
+  showWeather: boolean;
+  weatherLocation: string;  // City name or coordinates for weather lookup
+}
+
 export interface ClusterConnection {
   id: string;
   name: string;
@@ -79,6 +86,7 @@ export interface Settings {
   radio: RadioSettings;
   map: MapSettings;
   cluster: ClusterSettings;
+  header: HeaderSettings;
 }
 
 export type SettingsSection = 'station' | 'qrz' | 'rotator' | 'database' | 'appearance' | 'about';
@@ -109,6 +117,7 @@ interface SettingsState {
   updateMapSettings: (map: Partial<MapSettings>) => void;
   updateClusterSettings: (cluster: Partial<ClusterSettings>) => void;
   updateClusterConnection: (connectionId: string, connection: Partial<ClusterConnection>) => void;
+  updateHeaderSettings: (header: Partial<HeaderSettings>) => void;
   addClusterConnection: () => void;
   removeClusterConnection: (connectionId: string) => void;
 
@@ -169,6 +178,12 @@ const defaultSettings: Settings = {
   },
   cluster: {
     connections: [],
+  },
+  header: {
+    timeFormat: '24h',
+    sizeMultiplier: 1.0,
+    showWeather: true,
+    weatherLocation: '',
   },
 };
 
@@ -257,6 +272,16 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
       settings: {
         ...state.settings,
         map: { ...state.settings.map, ...map },
+      },
+      isDirty: true,
+    })),
+
+  // Header settings
+  updateHeaderSettings: (header) =>
+    set((state) => ({
+      settings: {
+        ...state.settings,
+        header: { ...state.settings.header, ...header },
       },
       isDirty: true,
     })),
@@ -375,6 +400,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
           },
           map: { ...defaultSettings.map, ...settings.map },
           cluster: { ...defaultSettings.cluster, ...settings.cluster },
+          header: { ...defaultSettings.header, ...settings.header },
         };
         set({ settings: mergedSettings, isDirty: false, isLoaded: true });
       } else {

@@ -6,8 +6,8 @@ import { StatusBar } from './components/StatusBar';
 import { SettingsPanel } from './components/SettingsPanel';
 import { ConnectionOverlay } from './components/ConnectionOverlay';
 import { useSignalRConnection } from './hooks/useSignalR';
-import { LogEntryPlugin, LogHistoryPlugin, ClusterPlugin, MapPlugin, RotatorPlugin, GlobePlugin, AntennaGeniusPlugin, PgxlPlugin, SmartUnlinkPlugin, RigPlugin, QrzProfilePlugin } from './plugins';
-import { Globe as Globe3D } from 'lucide-react';
+import { LogEntryPlugin, LogHistoryPlugin, ClusterPlugin, MapPlugin, RotatorPlugin, GlobePlugin, AntennaGeniusPlugin, PgxlPlugin, SmartUnlinkPlugin, RigPlugin, QrzProfilePlugin, POTAPlugin } from './plugins';
+import { Globe as Globe3D, MapPin } from 'lucide-react';
 import { useLayoutStore, defaultLayout } from './store/layoutStore';
 import { useSettingsStore } from './store/settingsStore';
 import { useSetupStore } from './store/setupStore';
@@ -71,6 +71,11 @@ const PLUGINS: Record<string, { name: string; icon: React.ReactNode; component: 
     name: 'QRZ Profile',
     icon: <User className="w-4 h-4" />,
     component: QrzProfilePlugin,
+  },
+  'pota': {
+    name: 'POTA',
+    icon: <MapPin className="w-4 h-4" />,
+    component: POTAPlugin,
   },
 };
 

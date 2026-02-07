@@ -56,6 +56,23 @@ const targetIcon = new L.DivIcon({
   iconAnchor: [10, 10],
 });
 
+// Custom POTA marker (green triangle)
+const potaIcon = new L.DivIcon({
+  className: 'custom-pota-marker',
+  html: `
+    <div style="
+      width: 0;
+      height: 0;
+      border-left: 8px solid transparent;
+      border-right: 8px solid transparent;
+      border-bottom: 14px solid #10b981;
+      filter: drop-shadow(0 0 4px rgba(16, 185, 129, 0.6));
+    "></div>
+  `,
+  iconSize: [16, 14],
+  iconAnchor: [8, 14],
+});
+
 // Tile layer options for different map styles
 const TILE_LAYERS = {
   osm: {
@@ -150,7 +167,7 @@ export function MapPlugin() {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const lastTargetCoordsRef = useRef<{ lat: number; lon: number } | null>(null);
-  const { stationGrid, rotatorPosition, focusedCallsignInfo } = useAppStore();
+  const { stationGrid, rotatorPosition, focusedCallsignInfo, potaSpots, showPotaMapMarkers } = useAppStore();
   const { settings, updateMapSettings, saveSettings } = useSettingsStore();
   const { commandRotator } = useSignalR();
   const [isFullscreen, setIsFullscreen] = useState(false);
@@ -390,6 +407,36 @@ export function MapPlugin() {
               </Popup>
             </Marker>
           )}
+
+          {/* POTA markers - show when enabled and we have spot data with coordinates */}
+          {showPotaMapMarkers && potaSpots.map((spot) => {
+            if (!spot.latitude || !spot.longitude) return null;
+            return (
+              <Marker
+                key={spot.spotId}
+                position={[spot.latitude, spot.longitude]}
+                icon={potaIcon}
+              >
+                <Popup>
+                  <div className="text-center">
+                    <strong className="text-accent-success font-mono">{spot.activator}</strong>
+                    <br />
+                    <span className="text-xs font-mono text-accent-info">{spot.reference}</span>
+                    <br />
+                    <span className="text-xs text-gray-400">
+                      {(parseFloat(spot.frequency) / 1000).toFixed(3)} MHz • {spot.mode}
+                    </span>
+                    {spot.locationDesc && (
+                      <>
+                        <br />
+                        <span className="text-xs text-gray-500">{spot.locationDesc}</span>
+                      </>
+                    )}
+                  </div>
+                </Popup>
+              </Marker>
+            );
+          })}
         </MapContainer>
 
         {/* Map controls overlay - positioned outside MapContainer to avoid event conflicts */}

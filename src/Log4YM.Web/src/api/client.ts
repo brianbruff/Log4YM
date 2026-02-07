@@ -227,6 +227,11 @@ class ApiClient {
     return this.fetch(`/qrz/lookup/${encodeURIComponent(callsign)}`);
   }
 
+  // POTA
+  async getPotaSpots(): Promise<PotaSpot[]> {
+    return this.fetch<PotaSpot[]>('/pota/spots');
+  }
+
   // ADIF
   async importAdif(
     file: File,
@@ -345,6 +350,27 @@ export interface QrzCallsignResponse {
   qslManager?: string;
   imageUrl?: string;
   licenseExpiration?: string;
+}
+
+// POTA Types
+export interface PotaSpot {
+  spotId: number;
+  activator: string;
+  frequency: string;
+  mode: string;
+  reference: string;
+  parkName: string;
+  spotTime: string;
+  spotter: string;
+  comments: string;
+  source: string;
+  invalid?: boolean;
+  name?: string;
+  locationDesc?: string;
+  grid4?: string;
+  grid6?: string;
+  latitude?: number;
+  longitude?: number;
 }
 
 // ADIF Types

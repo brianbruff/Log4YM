@@ -120,10 +120,10 @@ export function SmartUnlinkPlugin() {
     >
       <div className="p-4 space-y-3">
         {radios.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-8 text-gray-500">
+          <div className="flex flex-col items-center justify-center py-8 text-dark-300">
             <WifiOff className="w-12 h-12 mb-4 opacity-50" />
-            <p className="text-center">No radios configured</p>
-            <p className="text-sm text-gray-600 mt-2 text-center">
+            <p className="font-ui text-center">No radios configured</p>
+            <p className="text-sm text-dark-300 mt-2 text-center">
               Add a FlexRadio to broadcast discovery packets
             </p>
           </div>
@@ -147,7 +147,7 @@ export function SmartUnlinkPlugin() {
             <div className="flex items-center justify-between px-4 py-3 border-b border-glass-100">
               <div className="flex items-center gap-2">
                 <Radio className="w-5 h-5 text-accent-primary" />
-                <h3 className="font-semibold">
+                <h3 className="font-ui font-semibold">
                   {isEditing ? 'Edit FlexRadio' : 'Add FlexRadio'}
                 </h3>
               </div>
@@ -162,48 +162,48 @@ export function SmartUnlinkPlugin() {
             <form onSubmit={handleSubmit} className="p-4 space-y-4">
               {/* Radio Name */}
               <div>
-                <label className="block text-xs text-gray-400 mb-1">
-                  Radio Name <span className="text-red-400">*</span>
+                <label className="block text-xs font-ui text-dark-300 mb-1">
+                  Radio Name <span className="text-accent-danger">*</span>
                 </label>
                 <input
                   type="text"
                   value={formData.name}
                   onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                  className="w-full bg-dark-700 border border-glass-100 rounded px-3 py-2 text-sm focus:outline-none focus:border-accent-primary"
+                  className="w-full bg-dark-700 border border-glass-100 rounded px-3 py-2 text-sm font-mono focus:outline-none focus:border-accent-primary"
                   placeholder="My Flex 6600"
                 />
               </div>
 
               {/* IP Address */}
               <div>
-                <label className="block text-xs text-gray-400 mb-1">
-                  IP Address <span className="text-red-400">*</span>
+                <label className="block text-xs font-ui text-dark-300 mb-1">
+                  IP Address <span className="text-accent-danger">*</span>
                 </label>
                 <input
                   type="text"
                   value={formData.ipAddress}
                   onChange={(e) => setFormData({ ...formData, ipAddress: e.target.value })}
-                  className={`w-full bg-dark-700 border rounded px-3 py-2 text-sm focus:outline-none ${
+                  className={`w-full bg-dark-700 border rounded px-3 py-2 text-sm font-mono focus:outline-none ${
                     formData.ipAddress && !validateIp(formData.ipAddress)
-                      ? 'border-red-500 focus:border-red-500'
+                      ? 'border-accent-danger focus:border-accent-danger'
                       : 'border-glass-100 focus:border-accent-primary'
                   }`}
                   placeholder="192.168.1.100"
                 />
                 {formData.ipAddress && !validateIp(formData.ipAddress) && (
-                  <p className="text-xs text-red-400 mt-1">Invalid IP address format</p>
+                  <p className="text-xs text-accent-danger mt-1">Invalid IP address format</p>
                 )}
               </div>
 
               {/* Model */}
               <div>
-                <label className="block text-xs text-gray-400 mb-1">
-                  Model <span className="text-red-400">*</span>
+                <label className="block text-xs font-ui text-dark-300 mb-1">
+                  Model <span className="text-accent-danger">*</span>
                 </label>
                 <select
                   value={formData.model}
                   onChange={(e) => setFormData({ ...formData, model: e.target.value })}
-                  className="w-full bg-dark-700 border border-glass-100 rounded px-3 py-2 text-sm focus:outline-none focus:border-accent-primary"
+                  className="w-full bg-dark-700 border border-glass-100 rounded px-3 py-2 text-sm font-mono focus:outline-none focus:border-accent-primary"
                 >
                   {FLEX_RADIO_MODELS.map((model) => (
                     <option key={model} value={model}>
@@ -215,31 +215,31 @@ export function SmartUnlinkPlugin() {
 
               {/* Callsign */}
               <div>
-                <label className="block text-xs text-gray-400 mb-1">
-                  Callsign <span className="text-gray-500">(optional)</span>
+                <label className="block text-xs font-ui text-dark-300 mb-1">
+                  Callsign <span className="text-dark-300">(optional)</span>
                 </label>
                 <input
                   type="text"
                   value={formData.callsign}
                   onChange={(e) => setFormData({ ...formData, callsign: e.target.value.toUpperCase() })}
-                  className="w-full bg-dark-700 border border-glass-100 rounded px-3 py-2 text-sm focus:outline-none focus:border-accent-primary uppercase"
+                  className="w-full bg-dark-700 border border-glass-100 rounded px-3 py-2 text-sm font-mono focus:outline-none focus:border-accent-primary uppercase"
                   placeholder="W1ABC"
                 />
               </div>
 
               {/* Version */}
               <div>
-                <label className="block text-xs text-gray-400 mb-1">
-                  Firmware Version <span className="text-gray-500">(optional)</span>
+                <label className="block text-xs font-ui text-dark-300 mb-1">
+                  Firmware Version <span className="text-dark-300">(optional)</span>
                 </label>
                 <input
                   type="text"
                   value={formData.version}
                   onChange={(e) => setFormData({ ...formData, version: e.target.value })}
-                  className="w-full bg-dark-700 border border-glass-100 rounded px-3 py-2 text-sm focus:outline-none focus:border-accent-primary"
+                  className="w-full bg-dark-700 border border-glass-100 rounded px-3 py-2 text-sm font-mono focus:outline-none focus:border-accent-primary"
                   placeholder="4.1.3.39644"
                 />
-                <p className="text-xs text-gray-500 mt-1">
+                <p className="text-xs text-dark-300 mt-1">
                   SmartSDR version to advertise (must match your SmartSDR app version)
                 </p>
               </div>
@@ -249,7 +249,7 @@ export function SmartUnlinkPlugin() {
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2 text-sm text-gray-400 hover:text-white transition-colors"
+                  className="px-4 py-2 text-sm text-dark-300 hover:text-white transition-colors"
                 >
                   Cancel
                 </button>
@@ -294,20 +294,20 @@ function RadioCard({ radio, onEdit, onDelete, onToggleEnabled }: RadioCardProps)
       {/* Header */}
       <div className="flex items-start justify-between mb-2">
         <div>
-          <div className="font-medium text-gray-200">{radio.name}</div>
-          <div className="text-xs text-gray-500">{radio.model}</div>
+          <div className="font-mono font-medium text-dark-200">{radio.name}</div>
+          <div className="text-xs font-mono text-dark-300">{radio.model}</div>
         </div>
         <div className="flex items-center gap-1">
           <button
             onClick={onEdit}
-            className="p-1.5 hover:bg-dark-600 rounded transition-colors text-gray-400 hover:text-white"
+            className="p-1.5 hover:bg-dark-600 rounded transition-colors text-dark-300 hover:text-white"
             title="Edit"
           >
             <Pencil className="w-3.5 h-3.5" />
           </button>
           <button
             onClick={onDelete}
-            className="p-1.5 hover:bg-dark-600 rounded transition-colors text-gray-400 hover:text-red-400"
+            className="p-1.5 hover:bg-dark-600 rounded transition-colors text-dark-300 hover:text-accent-danger"
             title="Delete"
           >
             <Trash2 className="w-3.5 h-3.5" />
@@ -316,14 +316,14 @@ function RadioCard({ radio, onEdit, onDelete, onToggleEnabled }: RadioCardProps)
       </div>
 
       {/* Info */}
-      <div className="text-sm text-gray-400 space-y-1 mb-3">
+      <div className="text-sm text-dark-300 space-y-1 mb-3">
         <div className="flex items-center gap-2">
           <Wifi className="w-3.5 h-3.5" />
           <span className="font-mono">{radio.ipAddress}</span>
           {radio.callsign && (
             <>
-              <span className="text-gray-600">|</span>
-              <span>{radio.callsign}</span>
+              <span className="text-dark-300">|</span>
+              <span className="font-mono">{radio.callsign}</span>
             </>
           )}
         </div>
@@ -333,13 +333,13 @@ function RadioCard({ radio, onEdit, onDelete, onToggleEnabled }: RadioCardProps)
       <div className="flex items-center justify-between pt-2 border-t border-glass-100">
         <div className="flex items-center gap-2">
           {radio.enabled ? (
-            <span className="flex items-center gap-1.5 text-xs text-accent-success">
+            <span className="flex items-center gap-1.5 text-xs font-mono text-accent-success">
               <span className="w-2 h-2 rounded-full bg-accent-success animate-pulse" />
               Broadcasting
             </span>
           ) : (
-            <span className="flex items-center gap-1.5 text-xs text-gray-500">
-              <span className="w-2 h-2 rounded-full bg-gray-600" />
+            <span className="flex items-center gap-1.5 text-xs font-mono text-dark-300">
+              <span className="w-2 h-2 rounded-full bg-dark-600" />
               Idle
             </span>
           )}
@@ -348,10 +348,10 @@ function RadioCard({ radio, onEdit, onDelete, onToggleEnabled }: RadioCardProps)
         <button
           onClick={onToggleEnabled}
           className={`
-            flex items-center gap-1.5 px-2 py-1 text-xs rounded transition-all
+            flex items-center gap-1.5 px-2 py-1 text-xs font-mono rounded transition-all
             ${radio.enabled
-              ? 'bg-green-500/20 text-green-400 hover:bg-green-500/30'
-              : 'bg-dark-600 text-gray-400 hover:bg-dark-500'
+              ? 'bg-accent-success/20 text-accent-success hover:bg-accent-success/30'
+              : 'bg-dark-600 text-dark-300 hover:bg-dark-500'
             }
           `}
         >

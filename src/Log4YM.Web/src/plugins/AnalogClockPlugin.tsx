@@ -78,7 +78,7 @@ export function AnalogClockPlugin() {
         y1={CY + outerR * Math.sin(rad)}
         x2={CX + innerR * Math.cos(rad)}
         y2={CY + innerR * Math.sin(rad)}
-        stroke={isMajor ? '#9ca3af' : '#4b5563'}
+        stroke={isMajor ? '#a0b0c0' : '#5a7090'}
         strokeWidth={isMajor ? 1.5 : 0.5}
         strokeLinecap="round"
       />
@@ -98,10 +98,10 @@ export function AnalogClockPlugin() {
         y={CY + numR * Math.sin(rad)}
         textAnchor="middle"
         dominantBaseline="central"
-        fill="#9ca3af"
+        fill="#a0b0c0"
         fontSize={R * 0.14}
         fontWeight="500"
-        fontFamily="system-ui, -apple-system, sans-serif"
+        fontFamily="Orbitron, system-ui, sans-serif"
       >
         {i}
       </text>
@@ -116,8 +116,8 @@ export function AnalogClockPlugin() {
       <div ref={containerRef} className="w-full h-full flex flex-col items-center justify-center p-2 select-none">
         {/* Date info above clock */}
         <div className="flex w-full justify-between px-4 pb-1 shrink-0">
-          <span className="text-xs font-semibold text-gray-300 tracking-wider">{dayOfWeek}</span>
-          <span className="text-xs font-semibold text-gray-300 tracking-wider">{month} {date}</span>
+          <span className="text-xs font-display font-semibold text-dark-300 tracking-wider">{dayOfWeek}</span>
+          <span className="text-xs font-display font-semibold text-dark-300 tracking-wider">{month} {date}</span>
         </div>
 
         {/* Clock face — SVG uses viewBox so it scales to fill available space */}
@@ -133,8 +133,8 @@ export function AnalogClockPlugin() {
               cx={CX}
               cy={CY}
               r={R}
-              fill="transparent"
-              stroke="#374151"
+              fill="#0a0e14"
+              stroke="#5a7090"
               strokeWidth={1.5}
             />
 
@@ -149,11 +149,11 @@ export function AnalogClockPlugin() {
               x={CX}
               y={CY - R * 0.35}
               textAnchor="middle"
-              fill="#6b7280"
+              fill="#5a7090"
               fontSize={R * 0.09}
               fontWeight="400"
               letterSpacing="0.1em"
-              fontFamily="system-ui, -apple-system, sans-serif"
+              fontFamily="Space Grotesk, system-ui, sans-serif"
             >
               LOCAL
             </text>
@@ -164,7 +164,7 @@ export function AnalogClockPlugin() {
               y1={CY}
               x2={hourHand.x}
               y2={hourHand.y}
-              stroke="#d1d5db"
+              stroke="#ffb432"
               strokeWidth={3}
               strokeLinecap="round"
             />
@@ -175,7 +175,7 @@ export function AnalogClockPlugin() {
               y1={CY}
               x2={minuteHand.x}
               y2={minuteHand.y}
-              stroke="#d1d5db"
+              stroke="#ffb432"
               strokeWidth={2}
               strokeLinecap="round"
             />
@@ -186,7 +186,7 @@ export function AnalogClockPlugin() {
               y1={CY}
               x2={secondHand.x}
               y2={secondHand.y}
-              stroke="#ef4444"
+              stroke="#ff4466"
               strokeWidth={0.8}
               strokeLinecap="round"
             />
@@ -196,27 +196,27 @@ export function AnalogClockPlugin() {
               cx={CX}
               cy={CY}
               r={3}
-              fill="#d1d5db"
+              fill="#ffb432"
             />
             <circle
               cx={CX}
               cy={CY}
               r={1.5}
-              fill="#ef4444"
+              fill="#ff4466"
             />
           </svg>
         </div>
 
         {/* Sunrise/Sunset info below clock */}
         <div className="flex w-full justify-between px-4 pt-1 shrink-0">
-          <div className="flex items-center gap-1.5 text-xs text-gray-300">
-            <Sun className="w-3.5 h-3.5 text-yellow-500" />
+          <div className="flex items-center gap-1.5 text-xs text-dark-200">
+            <Sun className="w-3.5 h-3.5 text-accent-primary" />
             <span className="font-mono">
               {sunTimes ? formatTime(sunTimes.sunrise) : '--:--'}
             </span>
           </div>
-          <div className="flex items-center gap-1.5 text-xs text-gray-300">
-            <Moon className="w-3.5 h-3.5 text-blue-300" />
+          <div className="flex items-center gap-1.5 text-xs text-dark-200">
+            <Moon className="w-3.5 h-3.5 text-accent-secondary" />
             <span className="font-mono">
               {sunTimes ? formatTime(sunTimes.sunset) : '--:--'}
             </span>

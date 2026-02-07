@@ -79,12 +79,12 @@ export function GlobePlugin() {
   // Get station coordinates from settings - prioritize lat/lon, fall back to grid square, then defaults
   let stationLat = DEFAULT_LAT;
   let stationLon = DEFAULT_LON;
-  
+
   // First priority: explicit lat/lon in settings
   if (settings.station.latitude != null && settings.station.longitude != null) {
     stationLat = settings.station.latitude;
     stationLon = settings.station.longitude;
-  } 
+  }
   // Second priority: convert grid square to coordinates
   else if (settings.station.gridSquare) {
     const coords = gridToLatLon(settings.station.gridSquare);
@@ -150,7 +150,7 @@ export function GlobePlugin() {
 
   // Track target bearing separately from rotator azimuth
   const targetBearingRef = useRef<number | null>(null);
-  
+
   // Track focused callsign info for label callback
   const focusedCallsignInfoRef = useRef<CallsignLookedUpEvent | null>(null);
   focusedCallsignInfoRef.current = focusedCallsignInfo;
@@ -169,7 +169,7 @@ export function GlobePlugin() {
 
     // Render rotator beam only when connected
     if (isConnected) {
-      // Create left and right edge paths (yellow/amber)
+      // Create left and right edge paths (amber accent)
       for (const edge of ['left', 'right']) {
         const pathPoints: [number, number, number][] = [];
 
@@ -187,12 +187,12 @@ export function GlobePlugin() {
 
         pathsData.push({
           path: pathPoints,
-          color: `rgba(251, 191, 36, ${pulseFactor})`, // Yellow/amber for edges
+          color: `rgba(255, 180, 50, ${pulseFactor})`, // Amber accent for edges
           stroke: 3
         });
       }
 
-      // Rotator center line (yellow/amber)
+      // Rotator center line (amber accent)
       const centerPath: [number, number, number][] = [];
       for (let i = 0; i <= numSegments; i++) {
         const distance = (maxDistance / numSegments) * i;
@@ -202,12 +202,12 @@ export function GlobePlugin() {
 
       pathsData.push({
         path: centerPath,
-        color: 'rgba(251, 191, 36, 0.7)', // Yellow/amber center line
+        color: 'rgba(255, 180, 50, 0.7)', // Amber accent center line
         stroke: 2.5
       });
     }
 
-    // Render target heading line (orange) - always show when we have a target
+    // Render target heading line (red/danger) - always show when we have a target
     if (targetBearing !== null) {
       const targetPath: [number, number, number][] = [];
       for (let i = 0; i <= numSegments; i++) {
@@ -218,7 +218,7 @@ export function GlobePlugin() {
 
       pathsData.push({
         path: targetPath,
-        color: 'rgba(249, 115, 22, 0.8)', // Orange (#f97316) for target
+        color: 'rgba(255, 68, 102, 0.8)', // Danger red (#ff4466) for target
         stroke: 2
       });
     }
@@ -394,7 +394,7 @@ export function GlobePlugin() {
         .bumpImageUrl('//unpkg.com/three-globe/example/img/earth-topology.png')
         .backgroundImageUrl('//unpkg.com/three-globe/example/img/night-sky.png')
         .showAtmosphere(true)
-        .atmosphereColor('rgba(99, 102, 241, 0.4)')
+        .atmosphereColor('rgba(10, 14, 20, 0.4)')
         .atmosphereAltitude(0.25)
         .pointOfView({ lat: stationLat, lng: stationLon, altitude: 2.5 })
         .enablePointerInteraction(true);
@@ -414,17 +414,17 @@ export function GlobePlugin() {
         .pointLabel((d: unknown) => {
           const data = d as GlobeMarkerData;
           if (data.type === 'station') {
-            return `<div style="text-align: center; padding: 5px; background: rgba(0, 0, 0, 0.8); border-radius: 3px; color: white;">
-              <div style="font-weight: bold;">${data.label}</div>
+            return `<div style="text-align: center; padding: 5px; background: rgba(10, 14, 20, 0.9); border-radius: 3px; color: #8899aa; border: 1px solid rgba(255, 180, 50, 0.12);">
+              <div style="font-weight: bold; color: #ffb432;">${data.label}</div>
               <div style="font-size: 0.8em;">Station Location</div>
             </div>`;
           } else {
             // Target marker - use ref to access latest focusedCallsignInfo
             const info = focusedCallsignInfoRef.current;
-            return `<div style="text-align: center; padding: 5px; background: rgba(0, 0, 0, 0.8); border-radius: 3px; color: white;">
-              <div style="font-weight: bold; color: #f97316;">${data.label}</div>
-              ${info?.grid ? `<div style="font-size: 0.8em;">${info.grid}</div>` : ''}
-              ${info?.bearing != null ? `<div style="font-size: 0.8em; color: #60a5fa;">
+            return `<div style="text-align: center; padding: 5px; background: rgba(10, 14, 20, 0.9); border-radius: 3px; color: #8899aa; border: 1px solid rgba(255, 180, 50, 0.12);">
+              <div style="font-weight: bold; color: #ff4466;">${data.label}</div>
+              ${info?.grid ? `<div style="font-size: 0.8em; color: #8899aa;">${info.grid}</div>` : ''}
+              ${info?.bearing != null ? `<div style="font-size: 0.8em; color: #00ddff;">
                 ${info.bearing.toFixed(0)}° / ${Math.round(info.distance ?? 0)} km
               </div>` : ''}
             </div>`;
@@ -589,7 +589,7 @@ export function GlobePlugin() {
       lat: stationLat,
       lng: stationLon,
       label: stationGrid || 'Station',
-      color: '#fbbf24', // Yellow to match beam color
+      color: '#ffb432', // Amber accent to match beam color
       size: 0.05,
       type: 'station',
     }];
@@ -600,7 +600,7 @@ export function GlobePlugin() {
         lat: focusedCallsignInfo.latitude,
         lng: focusedCallsignInfo.longitude,
         label: focusedCallsignInfo.callsign,
-        color: '#f97316', // Orange for target (matches map plugin)
+        color: '#ff4466', // Danger red for target
         size: 0.04,
         type: 'target',
       });
@@ -730,7 +730,7 @@ export function GlobePlugin() {
           {rotatorEnabled ? (
             <span className="text-sm font-mono text-accent-primary">{currentAzimuth}°</span>
           ) : (
-            <span className="text-sm text-gray-500">No Rotator</span>
+            <span className="text-sm font-ui text-dark-300">No Rotator</span>
           )}
           <button
             onClick={toggleFullscreen}
@@ -747,10 +747,10 @@ export function GlobePlugin() {
         {webglError && (
           <div className="absolute inset-0 flex items-center justify-center bg-dark-800/95 backdrop-blur-sm z-50">
             <div className="glass-panel p-6 max-w-md text-center">
-              <GlobeIcon className="w-12 h-12 mx-auto mb-4 text-gray-500" />
-              <h3 className="text-lg font-semibold mb-2 text-gray-300">WebGL Not Available</h3>
-              <p className="text-sm text-gray-400 mb-4">{webglError}</p>
-              <p className="text-xs text-gray-500">
+              <GlobeIcon className="w-12 h-12 mx-auto mb-4 text-dark-300" />
+              <h3 className="text-lg font-semibold mb-2 font-ui text-dark-200">WebGL Not Available</h3>
+              <p className="text-sm text-dark-300 mb-4">{webglError}</p>
+              <p className="text-xs text-dark-300">
                 Try using a modern browser like Chrome, Firefox, or Edge.
                 The 2D Map plugin provides similar functionality without WebGL.
               </p>
@@ -768,32 +768,32 @@ export function GlobePlugin() {
         {/* Compass overlay - only show when rotator enabled */}
         {rotatorEnabled && (
           <div className="absolute top-4 right-4 w-32 h-32 bg-dark-800/90 backdrop-blur-sm rounded-full border-2 border-glass-200 flex items-center justify-center">
-            <span className="absolute top-1 text-xs font-bold text-accent-danger">N</span>
-            <span className="absolute bottom-1 text-xs font-bold text-gray-500">S</span>
-            <span className="absolute left-1 text-xs font-bold text-gray-500">W</span>
-            <span className="absolute right-1 text-xs font-bold text-gray-500">E</span>
+            <span className="absolute top-1 text-xs font-bold font-ui text-accent-danger">N</span>
+            <span className="absolute bottom-1 text-xs font-bold font-ui text-dark-300">S</span>
+            <span className="absolute left-1 text-xs font-bold font-ui text-dark-300">W</span>
+            <span className="absolute right-1 text-xs font-bold font-ui text-dark-300">E</span>
 
             {/* Compass needle */}
             <div
               className="absolute w-1 h-12 origin-bottom transition-transform duration-300"
               style={{
                 transform: `rotate(${currentAzimuth}deg)`,
-                background: 'linear-gradient(to top, transparent, #fbbf24)',
+                background: 'linear-gradient(to top, transparent, #ffb432)',
                 top: 'calc(50% - 48px)',
               }}
             />
 
             {/* Center display */}
             <div className="text-center z-10">
-              <div className="text-xl font-bold text-accent-primary">{currentAzimuth}°</div>
-              <div className="text-xs text-gray-500">Azimuth</div>
+              <div className="text-xl font-bold font-mono text-accent-primary">{currentAzimuth}°</div>
+              <div className="text-xs font-ui text-dark-300">Azimuth</div>
             </div>
           </div>
         )}
 
         {/* Info overlay */}
         <div className="absolute bottom-4 left-4 glass-panel px-3 py-2 text-xs">
-          <div className="flex items-center gap-2 text-gray-400">
+          <div className="flex items-center gap-2 font-ui text-dark-300">
             <Navigation className="w-3 h-3" />
             <span>{rotatorEnabled ? 'Click on globe to set bearing' : 'Rotator disabled'}</span>
           </div>
@@ -809,10 +809,10 @@ export function GlobePlugin() {
                   {focusedCallsignInfo.callsign}
                 </p>
                 {focusedCallsignInfo.grid && (
-                  <p className="text-xs text-gray-400">{focusedCallsignInfo.grid}</p>
+                  <p className="text-xs font-mono text-dark-300">{focusedCallsignInfo.grid}</p>
                 )}
                 {focusedCallsignInfo.bearing != null && (
-                  <p className="text-xs text-accent-info">
+                  <p className="text-xs font-mono text-accent-info">
                     {focusedCallsignInfo.bearing.toFixed(0)}°
                     {focusedCallsignInfo.distance != null && ` / ${Math.round(focusedCallsignInfo.distance)} km`}
                   </p>

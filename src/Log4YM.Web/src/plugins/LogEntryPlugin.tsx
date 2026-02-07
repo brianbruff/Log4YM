@@ -231,10 +231,10 @@ export function LogEntryPlugin() {
         <button
           type="button"
           onClick={toggleFollowRadio}
-          className={`flex items-center gap-1.5 px-2 py-1 text-xs rounded transition-all ${
+          className={`flex items-center gap-1.5 px-2 py-1 text-xs font-ui rounded transition-all ${
             followRadio
               ? 'bg-accent-success/20 text-accent-success hover:bg-accent-success/30'
-              : 'bg-dark-600 text-gray-400 hover:bg-dark-500'
+              : 'bg-dark-600 text-dark-300 hover:bg-dark-500'
           }`}
           title={followRadio ? 'Following radio frequency' : 'Not following radio'}
         >
@@ -256,7 +256,7 @@ export function LogEntryPlugin() {
         {/* Callsign, Band, Mode on one line */}
         <div className="flex gap-2 items-end">
           <div className="flex-1">
-            <label className="text-xs text-gray-400 flex items-center gap-1 mb-1">
+            <label className="text-xs font-ui text-dark-300 flex items-center gap-1 mb-1">
               {isLookingUpCallsign ? (
                 <Loader2 className="w-3 h-3 animate-spin text-accent-primary" />
               ) : (
@@ -277,7 +277,7 @@ export function LogEntryPlugin() {
             />
           </div>
           <div className="w-28">
-            <label className="text-xs text-gray-400 mb-1 flex items-center gap-1">
+            <label className="text-xs font-ui text-dark-300 mb-1 flex items-center gap-1">
               Band
               {followRadio && currentRadioState && (
                 <span className="w-1.5 h-1.5 rounded-full bg-accent-success" title="From radio" />
@@ -286,7 +286,7 @@ export function LogEntryPlugin() {
             <select
               value={formData.band}
               onChange={(e) => setFormData(prev => ({ ...prev, band: e.target.value }))}
-              className={`glass-input w-full text-sm ${
+              className={`glass-input w-full text-sm font-mono ${
                 followRadio && currentRadioState ? 'border-accent-success/30' : ''
               }`}
             >
@@ -296,7 +296,7 @@ export function LogEntryPlugin() {
             </select>
           </div>
           <div className="w-28">
-            <label className="text-xs text-gray-400 mb-1 flex items-center gap-1">
+            <label className="text-xs font-ui text-dark-300 mb-1 flex items-center gap-1">
               Mode
               {followRadio && currentRadioState && (
                 <span className="w-1.5 h-1.5 rounded-full bg-accent-success" title="From radio" />
@@ -305,7 +305,7 @@ export function LogEntryPlugin() {
             <select
               value={formData.mode}
               onChange={(e) => setFormData(prev => ({ ...prev, mode: e.target.value }))}
-              className={`glass-input w-full text-sm ${
+              className={`glass-input w-full text-sm font-mono ${
                 followRadio && currentRadioState ? 'border-accent-success/30' : ''
               }`}
             >
@@ -324,7 +324,7 @@ export function LogEntryPlugin() {
                 <Loader2 className="w-5 h-5 text-accent-primary animate-spin" />
               </div>
               <div className="flex-1 min-w-0">
-                <p className="font-medium text-gray-400 text-sm">Looking up callsign...</p>
+                <p className="font-medium font-ui text-dark-300 text-sm">Looking up callsign...</p>
               </div>
             </div>
           </div>
@@ -343,15 +343,15 @@ export function LogEntryPlugin() {
                 />
               ) : (
                 <div className="w-10 h-10 rounded-lg bg-dark-600 flex items-center justify-center">
-                  <User className="w-5 h-5 text-gray-500" />
+                  <User className="w-5 h-5 text-dark-300" />
                 </div>
               )}
               <div className="flex-1 min-w-0">
                 <p className="font-medium text-gray-100 text-sm truncate">
                   {focusedCallsignInfo.name || 'No name on file'}
                 </p>
-                <div className="flex items-center gap-2 text-xs text-gray-400">
-                  <span>{getCountryFlag(focusedCallsignInfo.country) || '🏳️'}</span>
+                <div className="flex items-center gap-2 text-xs text-dark-300">
+                  <span>{getCountryFlag(focusedCallsignInfo.country) || ''}</span>
                   <span className="truncate">{focusedCallsignInfo.country || 'Unknown'}</span>
                   {focusedCallsignInfo.grid && (
                     <>
@@ -362,7 +362,7 @@ export function LogEntryPlugin() {
                 </div>
               </div>
               <div className="text-3xl" title={focusedCallsignInfo.country || 'Unknown country'}>
-                {getCountryFlag(focusedCallsignInfo.country, '🏳️')}
+                {getCountryFlag(focusedCallsignInfo.country, '')}
               </div>
             </div>
           </div>
@@ -370,7 +370,7 @@ export function LogEntryPlugin() {
 
         {/* Name field with lock pattern */}
         <div>
-          <label className="text-xs text-gray-400 mb-1 flex items-center gap-1">
+          <label className="text-xs font-ui text-dark-300 mb-1 flex items-center gap-1">
             <User className="w-3 h-3" />
             Name
             {nameLocked && focusedCallsignInfo?.name && (
@@ -393,8 +393,8 @@ export function LogEntryPlugin() {
               onClick={() => setNameLocked(!nameLocked)}
               className={`p-1.5 rounded transition-colors ${
                 nameLocked
-                  ? 'text-gray-500 hover:text-gray-300'
-                  : 'text-amber-400 hover:text-amber-300'
+                  ? 'text-dark-300 hover:text-dark-200'
+                  : 'text-accent-primary hover:text-accent-primary/80'
               }`}
               title={nameLocked ? 'Unlock to edit name' : 'Lock to auto-fill from QRZ'}
               tabIndex={-1}
@@ -407,7 +407,7 @@ export function LogEntryPlugin() {
         {/* Frequency, RST Sent, RST Rcvd on one line */}
         <div className="flex gap-3 items-end">
           <div className="w-28">
-            <label className="text-xs text-gray-400 mb-1 flex items-center gap-1">
+            <label className="text-xs font-ui text-dark-300 mb-1 flex items-center gap-1">
               Freq (kHz)
               {followRadio && currentRadioState && (
                 <span className="w-1.5 h-1.5 rounded-full bg-accent-success" title="From radio" />
@@ -436,8 +436,8 @@ export function LogEntryPlugin() {
 
           {/* TX RST */}
           <div>
-            <label className="text-xs text-gray-400 mb-1 flex items-center gap-1">
-              <span className="text-green-400">TX</span> RST
+            <label className="text-xs font-ui text-dark-300 mb-1 flex items-center gap-1">
+              <span className="text-accent-success">TX</span> RST
             </label>
             <div className="flex items-center gap-1">
               <input
@@ -449,7 +449,7 @@ export function LogEntryPlugin() {
               />
               {formData.rstSent.endsWith('9') && (
                 <>
-                  <span className="text-gray-500">+</span>
+                  <span className="text-dark-300">+</span>
                   <select
                     value={formData.rstSentPlus}
                     onChange={(e) => setFormData(prev => ({ ...prev, rstSentPlus: e.target.value }))}
@@ -468,13 +468,13 @@ export function LogEntryPlugin() {
 
           {/* Separator */}
           <div className="flex items-end pb-2">
-            <span className="text-gray-600 text-lg">/</span>
+            <span className="text-dark-600 text-lg">/</span>
           </div>
 
           {/* RX RST */}
           <div>
-            <label className="text-xs text-gray-400 mb-1 flex items-center gap-1">
-              <span className="text-blue-400">RX</span> RST
+            <label className="text-xs font-ui text-dark-300 mb-1 flex items-center gap-1">
+              <span className="text-accent-secondary">RX</span> RST
             </label>
             <div className="flex items-center gap-1">
               <input
@@ -486,7 +486,7 @@ export function LogEntryPlugin() {
               />
               {formData.rstRcvd.endsWith('9') && (
                 <>
-                  <span className="text-gray-500">+</span>
+                  <span className="text-dark-300">+</span>
                   <select
                     value={formData.rstRcvdPlus}
                     onChange={(e) => setFormData(prev => ({ ...prev, rstRcvdPlus: e.target.value }))}
@@ -506,7 +506,7 @@ export function LogEntryPlugin() {
 
         {/* Comment */}
         <div>
-          <label className="text-xs text-gray-400 mb-1 block">Comment</label>
+          <label className="text-xs font-ui text-dark-300 mb-1 block">Comment</label>
           <input
             type="text"
             value={formData.comment}
@@ -518,7 +518,7 @@ export function LogEntryPlugin() {
 
         {/* Notes */}
         <div>
-          <label className="text-xs text-gray-400 mb-1 block">Notes</label>
+          <label className="text-xs font-ui text-dark-300 mb-1 block">Notes</label>
           <input
             type="text"
             value={formData.notes}
@@ -529,7 +529,7 @@ export function LogEntryPlugin() {
         </div>
 
         {/* Timestamp - compact display with optional edit */}
-        <div className="flex items-center gap-2 text-xs text-gray-400">
+        <div className="flex items-center gap-2 text-xs text-dark-300">
           <Clock className="w-3 h-3" />
           {timeLocked ? (
             <>
@@ -537,7 +537,7 @@ export function LogEntryPlugin() {
               <button
                 type="button"
                 onClick={() => setTimeLocked(false)}
-                className="text-gray-500 hover:text-gray-300 transition-colors"
+                className="text-dark-300 hover:text-dark-200 transition-colors"
                 title="Edit timestamp"
                 tabIndex={-1}
               >
@@ -562,7 +562,7 @@ export function LogEntryPlugin() {
               <button
                 type="button"
                 onClick={() => setTimeLocked(true)}
-                className="text-amber-400 hover:text-amber-300 transition-colors"
+                className="text-accent-primary hover:text-accent-primary/80 transition-colors"
                 title="Lock to system time"
                 tabIndex={-1}
               >

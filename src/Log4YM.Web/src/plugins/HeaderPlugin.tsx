@@ -92,64 +92,64 @@ export function HeaderPlugin() {
   const localDateStr = `${days[currentTime.getDay()]}, ${months[currentTime.getMonth()]} ${currentTime.getDate()}`;
 
   return (
-    <div className="header-plugin">
+    <div className="header-plugin bg-dark-900">
       {/* Callsign + Version */}
       <div className="header-plugin__group">
-        <span className="header-plugin__callsign">{callsign || 'N0CALL'}</span>
-        <span className="header-plugin__version">v1.0.0</span>
+        <span className="header-plugin__callsign font-display text-accent-primary">{callsign || 'N0CALL'}</span>
+        <span className="header-plugin__version font-mono text-dark-300">v1.0.0</span>
       </div>
 
       {/* Separator */}
-      <div className="header-plugin__sep" />
+      <div className="header-plugin__sep border-glass-100" />
 
       {/* UTC Time */}
       <div className="header-plugin__group">
-        <span className="header-plugin__label">UTC</span>
-        <span className="header-plugin__time">
+        <span className="header-plugin__label font-ui text-accent-success">UTC</span>
+        <span className="header-plugin__time font-display text-accent-primary">
           {pad(utcHours)}:{pad(utcMinutes)}:{pad(utcSeconds)}
         </span>
-        <span className="header-plugin__date">{utcYear}-{utcMonth}-{utcDay}</span>
+        <span className="header-plugin__date font-mono text-dark-300">{utcYear}-{utcMonth}-{utcDay}</span>
       </div>
 
       {/* Separator */}
-      <div className="header-plugin__sep" />
+      <div className="header-plugin__sep border-glass-100" />
 
       {/* Local Time */}
       <div className="header-plugin__group">
-        <span className="header-plugin__label">LOCAL</span>
-        <span className="header-plugin__time">
+        <span className="header-plugin__label font-ui text-accent-success">LOCAL</span>
+        <span className="header-plugin__time font-display text-accent-primary">
           {pad(localHours)}:{pad(localMinutes)}:{pad(localSeconds)}
         </span>
-        <span className="header-plugin__date">{localDateStr}</span>
+        <span className="header-plugin__date font-mono text-dark-300">{localDateStr}</span>
       </div>
 
       {/* Separator */}
-      <div className="header-plugin__sep" />
+      <div className="header-plugin__sep border-glass-100" />
 
       {/* Weather */}
       {showWeather && weather && (
         <>
           <div className="header-plugin__group">
             <span className="header-plugin__weather-icon">{getWeatherIcon(weather.weatherCode)}</span>
-            <span className="header-plugin__weather-temp">
+            <span className="header-plugin__weather-temp font-mono text-accent-secondary">
               {weather.temperature}&deg;F/{weather.temperatureC}&deg;C
             </span>
           </div>
-          <div className="header-plugin__sep" />
+          <div className="header-plugin__sep border-glass-100" />
         </>
       )}
 
       {/* Space Weather Indices */}
       {spaceWeather && (
         <div className="header-plugin__group header-plugin__indices">
-          <span className="header-plugin__label">SFI</span>
-          <span className="header-plugin__value">{spaceWeather.solarFluxIndex}</span>
-          <span className="header-plugin__label" style={{ marginLeft: 12 }}>K</span>
-          <span className={`header-plugin__value${spaceWeather.kIndex >= 4 ? ' header-plugin__value--danger' : ''}`}>
+          <span className="header-plugin__label font-ui text-accent-success">SFI</span>
+          <span className="header-plugin__value font-display text-accent-primary">{spaceWeather.solarFluxIndex}</span>
+          <span className="header-plugin__label font-ui text-accent-success" style={{ marginLeft: 12 }}>K</span>
+          <span className={`header-plugin__value font-display${spaceWeather.kIndex >= 4 ? ' header-plugin__value--danger text-accent-danger' : ' text-accent-primary'}`}>
             {spaceWeather.kIndex}
           </span>
-          <span className="header-plugin__label" style={{ marginLeft: 12 }}>SSN</span>
-          <span className="header-plugin__value">{spaceWeather.sunspotNumber}</span>
+          <span className="header-plugin__label font-ui text-accent-success" style={{ marginLeft: 12 }}>SSN</span>
+          <span className="header-plugin__value font-display text-accent-primary">{spaceWeather.sunspotNumber}</span>
         </div>
       )}
     </div>

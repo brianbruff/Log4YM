@@ -640,6 +640,25 @@ public class LogHub : Hub<ILogHubClient>
     }
 
     /// <summary>
+    /// Delete saved TCI configuration
+    /// </summary>
+    public async Task DeleteTciConfig()
+    {
+        _logger.LogInformation("Deleting saved TCI configuration");
+
+        // Clear TCI settings to defaults
+        var settings = await _settingsRepository.GetAsync() ?? new Log4YM.Contracts.Models.UserSettings();
+        settings.Radio.Tci = new Log4YM.Contracts.Models.TciSettings();
+        settings.Radio.ActiveRigType = null;
+        settings.Radio.AutoReconnect = false;
+
+        await _settingsRepository.UpsertAsync(settings);
+
+        // Request updated radio status to reflect the removal
+        await RequestRadioStatus();
+    }
+
+    /// <summary>
     /// Connect directly to a TCI server without discovery
     /// </summary>
     public async Task ConnectTci(string host, int port = 50001, string? name = null)
@@ -679,7 +698,7 @@ public class LogHub : Hub<ILogHubClient>
             await Clients.Caller.OnRadioDiscovered(radio);
         }
 
-        foreach (var radio in _tciRadioService.GetDiscoveredRadios())
+        foreach (var radio in await _tciRadioService.GetDiscoveredRadiosAsync())
         {
             await Clients.Caller.OnRadioDiscovered(radio);
         }

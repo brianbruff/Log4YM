@@ -34,6 +34,8 @@ public class HamlibService : BackgroundService
     private int? _currentRit;
     private int? _currentXit;
     private int? _currentKeySpeed;
+    private int _consecutiveErrors;
+    private const int MaxConsecutiveErrors = 3;
 
     private const string CollectionName = "settings";
     private const string ConfigDocId = "hamlib_config";
@@ -314,7 +316,7 @@ public class HamlibService : BackgroundService
         _rig.Dispose();
         _rig = null;
         _radioId = null;
-        _config = null;
+        // Keep _config alive so GetDiscoveredRadiosAsync() still returns the saved rig
 
         // Reset state
         _currentFrequencyHz = 0;
@@ -325,7 +327,6 @@ public class HamlibService : BackgroundService
 
         await _hubContext.BroadcastRadioConnectionStateChanged(
             new RadioConnectionStateChangedEvent(radioId, RadioConnectionState.Disconnected));
-        await _hubContext.BroadcastRadioRemoved(new RadioRemovedEvent(radioId));
     }
 
     /// <summary>
@@ -452,7 +453,21 @@ public class HamlibService : BackgroundService
                 null
             ));
         }
-        // If not connected but we have a saved config, show that
+        // If not connected but we have an in-memory config (disconnect keeps it alive), use that
+        else if (_config != null)
+        {
+            var radioId = $"hamlib-{_config.ModelId}";
+            radios.Add(new RadioDiscoveredEvent(
+                radioId,
+                RadioType.Hamlib,
+                _config.ModelName,
+                _config.ConnectionType == Native.Hamlib.HamlibConnectionType.Network ? _config.Hostname ?? "" : _config.SerialPort ?? "",
+                _config.ConnectionType == Native.Hamlib.HamlibConnectionType.Network ? _config.NetworkPort : 0,
+                null,
+                null
+            ));
+        }
+        // Fall back to saved config from database
         else
         {
             var savedConfig = await LoadConfigAsync();
@@ -580,6 +595,9 @@ public class HamlibService : BackgroundService
                 _currentKeySpeed = _rig.GetKeySpeed();
             }
 
+            // Reset error counter on successful poll
+            _consecutiveErrors = 0;
+
             // Broadcast state if changed
             if (stateChanged)
             {
@@ -588,11 +606,36 @@ public class HamlibService : BackgroundService
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Error polling Hamlib rig state");
+            _consecutiveErrors++;
+            _logger.LogWarning(ex, "Error polling Hamlib rig state (consecutive errors: {Count}/{Max})",
+                _consecutiveErrors, MaxConsecutiveErrors);
 
-            // Connection may be lost
-            await _hubContext.BroadcastRadioConnectionStateChanged(
-                new RadioConnectionStateChangedEvent(_radioId, RadioConnectionState.Error, ex.Message));
+            if (_consecutiveErrors >= MaxConsecutiveErrors)
+            {
+                // Radio likely powered off or connection lost - transition to Disconnected
+                _logger.LogWarning("Hamlib rig exceeded error threshold, treating as disconnected");
+
+                var radioId = _radioId!;
+                _rig?.Close();
+                _rig?.Dispose();
+                _rig = null;
+                _radioId = null;
+                // Keep _config alive so the rig stays in discovered list
+
+                _currentFrequencyHz = 0;
+                _currentMode = "";
+                _isTransmitting = false;
+                _consecutiveErrors = 0;
+
+                await _hubContext.BroadcastRadioConnectionStateChanged(
+                    new RadioConnectionStateChangedEvent(radioId, RadioConnectionState.Disconnected));
+            }
+            else
+            {
+                // Broadcast error state but keep trying
+                await _hubContext.BroadcastRadioConnectionStateChanged(
+                    new RadioConnectionStateChangedEvent(_radioId!, RadioConnectionState.Error, ex.Message));
+            }
         }
     }
 

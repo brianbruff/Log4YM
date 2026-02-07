@@ -29,6 +29,7 @@ export function useSignalRConnection() {
     setRadioConnectionState,
     setRadioState,
     setRadioSlices,
+    clearRadioState,
     addSmartUnlinkRadio,
     updateSmartUnlinkRadio,
     removeSmartUnlinkRadio,
@@ -186,6 +187,10 @@ export function useSignalRConnection() {
           onRadioConnectionStateChanged: (evt) => {
             console.log('Radio connection state:', evt.radioId, evt.state);
             setRadioConnectionState(evt.radioId, evt.state);
+            // Clear stale frequency/mode data when disconnected or errored
+            if (evt.state === 'Disconnected' || evt.state === 'Error') {
+              clearRadioState(evt.radioId);
+            }
           },
           onRadioStateChanged: (evt) => {
             console.log('Radio state:', evt.radioId, evt.frequencyHz, evt.mode);
@@ -387,6 +392,10 @@ export function useSignalR() {
     await signalRService.disconnectHamlibRig();
   }, []);
 
+  const deleteTciConfig = useCallback(async () => {
+    await signalRService.deleteTciConfig();
+  }, []);
+
   // TCI direct connection methods
   const connectTci = useCallback(async (host: string, port: number = 50001, name?: string) => {
     await signalRService.connectTci(host, port, name);
@@ -450,6 +459,7 @@ export function useSignalR() {
     // TCI direct connection
     connectTci,
     disconnectTci,
+    deleteTciConfig,
     // SmartUnlink
     addSmartUnlinkRadio: addSmartUnlinkRadioFn,
     updateSmartUnlinkRadio: updateSmartUnlinkRadioFn,

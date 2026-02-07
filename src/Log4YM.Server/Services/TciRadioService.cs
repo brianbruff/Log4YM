@@ -387,6 +387,46 @@ public class TciRadioService : BackgroundService
         ));
     }
 
+    /// <summary>
+    /// Get discovered radios including saved TCI config from settings when no active connections exist
+    /// </summary>
+    public async Task<IEnumerable<RadioDiscoveredEvent>> GetDiscoveredRadiosAsync()
+    {
+        var radios = GetDiscoveredRadios().ToList();
+
+        // If we already have discovered/connected TCI radios, no need to load from settings
+        if (radios.Count > 0) return radios;
+
+        // Load saved TCI config from settings
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var settingsRepository = scope.ServiceProvider.GetRequiredService<ISettingsRepository>();
+            var settings = await settingsRepository.GetAsync();
+            var tciSettings = settings?.Radio?.Tci;
+
+            if (tciSettings != null && !string.IsNullOrEmpty(tciSettings.Host))
+            {
+                var radioId = $"tci-{tciSettings.Host}:{tciSettings.Port}";
+                radios.Add(new RadioDiscoveredEvent(
+                    radioId,
+                    RadioType.Tci,
+                    !string.IsNullOrEmpty(tciSettings.Name) ? tciSettings.Name : $"TCI ({tciSettings.Host})",
+                    tciSettings.Host,
+                    tciSettings.Port,
+                    null,
+                    null
+                ));
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to load saved TCI config from settings");
+        }
+
+        return radios;
+    }
+
     public IEnumerable<RadioStateChangedEvent> GetRadioStates()
     {
         return _connections.Values

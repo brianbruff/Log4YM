@@ -49,6 +49,7 @@ export function RigPlugin() {
     radioStates,
     selectedRadioId,
     setSelectedRadio,
+    removeDiscoveredRadio,
   } = useAppStore();
 
   const {
@@ -63,12 +64,13 @@ export function RigPlugin() {
     deleteHamlibConfig,
     connectTci,
     disconnectTci,
+    deleteTciConfig,
   } = useSignalR();
 
   // Radio settings from store (persisted to database)
   const { settings, updateRadioSettings, updateTciSettings, saveSettings } = useSettingsStore();
   const tciSettings = settings.radio.tci;
-  const { autoReconnect } = settings.radio;
+  const { autoReconnect, autoConnectRigId } = settings.radio;
 
   // TCI form state
   const [showTciForm, setShowTciForm] = useState(false);
@@ -210,35 +212,67 @@ export function RigPlugin() {
   };
 
   const handleToggleAutoReconnect = async () => {
-    updateRadioSettings({ autoReconnect: !autoReconnect });
+    if (!autoReconnect && selectedRadioId) {
+      // Enabling: target the currently selected rig
+      const radio = discoveredRadios.get(selectedRadioId);
+      const rigType = radio?.type === "Hamlib" || selectedRadioId.startsWith("hamlib-")
+        ? "hamlib" as const
+        : radio?.type === "Tci" || selectedRadioId.startsWith("tci-")
+          ? "tci" as const
+          : null;
+      updateRadioSettings({
+        autoReconnect: true,
+        autoConnectRigId: selectedRadioId,
+        activeRigType: rigType,
+      });
+    } else {
+      // Disabling: clear targeting
+      updateRadioSettings({
+        autoReconnect: false,
+        autoConnectRigId: null,
+      });
+    }
     await saveSettings();
   };
 
   const handleRemoveRig = async (radioId: string) => {
-    const radio = discoveredRadios.get(radioId);
-    
-    // Disconnect if currently connected
-    if (selectedRadioId === radioId) {
-      if (radio?.type === "Hamlib" || radioId.startsWith("hamlib-")) {
-        await disconnectHamlibRig();
-      } else if (radio?.type === "Tci" || radioId.startsWith("tci-")) {
-        await disconnectTci(radioId);
+    try {
+      const radio = discoveredRadios.get(radioId);
+      const isHamlib = radio?.type === "Hamlib" || radioId.startsWith("hamlib-");
+      const isTci = radio?.type === "Tci" || radioId.startsWith("tci-");
+
+      // Disconnect if currently connected
+      const connState = radioConnectionStates.get(radioId);
+      if (connState && connState !== "Disconnected") {
+        if (isHamlib) {
+          await disconnectHamlibRig();
+        } else if (isTci) {
+          await disconnectTci(radioId);
+        } else {
+          await disconnectRadio(radioId);
+        }
       }
+
+      // Delete saved configuration based on radio type
+      if (isHamlib) {
+        await deleteHamlibConfig();
+        setHamlibConfig(defaultHamlibConfig);
+        setRigSearch("");
+      } else if (isTci) {
+        await deleteTciConfig();
+        updateTciSettings({ host: "localhost", port: 50001, name: "", autoConnect: false });
+      }
+
+      // Remove from UI immediately
+      removeDiscoveredRadio(radioId);
       setSelectedRadio(null);
+
+      // Clear rig settings
+      updateRadioSettings({ activeRigType: null, autoReconnect: false, autoConnectRigId: null });
+      await saveSettings();
+    } catch (error) {
+      console.error("Failed to remove rig:", error);
     }
-    
-    // Delete saved configuration based on radio type
-    if (radio?.type === "Hamlib" || radioId.startsWith("hamlib-")) {
-      // Delete Hamlib config from backend
-      await deleteHamlibConfig();
-      // Reset local state
-      setHamlibConfig(defaultHamlibConfig);
-      setRigSearch("");
-    }
-    
-    // Clear the saved rig settings
-    updateRadioSettings({ activeRigType: null, autoReconnect: false });
-    await saveSettings();
   };
 
   const handleConnectHamlib = async () => {
@@ -944,8 +978,13 @@ export function RigPlugin() {
                         )}
                       </div>
                       <div>
-                        <div className="text-sm font-medium text-gray-200">
+                        <div className="text-sm font-medium text-gray-200 flex items-center gap-1.5">
                           {radio.nickname || radio.model}
+                          {autoReconnect && autoConnectRigId === radio.id && (
+                            <span title="Auto-connect enabled">
+                              <RefreshCw className="w-3 h-3 text-accent-primary" />
+                            </span>
+                          )}
                         </div>
                         <div className="text-xs text-gray-500 font-mono">
                           {radio.ipAddress}{radio.port ? `:${radio.port}` : ""}

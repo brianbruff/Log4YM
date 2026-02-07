@@ -6,6 +6,7 @@ import { useAppStore } from '../store/appStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { useSignalR } from '../hooks/useSignalR';
 import { GlassPanel } from '../components/GlassPanel';
+import { DXNewsTicker } from '../components/DXNewsTicker';
 import { gridToLatLon, calculateDistance, getAnimationDuration } from '../utils/maidenhead';
 
 import 'leaflet/dist/leaflet.css';
@@ -547,6 +548,9 @@ export function MapPlugin() {
         <div className="absolute bottom-4 right-4 glass-panel px-3 py-2 z-[1000] text-xs font-ui text-dark-300">
           {rotatorEnabled ? 'Click on map to set bearing' : 'Rotator disabled'}
         </div>
+
+        {/* DX News Ticker */}
+        <DXNewsTicker />
       </div>
     </GlassPanel>
   );

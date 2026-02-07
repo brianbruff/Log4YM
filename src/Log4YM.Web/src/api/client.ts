@@ -319,6 +319,11 @@ class ApiClient {
   async getLiveContests(): Promise<Contest[]> {
     return this.fetch<Contest[]>('/contests/live');
   }
+
+  // DX News
+  async getDXNews(): Promise<DXNewsItem[]> {
+    return this.fetch<DXNewsItem[]>('/dxnews');
+  }
 }
 
 // QRZ Types
@@ -410,6 +415,7 @@ export interface AdifExportRequest {
   qsoIds?: string[];
 }
 
+<<<<<<< HEAD
 // Contest Types
 export interface Contest {
   name: string;
@@ -451,6 +457,14 @@ export interface DXpeditionData {
   upcoming: number;
   source: string;
   timestamp: string;
+}
+
+// DX News Types
+export interface DXNewsItem {
+  title: string;
+  description: string;
+  link: string;
+  publishedDate: string;
 }
 
 export const api = new ApiClient();

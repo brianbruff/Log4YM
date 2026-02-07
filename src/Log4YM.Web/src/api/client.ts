@@ -89,6 +89,21 @@ export interface Spot {
   };
 }
 
+export interface RbnSpot {
+  callsign: string;      // Skimmer callsign
+  dx: string;            // Spotted station
+  frequency: number;     // kHz
+  band: string;
+  mode: string;
+  snr?: number;          // Signal-to-noise ratio in dB
+  speed?: number;        // CW speed in WPM
+  timestamp: string;
+  grid?: string;
+  skimmerLat?: number;
+  skimmerLon?: number;
+  skimmerCountry?: string;
+}
+
 export interface QsoQuery {
   callsign?: string;
   name?: string;
@@ -180,6 +195,21 @@ class ApiClient {
     if (query?.limit) params.append('limit', query.limit.toString());
     const qs = params.toString();
     return this.fetch<Spot[]>(`/spots${qs ? `?${qs}` : ''}`);
+  }
+
+  // RBN
+  async getRbnSpots(minutes: number = 5): Promise<{ count: number; spots: RbnSpot[] }> {
+    return this.fetch(`/rbn/spots?minutes=${minutes}`);
+  }
+
+  async getRbnSkimmerLocation(callsign: string): Promise<{
+    callsign: string;
+    grid: string;
+    lat: number;
+    lon: number;
+    country?: string;
+  }> {
+    return this.fetch(`/rbn/location/${encodeURIComponent(callsign)}`);
   }
 
   // Health

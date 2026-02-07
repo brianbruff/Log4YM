@@ -9,3 +9,4 @@ export { PgxlPlugin } from './PgxlPlugin';
 export { SmartUnlinkPlugin } from './SmartUnlinkPlugin';
 export { RigPlugin } from './RigPlugin';
 export { QrzProfilePlugin } from './QrzProfilePlugin';
+export { SolarPanelPlugin } from './SolarPanelPlugin';

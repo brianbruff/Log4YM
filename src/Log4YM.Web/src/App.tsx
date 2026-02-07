@@ -5,7 +5,7 @@ import { StatusBar } from './components/StatusBar';
 import { SettingsPanel } from './components/SettingsPanel';
 import { ConnectionOverlay } from './components/ConnectionOverlay';
 import { useSignalRConnection } from './hooks/useSignalR';
-import { LogEntryPlugin, LogHistoryPlugin, ClusterPlugin, MapPlugin, RotatorPlugin, GlobePlugin, AntennaGeniusPlugin, PgxlPlugin, SmartUnlinkPlugin, RigPlugin, QrzProfilePlugin, HeaderPlugin } from './plugins';
+import { LogEntryPlugin, LogHistoryPlugin, ClusterPlugin, MapPlugin, RotatorPlugin, GlobePlugin, AntennaGeniusPlugin, PgxlPlugin, SmartUnlinkPlugin, RigPlugin, QrzProfilePlugin, AnalogClockPlugin, HeaderPlugin } from './plugins';
 import { Globe as Globe3D } from 'lucide-react';
 import { useLayoutStore, defaultLayout } from './store/layoutStore';
 import { useSettingsStore } from './store/settingsStore';
@@ -70,6 +70,11 @@ const PLUGINS: Record<string, { name: string; icon: React.ReactNode; component: 
     name: 'QRZ Profile',
     icon: <User className="w-4 h-4" />,
     component: QrzProfilePlugin,
+  },
+  'analog-clock': {
+    name: 'Analog Clock',
+    icon: <Clock className="w-4 h-4" />,
+    component: AnalogClockPlugin,
   },
   'header-bar': {
     name: 'Header Bar',

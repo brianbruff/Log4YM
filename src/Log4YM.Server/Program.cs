@@ -74,6 +74,12 @@ builder.Services.AddHttpClient("QRZ", client =>
     client.DefaultRequestHeaders.Add("User-Agent", "Log4YM/1.0");
 });
 
+// Register HttpClient factory for ContestsService
+builder.Services.AddHttpClient();
+
+// Register Contests service
+builder.Services.AddSingleton<ContestsService>();
+
 // Register event bus
 builder.Services.AddSingleton<IEventBus, EventBus>();
 

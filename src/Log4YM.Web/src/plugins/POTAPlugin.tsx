@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useMemo, useEffect } from 'react';
 import { useQuery } from '@tanstack/react-query';
 import { MapPin, Radio, Map } from 'lucide-react';
 import { AgGridReact } from 'ag-grid-react';
@@ -55,7 +55,7 @@ const FrequencyCellRenderer = (props: ICellRendererParams<PotaSpot>) => {
 
 // Custom cell renderer for time with age
 const TimeCellRenderer = (props: ICellRendererParams<PotaSpot>) => {
-  const time = props.data?.spotTime;
+  const time = props.data?.spotTime || '';
   const age = getAge(time);
   return (
     <div className="flex items-center gap-2 text-gray-400">

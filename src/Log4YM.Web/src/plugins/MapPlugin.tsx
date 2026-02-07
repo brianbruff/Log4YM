@@ -237,6 +237,21 @@ export function MapPlugin() {
     });
   }, [focusedCallsignInfo?.latitude, focusedCallsignInfo?.longitude, stationLat, stationLon]);
 
+  // Invalidate map size when container is resized (e.g., FlexLayout panel drag)
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const observer = new ResizeObserver(() => {
+      requestAnimationFrame(() => {
+        mapRef.current?.invalidateSize();
+      });
+    });
+
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
+
   // Handle click on map to set bearing (only when rotator enabled)
   const handleBearingClick = useCallback((azimuth: number) => {
     if (!rotatorEnabled) return; // Ignore clicks when rotator disabled

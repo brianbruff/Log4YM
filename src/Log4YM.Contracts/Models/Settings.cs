@@ -160,6 +160,33 @@ public class MapSettings
 {
     [BsonElement("tileLayer")]
     public string TileLayer { get; set; } = "dark";
+
+    [BsonElement("rbn")]
+    public RbnSettings Rbn { get; set; } = new();
+}
+
+public class RbnSettings
+{
+    [BsonElement("enabled")]
+    public bool Enabled { get; set; } = false;
+
+    [BsonElement("opacity")]
+    public double Opacity { get; set; } = 0.7;
+
+    [BsonElement("showPaths")]
+    public bool ShowPaths { get; set; } = true;
+
+    [BsonElement("timeWindowMinutes")]
+    public int TimeWindowMinutes { get; set; } = 5;
+
+    [BsonElement("minSnr")]
+    public int MinSnr { get; set; } = -10;
+
+    [BsonElement("bands")]
+    public List<string> Bands { get; set; } = new() { "all" };
+
+    [BsonElement("modes")]
+    public List<string> Modes { get; set; } = new() { "CW", "RTTY" };
 }
 
 public class ClusterSettings

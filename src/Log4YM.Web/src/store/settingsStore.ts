@@ -53,8 +53,19 @@ export interface RadioSettings {
   tci: TciSettings;
 }
 
+export interface RbnSettings {
+  enabled: boolean;
+  opacity: number;
+  showPaths: boolean;
+  timeWindowMinutes: number;
+  minSnr: number;
+  bands: string[];
+  modes: string[];
+}
+
 export interface MapSettings {
   tileLayer: 'osm' | 'dark' | 'satellite' | 'terrain';
+  rbn: RbnSettings;
 }
 
 export interface ClusterConnection {
@@ -166,6 +177,15 @@ const defaultSettings: Settings = {
   },
   map: {
     tileLayer: 'dark',
+    rbn: {
+      enabled: false,
+      opacity: 0.7,
+      showPaths: true,
+      timeWindowMinutes: 5,
+      minSnr: -10,
+      bands: ['all'],
+      modes: ['CW', 'RTTY'],
+    },
   },
   cluster: {
     connections: [],
@@ -373,7 +393,11 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
             autoReconnect: settings.radio?.autoReconnect ?? false,
             tci: { ...defaultSettings.radio.tci, ...settings.radio?.tci },
           },
-          map: { ...defaultSettings.map, ...settings.map },
+          map: {
+            ...defaultSettings.map,
+            ...settings.map,
+            rbn: { ...defaultSettings.map.rbn, ...settings.map?.rbn },
+          },
           cluster: { ...defaultSettings.cluster, ...settings.cluster },
         };
         set({ settings: mergedSettings, isDirty: false, isLoaded: true });

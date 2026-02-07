@@ -110,6 +110,11 @@ builder.Services.AddSingleton<DxClusterService>();
 builder.Services.AddSingleton<IDxClusterService>(sp => sp.GetRequiredService<DxClusterService>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<DxClusterService>());
 
+// Register RBN service
+builder.Services.AddSingleton<RbnService>();
+builder.Services.AddSingleton<IRbnService>(sp => sp.GetRequiredService<RbnService>());
+builder.Services.AddHostedService(sp => sp.GetRequiredService<RbnService>());
+
 var app = builder.Build();
 
 // Configure middleware

@@ -53,6 +53,9 @@ public interface ILogHubClient
 
     // DX Cluster events
     Task OnClusterStatusChanged(ClusterStatusChangedEvent evt);
+
+    // RBN events
+    Task OnRbnSpot(RbnSpot spot);
 }
 
 public class LogHub : Hub<ILogHubClient>

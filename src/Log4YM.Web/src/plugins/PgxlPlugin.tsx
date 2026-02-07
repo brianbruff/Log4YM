@@ -50,10 +50,10 @@ export function PgxlPlugin() {
         title="PowerGeniusXL"
         icon={<Zap className="w-5 h-5" />}
       >
-        <div className="flex flex-col items-center justify-center h-full p-8 text-gray-500">
+        <div className="flex flex-col items-center justify-center h-full p-8 text-dark-300">
           <WifiOff className="w-12 h-12 mb-4 opacity-50" />
-          <p className="text-center">No PGXL amplifiers found</p>
-          <p className="text-sm text-gray-600 mt-2 text-center">
+          <p className="text-center font-ui">No PGXL amplifiers found</p>
+          <p className="text-sm text-dark-300 mt-2 text-center font-ui">
             Waiting for PGXL discovery on port 9008
           </p>
         </div>
@@ -111,12 +111,12 @@ export function PgxlPlugin() {
       actions={
         <div className="flex items-center gap-2">
           {device.isConnected ? (
-            <span className="flex items-center gap-1.5 text-xs text-accent-success">
+            <span className="flex items-center gap-1.5 text-xs text-accent-success font-ui">
               <Wifi className="w-3.5 h-3.5" />
               Connected
             </span>
           ) : (
-            <span className="flex items-center gap-1.5 text-xs text-gray-500">
+            <span className="flex items-center gap-1.5 text-xs text-dark-300 font-ui">
               <WifiOff className="w-3.5 h-3.5" />
               Disconnected
             </span>
@@ -148,21 +148,21 @@ export function PgxlPlugin() {
 
           {/* Voltage/Temp Readings */}
           <div className="text-right text-sm space-y-0.5 min-w-[100px]">
-            <div className="text-gray-400">
-              <span className="text-gray-200">{tempA.toFixed(1)}</span>
-              <span className="text-gray-500"> / </span>
-              <span className="text-gray-200">{tempB.toFixed(1)}</span>
-              <span className="text-gray-500"> °C</span>
+            <div className="text-dark-300">
+              <span className="text-dark-200 font-display">{tempA.toFixed(1)}</span>
+              <span className="text-dark-300 font-ui"> / </span>
+              <span className="text-dark-200 font-display">{tempB.toFixed(1)}</span>
+              <span className="text-dark-300 font-ui"> °C</span>
             </div>
-            <div className="text-gray-400">
-              <span className="text-gray-500">Vdd </span>
-              <span className="text-gray-200">{vdd.toFixed(1)}</span>
-              <span className="text-gray-500"> V</span>
+            <div className="text-dark-300">
+              <span className="text-dark-300 font-ui">Vdd </span>
+              <span className="text-dark-200 font-display">{vdd.toFixed(1)}</span>
+              <span className="text-dark-300 font-ui"> V</span>
             </div>
-            <div className="text-gray-400">
-              <span className="text-gray-500">Vac </span>
-              <span className="text-gray-200">{vac}</span>
-              <span className="text-gray-500"> V</span>
+            <div className="text-dark-300">
+              <span className="text-dark-300 font-ui">Vac </span>
+              <span className="text-dark-200 font-display">{vac}</span>
+              <span className="text-dark-300 font-ui"> V</span>
             </div>
           </div>
         </div>
@@ -171,7 +171,7 @@ export function PgxlPlugin() {
         <div className="flex gap-2 px-3 pb-3">
           <button
             onClick={() => setShowSettings(true)}
-            className="px-4 py-2 text-sm font-medium bg-dark-700 text-gray-300 rounded-lg hover:bg-dark-600 transition-all border border-glass-100 flex items-center gap-2"
+            className="px-4 py-2 text-sm font-medium font-ui bg-dark-700 text-dark-200 rounded-lg hover:bg-dark-600 transition-all border border-glass-100 flex items-center gap-2"
           >
             <Settings className="w-4 h-4" />
             Settings
@@ -185,10 +185,10 @@ export function PgxlPlugin() {
                 setPgxlOperate(device.serial);
               }
             }}
-            className={`px-6 py-2 text-sm font-bold rounded-lg transition-all ${
+            className={`px-6 py-2 text-sm font-bold font-ui rounded-lg transition-all ${
               device.isOperating
-                ? 'bg-green-600 text-white hover:bg-green-700'
-                : 'bg-blue-600 text-white hover:bg-blue-700'
+                ? 'bg-accent-success/80 text-dark-900 hover:bg-accent-success'
+                : 'bg-accent-secondary/80 text-dark-900 hover:bg-accent-secondary'
             }`}
           >
             {device.isOperating ? 'Standby' : 'Operate'}
@@ -235,7 +235,7 @@ export function PgxlPlugin() {
 function StandbyDisplay() {
   return (
     <div className="flex items-center justify-center h-full min-h-[120px]">
-      <span className="text-4xl font-bold text-yellow-400 italic tracking-wider">
+      <span className="text-4xl font-bold font-display text-accent-primary italic tracking-wider">
         STANDBY
       </span>
     </div>
@@ -256,9 +256,9 @@ function OperatingDisplay({ forwardPower, swr, paCurrent }: OperatingDisplayProp
         label="Fwd Pwr"
         value={forwardPower}
         segments={[
-          { start: 0, end: 500, color: 'bg-green-500' },
-          { start: 500, end: 1500, color: 'bg-yellow-500' },
-          { start: 1500, end: 2000, color: 'bg-red-500' },
+          { start: 0, end: 500, color: 'bg-accent-success' },
+          { start: 500, end: 1500, color: 'bg-accent-primary' },
+          { start: 1500, end: 2000, color: 'bg-accent-danger' },
         ]}
         markers={[
           { value: 0, label: '0' },
@@ -274,9 +274,9 @@ function OperatingDisplay({ forwardPower, swr, paCurrent }: OperatingDisplayProp
         label="SWR"
         value={swr}
         segments={[
-          { start: 1, end: 1.5, color: 'bg-green-500' },
-          { start: 1.5, end: 2.5, color: 'bg-yellow-500' },
-          { start: 2.5, end: 3, color: 'bg-red-500' },
+          { start: 1, end: 1.5, color: 'bg-accent-success' },
+          { start: 1.5, end: 2.5, color: 'bg-accent-primary' },
+          { start: 2.5, end: 3, color: 'bg-accent-danger' },
         ]}
         markers={[
           { value: 1, label: '1' },
@@ -293,9 +293,9 @@ function OperatingDisplay({ forwardPower, swr, paCurrent }: OperatingDisplayProp
         label="Id"
         value={paCurrent}
         segments={[
-          { start: 0, end: 40, color: 'bg-green-500' },
-          { start: 40, end: 60, color: 'bg-yellow-500' },
-          { start: 60, end: 70, color: 'bg-red-500' },
+          { start: 0, end: 40, color: 'bg-accent-success' },
+          { start: 40, end: 60, color: 'bg-accent-primary' },
+          { start: 60, end: 70, color: 'bg-accent-danger' },
         ]}
         markers={[
           { value: 10, label: '10' },
@@ -349,12 +349,12 @@ function SegmentedMeter({
     <div className="relative">
       {/* Label and Markers Row */}
       <div className="flex items-center justify-between mb-1">
-        <span className="text-xs text-gray-400 w-16">{label}</span>
+        <span className="text-xs text-dark-300 font-ui w-16">{label}</span>
         <div className="flex-1 relative h-4">
           {markers.map((marker) => (
             <span
               key={marker.value}
-              className="absolute text-[10px] text-gray-500 transform -translate-x-1/2"
+              className="absolute text-[10px] text-dark-300 font-mono transform -translate-x-1/2"
               style={{ left: `${((marker.value - min) / range) * 100}%` }}
             >
               {marker.label}
@@ -362,7 +362,7 @@ function SegmentedMeter({
           ))}
         </div>
         {valueDisplay && (
-          <span className="text-xs text-blue-400 font-mono min-w-[50px] text-right">
+          <span className="text-xs text-accent-secondary font-display min-w-[50px] text-right">
             {valueDisplay}
           </span>
         )}
@@ -414,29 +414,29 @@ function SliceStatusRow({ label, config }: SliceStatusRowProps) {
     // Handle bias modes from PGXL (AB, AAB, A, B, or N/A)
     const modeUpper = mode.toUpperCase();
     if (modeUpper === 'AAB') {
-      return 'bg-green-600 text-white';
+      return 'bg-accent-success/80 text-dark-900';
     } else if (modeUpper === 'AB') {
-      return 'bg-blue-600 text-white';
+      return 'bg-accent-secondary/80 text-dark-900';
     } else if (modeUpper === 'A') {
-      return 'bg-green-600/70 text-white';
+      return 'bg-accent-success/50 text-dark-200';
     } else if (modeUpper === 'B') {
-      return 'bg-blue-600/70 text-white';
+      return 'bg-accent-secondary/50 text-dark-200';
     } else {
-      return 'bg-gray-600 text-white';
+      return 'bg-dark-600 text-dark-200';
     }
   };
 
   return (
     <div className="flex items-center gap-2 text-sm">
       {/* Slice Label */}
-      <span className="text-gray-400 font-medium w-4">{label}</span>
+      <span className="text-dark-300 font-ui font-medium w-4">{label}</span>
 
       {/* PTT Indicator */}
       <span
-        className={`px-2 py-0.5 rounded text-xs font-medium ${
+        className={`px-2 py-0.5 rounded text-xs font-medium font-ui ${
           config.pttActive
-            ? 'bg-red-600 text-white'
-            : 'bg-dark-700 text-gray-500'
+            ? 'bg-accent-danger text-dark-900'
+            : 'bg-dark-700 text-dark-300'
         }`}
       >
         PTT
@@ -446,8 +446,8 @@ function SliceStatusRow({ label, config }: SliceStatusRowProps) {
       <span
         className={`px-2 py-0.5 rounded text-xs font-mono min-w-[32px] text-center ${
           config.band !== 'N/A'
-            ? 'bg-blue-600 text-white'
-            : 'bg-dark-700 text-gray-500'
+            ? 'bg-accent-secondary/80 text-dark-900'
+            : 'bg-dark-700 text-dark-300'
         }`}
       >
         {config.band}
@@ -455,7 +455,7 @@ function SliceStatusRow({ label, config }: SliceStatusRowProps) {
 
       {/* Mode */}
       <span
-        className={`px-2 py-0.5 rounded text-xs font-medium min-w-[36px] text-center ${getModeColor(
+        className={`px-2 py-0.5 rounded text-xs font-medium font-ui min-w-[36px] text-center ${getModeColor(
           config.mode
         )}`}
       >
@@ -463,7 +463,7 @@ function SliceStatusRow({ label, config }: SliceStatusRowProps) {
       </span>
 
       {/* Radio Name */}
-      <span className="text-gray-300 flex-1 truncate">{config.radioName}</span>
+      <span className="text-dark-200 font-ui flex-1 truncate">{config.radioName}</span>
     </div>
   );
 }
@@ -475,14 +475,14 @@ interface StatusBadgeProps {
 
 function StatusBadge({ label, variant }: StatusBadgeProps) {
   const colors = {
-    danger: 'bg-red-500/20 text-red-400 border-red-500/30',
-    warning: 'bg-amber-500/20 text-amber-400 border-amber-500/30',
-    success: 'bg-green-500/20 text-green-400 border-green-500/30',
+    danger: 'bg-accent-danger/20 text-accent-danger border-accent-danger/30',
+    warning: 'bg-accent-primary/20 text-accent-primary border-accent-primary/30',
+    success: 'bg-accent-success/20 text-accent-success border-accent-success/30',
   };
 
   return (
     <span
-      className={`px-2 py-0.5 text-xs font-medium rounded border ${colors[variant]} animate-pulse`}
+      className={`px-2 py-0.5 text-xs font-medium font-ui rounded border ${colors[variant]} animate-pulse`}
     >
       {label}
     </span>
@@ -521,10 +521,10 @@ function SettingsModal({ device, onClose, linkedRadioIdA, linkedRadioIdB, onDisa
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-dark-800 rounded-xl border border-glass-100 shadow-2xl w-full max-w-md mx-4">
         <div className="flex items-center justify-between px-4 py-3 border-b border-glass-100">
-          <h3 className="text-lg font-semibold text-gray-200">PGXL Settings</h3>
+          <h3 className="text-lg font-semibold font-ui text-dark-200">PGXL Settings</h3>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-200 transition-colors"
+            className="text-dark-300 hover:text-dark-200 transition-colors"
           >
             ✕
           </button>
@@ -533,48 +533,48 @@ function SettingsModal({ device, onClose, linkedRadioIdA, linkedRadioIdB, onDisa
         <div className="p-4 space-y-4">
           {/* Device Info */}
           <div className="bg-dark-700/50 rounded-lg p-3 border border-glass-100">
-            <div className="text-xs text-gray-500 uppercase tracking-wider mb-2">
+            <div className="text-xs text-dark-300 font-ui uppercase tracking-wider mb-2">
               Device Info
             </div>
             <div className="space-y-1 text-sm">
               <div className="flex justify-between">
-                <span className="text-gray-400">Serial:</span>
-                <span className="text-gray-200 font-mono">{device.serial}</span>
+                <span className="text-dark-300 font-ui">Serial:</span>
+                <span className="text-dark-200 font-mono">{device.serial}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-400">IP Address:</span>
-                <span className="text-gray-200 font-mono">{device.ipAddress}</span>
+                <span className="text-dark-300 font-ui">IP Address:</span>
+                <span className="text-dark-200 font-mono">{device.ipAddress}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-400">Band Source:</span>
-                <span className="text-gray-200">{device.setup.bandSource}</span>
+                <span className="text-dark-300 font-ui">Band Source:</span>
+                <span className="text-dark-200 font-ui">{device.setup.bandSource}</span>
               </div>
               <div className="flex justify-between">
-                <span className="text-gray-400">Antenna:</span>
-                <span className="text-gray-200">ANT{device.setup.selectedAntenna}</span>
+                <span className="text-dark-300 font-ui">Antenna:</span>
+                <span className="text-dark-200 font-ui">ANT{device.setup.selectedAntenna}</span>
               </div>
             </div>
           </div>
 
           {/* FlexRadio Pairing */}
           <div className="bg-dark-700/50 rounded-lg p-3 border border-glass-100">
-            <div className="text-xs text-gray-500 uppercase tracking-wider mb-2">
+            <div className="text-xs text-dark-300 font-ui uppercase tracking-wider mb-2">
               FlexRadio Pairing
             </div>
-            <p className="text-xs text-gray-500 mb-3">
+            <p className="text-xs text-dark-300 font-ui mb-3">
               If the PGXL is paired with a FlexRadio, it will only accept PTT/band data from that radio.
               Disable pairing to use with TCI or other radios.
             </p>
             <div className="flex gap-2">
               <button
                 onClick={() => onDisableFlexPairing(device.serial, 'A')}
-                className="flex-1 px-3 py-1.5 text-sm font-medium bg-amber-600/20 text-amber-400 rounded-lg hover:bg-amber-600/30 transition-all border border-amber-600/30"
+                className="flex-1 px-3 py-1.5 text-sm font-medium font-ui bg-accent-primary/20 text-accent-primary rounded-lg hover:bg-accent-primary/30 transition-all border border-accent-primary/30"
               >
                 Unpair Side A
               </button>
               <button
                 onClick={() => onDisableFlexPairing(device.serial, 'B')}
-                className="flex-1 px-3 py-1.5 text-sm font-medium bg-amber-600/20 text-amber-400 rounded-lg hover:bg-amber-600/30 transition-all border border-amber-600/30"
+                className="flex-1 px-3 py-1.5 text-sm font-medium font-ui bg-accent-primary/20 text-accent-primary rounded-lg hover:bg-accent-primary/30 transition-all border border-accent-primary/30"
               >
                 Unpair Side B
               </button>
@@ -583,21 +583,21 @@ function SettingsModal({ device, onClose, linkedRadioIdA, linkedRadioIdB, onDisa
 
           {/* Radio Linking */}
           <div className="bg-dark-700/50 rounded-lg p-3 border border-glass-100">
-            <div className="text-xs text-gray-500 uppercase tracking-wider mb-2 flex items-center gap-2">
+            <div className="text-xs text-dark-300 font-ui uppercase tracking-wider mb-2 flex items-center gap-2">
               <Radio className="w-3.5 h-3.5" />
               Radio Linking
             </div>
-            <p className="text-xs text-gray-500 mb-3">
+            <p className="text-xs text-dark-300 font-ui mb-3">
               Link TCI/Hamlib radios to track band, mode, and PTT state
             </p>
             <div className="space-y-3">
               {/* Side A */}
               <div className="flex items-center gap-3">
-                <span className="text-gray-400 text-sm w-12">Side A:</span>
+                <span className="text-dark-300 font-ui text-sm w-12">Side A:</span>
                 <select
                   value={linkedRadioIdA || ''}
                   onChange={(e) => handleLinkChange('A', e.target.value)}
-                  className="flex-1 bg-dark-600 border border-glass-100 rounded-lg px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-accent-primary"
+                  className="flex-1 bg-dark-600 border border-glass-100 rounded-lg px-3 py-1.5 text-sm text-dark-200 font-ui focus:outline-none focus:ring-2 focus:ring-accent-primary"
                 >
                   <option value="">Not linked</option>
                   {connectedRadios.map((radio) => (
@@ -610,11 +610,11 @@ function SettingsModal({ device, onClose, linkedRadioIdA, linkedRadioIdB, onDisa
 
               {/* Side B */}
               <div className="flex items-center gap-3">
-                <span className="text-gray-400 text-sm w-12">Side B:</span>
+                <span className="text-dark-300 font-ui text-sm w-12">Side B:</span>
                 <select
                   value={linkedRadioIdB || ''}
                   onChange={(e) => handleLinkChange('B', e.target.value)}
-                  className="flex-1 bg-dark-600 border border-glass-100 rounded-lg px-3 py-1.5 text-sm text-gray-200 focus:outline-none focus:ring-2 focus:ring-accent-primary"
+                  className="flex-1 bg-dark-600 border border-glass-100 rounded-lg px-3 py-1.5 text-sm text-dark-200 font-ui focus:outline-none focus:ring-2 focus:ring-accent-primary"
                 >
                   <option value="">Not linked</option>
                   {connectedRadios.map((radio) => (
@@ -627,7 +627,7 @@ function SettingsModal({ device, onClose, linkedRadioIdA, linkedRadioIdB, onDisa
             </div>
 
             {connectedRadios.length === 0 && (
-              <p className="text-xs text-amber-400 mt-2">
+              <p className="text-xs text-accent-primary font-ui mt-2">
                 No radios connected. Connect a TCI or rigctld radio first.
               </p>
             )}
@@ -637,7 +637,7 @@ function SettingsModal({ device, onClose, linkedRadioIdA, linkedRadioIdB, onDisa
         <div className="flex justify-end gap-2 px-4 py-3 border-t border-glass-100">
           <button
             onClick={onClose}
-            className="px-4 py-2 text-sm font-medium bg-dark-700 text-gray-300 rounded-lg hover:bg-dark-600 transition-all border border-glass-100"
+            className="px-4 py-2 text-sm font-medium font-ui bg-dark-700 text-dark-200 rounded-lg hover:bg-dark-600 transition-all border border-glass-100"
           >
             Close
           </button>

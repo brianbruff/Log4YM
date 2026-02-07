@@ -281,6 +281,109 @@
   color: #6e6e6e;
 }
 
+/* Header Plugin - dockable status bar */
+.header-plugin {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  flex-wrap: wrap;
+  gap: 12px 20px;
+  padding: 4px 20px;
+  height: 100%;
+  width: 100%;
+  min-height: 0;
+  background: #141418;
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+  overflow: hidden;
+  box-sizing: border-box;
+}
+
+.header-plugin__group {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  white-space: nowrap;
+  line-height: 1;
+  flex-shrink: 0;
+}
+
+.header-plugin__sep {
+  width: 1px;
+  height: 32px;
+  background: rgba(255, 255, 255, 0.1);
+  align-self: center;
+  flex-shrink: 0;
+}
+
+.header-plugin__callsign {
+  font-family: 'Impact', 'Arial Narrow', 'Helvetica Neue', sans-serif;
+  font-style: italic;
+  font-weight: 900;
+  font-size: 28px;
+  letter-spacing: 1px;
+  color: #e8a020;
+  text-shadow: 1px 1px 2px rgba(0, 0, 0, 0.5);
+  line-height: 1;
+}
+
+.header-plugin__version {
+  font-size: 11px;
+  color: #707070;
+  align-self: flex-end;
+  margin-bottom: 2px;
+}
+
+.header-plugin__label {
+  font-size: 12px;
+  font-weight: 600;
+  letter-spacing: 1.5px;
+  text-transform: uppercase;
+  color: #2a9d8f;
+}
+
+.header-plugin__time {
+  font-family: 'Consolas', 'SF Mono', 'Fira Code', monospace;
+  font-size: 28px;
+  font-weight: 700;
+  color: #e8a020;
+  letter-spacing: 2px;
+  line-height: 1;
+}
+
+.header-plugin__date {
+  font-size: 13px;
+  color: #707070;
+  align-self: flex-end;
+  margin-bottom: 2px;
+}
+
+.header-plugin__weather-icon {
+  font-size: 20px;
+  line-height: 1;
+}
+
+.header-plugin__weather-temp {
+  font-family: 'Consolas', 'SF Mono', 'Fira Code', monospace;
+  font-size: 16px;
+  font-weight: 600;
+  color: #2a9d8f;
+}
+
+.header-plugin__indices {
+  gap: 6px;
+}
+
+.header-plugin__value {
+  font-family: 'Consolas', 'SF Mono', 'Fira Code', monospace;
+  font-size: 16px;
+  font-weight: 700;
+  color: #e8a020;
+}
+
+.header-plugin__value--danger {
+  color: #f14c4c;
+}
+
 /* Custom animations */
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }

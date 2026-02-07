@@ -130,13 +130,13 @@ public class SpaceWeatherController : ControllerBase
 
             // Parse XML response
             var doc = System.Xml.Linq.XDocument.Parse(response);
-            var solar = doc.Root;
+            var solar = doc.Root?.Element("solardata") ?? doc.Root;
 
             if (solar != null)
             {
-                var sfi = int.Parse(solar.Element("solarflux")?.Value ?? "70");
-                var kIndex = int.Parse(solar.Element("planetarykindex")?.Value ?? "2");
-                var ssn = int.Parse(solar.Element("sunspots")?.Value ?? "0");
+                var sfi = int.Parse(solar.Element("solarflux")?.Value?.Trim() ?? "70");
+                var kIndex = int.Parse(solar.Element("kindex")?.Value?.Trim() ?? "2");
+                var ssn = int.Parse(solar.Element("sunspots")?.Value?.Trim() ?? "0");
 
                 return new SpaceWeatherData(sfi, kIndex, ssn, DateTime.UtcNow);
             }
@@ -161,13 +161,21 @@ public record SpaceWeatherData(
 // NOAA JSON response structure
 internal class NoaaSolarData
 {
+    [System.Text.Json.Serialization.JsonPropertyName("time-tag")]
     public string TimeTag { get; set; } = string.Empty;
+
+    [System.Text.Json.Serialization.JsonPropertyName("ssn")]
     public double Ssn { get; set; }
+
+    [System.Text.Json.Serialization.JsonPropertyName("f10.7")]
     public double F107 { get; set; }
 }
 
 internal class KIndexData
 {
+    [System.Text.Json.Serialization.JsonPropertyName("time_tag")]
     public string TimeTag { get; set; } = string.Empty;
+
+    [System.Text.Json.Serialization.JsonPropertyName("kp_index")]
     public double KpIndex { get; set; }
 }

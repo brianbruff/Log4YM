@@ -68,10 +68,30 @@ public class ContestsService
             .Select(c => {
                 c.IsLive = c.StartTime <= now && c.EndTime >= now;
                 c.IsStartingSoon = !c.IsLive && c.StartTime <= now.AddHours(24);
-                c.TimeRemaining = c.IsLive ? c.EndTime - now : null;
+                if (c.IsLive)
+                {
+                    var timeRemaining = c.EndTime - now;
+                    c.TimeRemaining = FormatTimeSpan(timeRemaining);
+                }
                 return c;
             })
             .ToList();
+    }
+
+    private string FormatTimeSpan(TimeSpan timeSpan)
+    {
+        if (timeSpan.TotalDays >= 1)
+        {
+            return $"{(int)timeSpan.TotalDays}d {timeSpan.Hours}h";
+        }
+        else if (timeSpan.TotalHours >= 1)
+        {
+            return $"{(int)timeSpan.TotalHours}h {timeSpan.Minutes}m";
+        }
+        else
+        {
+            return $"{timeSpan.Minutes}m";
+        }
     }
 
     private List<Contest> ParseICalendar(string icalData)

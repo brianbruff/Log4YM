@@ -9,5 +9,5 @@ public class Contest
     public string Url { get; set; } = string.Empty;
     public bool IsLive { get; set; }
     public bool IsStartingSoon { get; set; }
-    public TimeSpan? TimeRemaining { get; set; }
+    public string? TimeRemaining { get; set; }
 }

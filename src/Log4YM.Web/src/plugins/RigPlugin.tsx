@@ -214,22 +214,36 @@ export function RigPlugin() {
   const handleToggleAutoReconnect = async () => {
     if (!autoReconnect && selectedRadioId) {
       // Enabling: target the currently selected rig
-      const radio = discoveredRadios.get(selectedRadioId);
-      const rigType = radio?.type === "Hamlib" || selectedRadioId.startsWith("hamlib-")
+      handleToggleAutoReconnectForRig(selectedRadioId);
+      return;
+    }
+    // Disabling: clear targeting
+    updateRadioSettings({
+      autoReconnect: false,
+      autoConnectRigId: null,
+    });
+    await saveSettings();
+  };
+
+  const handleToggleAutoReconnectForRig = async (radioId: string) => {
+    if (autoConnectRigId === radioId && autoReconnect) {
+      // Already targeting this rig — disable
+      updateRadioSettings({
+        autoReconnect: false,
+        autoConnectRigId: null,
+      });
+    } else {
+      // Enable and target this specific rig
+      const radio = discoveredRadios.get(radioId);
+      const rigType = radio?.type === "Hamlib" || radioId.startsWith("hamlib-")
         ? "hamlib" as const
-        : radio?.type === "Tci" || selectedRadioId.startsWith("tci-")
+        : radio?.type === "Tci" || radioId.startsWith("tci-")
           ? "tci" as const
           : null;
       updateRadioSettings({
         autoReconnect: true,
-        autoConnectRigId: selectedRadioId,
+        autoConnectRigId: radioId,
         activeRigType: rigType,
-      });
-    } else {
-      // Disabling: clear targeting
-      updateRadioSettings({
-        autoReconnect: false,
-        autoConnectRigId: null,
       });
     }
     await saveSettings();
@@ -992,6 +1006,17 @@ export function RigPlugin() {
                       </div>
                     </div>
                     <div className="flex items-center gap-2">
+                      <button
+                        onClick={() => handleToggleAutoReconnectForRig(radio.id)}
+                        title={autoReconnect && autoConnectRigId === radio.id ? "Disable auto-reconnect" : "Enable auto-reconnect"}
+                        className={`p-1.5 rounded transition-all ${
+                          autoReconnect && autoConnectRigId === radio.id
+                            ? "bg-accent-primary/20 text-accent-primary"
+                            : "bg-dark-700 text-gray-500 hover:text-gray-400"
+                        }`}
+                      >
+                        <RefreshCw className={`w-3.5 h-3.5 ${autoReconnect && autoConnectRigId === radio.id ? "" : "opacity-50"}`} />
+                      </button>
                       <button
                         onClick={() => handleConnect(radio.id)}
                         disabled={isConnecting}

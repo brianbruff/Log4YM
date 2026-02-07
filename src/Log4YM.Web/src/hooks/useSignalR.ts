@@ -29,6 +29,7 @@ export function useSignalRConnection() {
     setRadioConnectionState,
     setRadioState,
     setRadioSlices,
+    clearRadioState,
     addSmartUnlinkRadio,
     updateSmartUnlinkRadio,
     removeSmartUnlinkRadio,
@@ -186,6 +187,10 @@ export function useSignalRConnection() {
           onRadioConnectionStateChanged: (evt) => {
             console.log('Radio connection state:', evt.radioId, evt.state);
             setRadioConnectionState(evt.radioId, evt.state);
+            // Clear stale frequency/mode data when disconnected or errored
+            if (evt.state === 'Disconnected' || evt.state === 'Error') {
+              clearRadioState(evt.radioId);
+            }
           },
           onRadioStateChanged: (evt) => {
             console.log('Radio state:', evt.radioId, evt.frequencyHz, evt.mode);
@@ -351,6 +356,10 @@ export function useSignalR() {
     await signalRService.disconnectHamlibRig();
   }, []);
 
+  const deleteHamlibConfig = useCallback(async () => {
+    await signalRService.deleteHamlibConfig();
+  }, []);
+
   // Legacy rigctld methods (kept for backwards compatibility)
   const connectHamlib = useCallback(async (host: string, port: number = 4532, name?: string) => {
     // Map to new native Hamlib with network connection type
@@ -381,6 +390,10 @@ export function useSignalR() {
 
   const disconnectHamlib = useCallback(async (_radioId: string) => {
     await signalRService.disconnectHamlibRig();
+  }, []);
+
+  const deleteTciConfig = useCallback(async () => {
+    await signalRService.deleteTciConfig();
   }, []);
 
   // TCI direct connection methods
@@ -439,12 +452,14 @@ export function useSignalR() {
     getHamlibStatus,
     connectHamlibRig,
     disconnectHamlibRig,
+    deleteHamlibConfig,
     // Hamlib (legacy rigctld compatibility)
     connectHamlib,
     disconnectHamlib,
     // TCI direct connection
     connectTci,
     disconnectTci,
+    deleteTciConfig,
     // SmartUnlink
     addSmartUnlinkRadio: addSmartUnlinkRadioFn,
     updateSmartUnlinkRadio: updateSmartUnlinkRadioFn,

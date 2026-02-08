@@ -92,7 +92,7 @@ export interface Settings {
   header: HeaderSettings;
 }
 
-export type SettingsSection = 'station' | 'qrz' | 'rotator' | 'database' | 'appearance' | 'header' | 'about';
+export type SettingsSection = 'station' | 'qrz' | 'rotator' | 'database' | 'appearance' | 'map' | 'header' | 'about';
 
 interface SettingsState {
   // Settings data

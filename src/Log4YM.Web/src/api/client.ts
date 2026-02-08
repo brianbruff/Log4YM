@@ -415,7 +415,6 @@ export interface AdifExportRequest {
   qsoIds?: string[];
 }
 
-<<<<<<< HEAD
 // Contest Types
 export interface Contest {
   name: string;

@@ -143,7 +143,7 @@ const ModeCellRenderer = (props: ICellRendererParams<Spot>) => {
     mode = inferModeFromFrequency(freq);
   }
 
-  if (!mode) return <span className="text-gray-500">?</span>;
+  if (!mode) return <span className="text-dark-300">?</span>;
 
   // Normalize mode display
   const displayMode = (m: string) => {
@@ -162,7 +162,7 @@ const ModeCellRenderer = (props: ICellRendererParams<Spot>) => {
       case 'FT4': return 'badge-ft8';
       case 'RTTY':
       case 'PSK31': return 'badge-rtty';
-      default: return 'bg-dark-600 text-gray-300';
+      default: return 'bg-dark-600 text-dark-200';
     }
   };
   return <span className={`badge text-xs ${getModeClass(mode)}`}>{displayMode(mode)}</span>;
@@ -170,7 +170,7 @@ const ModeCellRenderer = (props: ICellRendererParams<Spot>) => {
 
 // Custom cell renderer for frequency
 const FrequencyCellRenderer = (props: ICellRendererParams<Spot>) => {
-  return <span className="frequency-display text-accent-info text-sm">{formatFrequency(props.value)}</span>;
+  return <span className="frequency-display font-mono text-accent-info text-sm">{formatFrequency(props.value)}</span>;
 };
 
 // Custom cell renderer for country flag
@@ -185,9 +185,9 @@ const TimeCellRenderer = (props: ICellRendererParams<Spot>) => {
   const time = props.data?.timestamp || props.value;
   const age = getAge(time);
   return (
-    <div className="flex items-center gap-2 text-gray-400">
+    <div className="flex items-center gap-2 text-dark-300">
       <span className="font-mono">{formatTime(time)}</span>
-      <span className="text-xs text-gray-600">({age})</span>
+      <span className="text-xs text-dark-400">({age})</span>
     </div>
   );
 };
@@ -219,10 +219,10 @@ function ClusterSettingsPanel({
 
   const getStatusColor = (status?: ClusterStatusType) => {
     switch (status) {
-      case 'connected': return 'bg-green-500';
-      case 'connecting': return 'bg-yellow-500 animate-pulse';
-      case 'error': return 'bg-red-500';
-      default: return 'bg-gray-500';
+      case 'connected': return 'bg-accent-success';
+      case 'connecting': return 'bg-accent-primary animate-pulse';
+      case 'error': return 'bg-accent-danger';
+      default: return 'bg-dark-400';
     }
   };
 
@@ -251,16 +251,16 @@ function ClusterSettingsPanel({
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <div className={`w-2.5 h-2.5 rounded-full ${getStatusColor(status)}`} />
-                <span className="text-sm font-medium text-gray-300">
+                <span className="text-sm font-medium font-ui text-dark-200">
                   {conn.name || `Cluster ${index + 1}`}
                 </span>
-                <span className="text-xs text-gray-500">
+                <span className="text-xs text-dark-300">
                   ({getStatusText(status)})
                 </span>
               </div>
               <button
                 onClick={() => onRemoveConnection(conn.id)}
-                className="p-1 text-gray-500 hover:text-red-400 transition-colors"
+                className="p-1 text-dark-300 hover:text-accent-danger transition-colors"
                 title="Remove cluster"
               >
                 <Trash2 className="w-4 h-4" />
@@ -271,50 +271,50 @@ function ClusterSettingsPanel({
             <div className="grid grid-cols-2 gap-3">
               {/* Name */}
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Name</label>
+                <label className="block text-xs font-ui text-dark-300 mb-1">Name</label>
                 <input
                   type="text"
                   value={conn.name}
                   onChange={(e) => onUpdateConnection(conn.id, { name: e.target.value })}
                   placeholder="Cluster name"
-                  className="w-full px-2 py-1.5 bg-dark-900 border border-glass-100 rounded text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-accent-primary/50"
+                  className="w-full px-2 py-1.5 bg-dark-900 border border-glass-100 rounded text-sm text-dark-200 placeholder-dark-400 focus:outline-none focus:border-accent-primary/50"
                 />
               </div>
 
               {/* Host */}
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Host</label>
+                <label className="block text-xs font-ui text-dark-300 mb-1">Host</label>
                 <input
                   type="text"
                   value={conn.host}
                   onChange={(e) => onUpdateConnection(conn.id, { host: e.target.value })}
                   placeholder="e.g., de.ve7cc.net"
-                  className="w-full px-2 py-1.5 bg-dark-900 border border-glass-100 rounded text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-accent-primary/50"
+                  className="w-full px-2 py-1.5 bg-dark-900 border border-glass-100 rounded text-sm text-dark-200 placeholder-dark-400 focus:outline-none focus:border-accent-primary/50"
                 />
               </div>
 
               {/* Port */}
               <div>
-                <label className="block text-xs text-gray-500 mb-1">Port</label>
+                <label className="block text-xs font-ui text-dark-300 mb-1">Port</label>
                 <input
                   type="number"
                   value={conn.port}
                   onChange={(e) => onUpdateConnection(conn.id, { port: parseInt(e.target.value) || 23 })}
-                  className="w-full px-2 py-1.5 bg-dark-900 border border-glass-100 rounded text-sm text-gray-200 focus:outline-none focus:border-accent-primary/50"
+                  className="w-full px-2 py-1.5 bg-dark-900 border border-glass-100 rounded text-sm font-mono text-dark-200 focus:outline-none focus:border-accent-primary/50"
                 />
               </div>
 
               {/* Callsign */}
               <div>
-                <label className="block text-xs text-gray-500 mb-1">
-                  Callsign <span className="text-gray-600">(blank = station)</span>
+                <label className="block text-xs font-ui text-dark-300 mb-1">
+                  Callsign <span className="text-dark-400">(blank = station)</span>
                 </label>
                 <input
                   type="text"
                   value={conn.callsign || ''}
                   onChange={(e) => onUpdateConnection(conn.id, { callsign: e.target.value || null })}
                   placeholder={stationCallsign || 'Your callsign'}
-                  className="w-full px-2 py-1.5 bg-dark-900 border border-glass-100 rounded text-sm text-gray-200 placeholder-gray-600 focus:outline-none focus:border-accent-primary/50"
+                  className="w-full px-2 py-1.5 bg-dark-900 border border-glass-100 rounded text-sm font-mono text-dark-200 placeholder-dark-400 focus:outline-none focus:border-accent-primary/50"
                 />
               </div>
             </div>
@@ -328,9 +328,9 @@ function ClusterSettingsPanel({
                     type="checkbox"
                     checked={conn.enabled}
                     onChange={(e) => onUpdateConnection(conn.id, { enabled: e.target.checked })}
-                    className="w-4 h-4 rounded border-glass-200 bg-dark-900 text-accent-primary focus:ring-accent-primary/50"
+                    className="w-4 h-4 rounded border-glass-200 bg-dark-900 text-accent-primary focus:ring-accent-primary/40"
                   />
-                  <span className="text-sm text-gray-400">Enabled</span>
+                  <span className="text-sm font-ui text-dark-300">Enabled</span>
                 </label>
 
                 {/* Auto-Reconnect Toggle */}
@@ -339,9 +339,9 @@ function ClusterSettingsPanel({
                     type="checkbox"
                     checked={conn.autoReconnect}
                     onChange={(e) => onUpdateConnection(conn.id, { autoReconnect: e.target.checked })}
-                    className="w-4 h-4 rounded border-glass-200 bg-dark-900 text-accent-primary focus:ring-accent-primary/50"
+                    className="w-4 h-4 rounded border-glass-200 bg-dark-900 text-accent-primary focus:ring-accent-primary/40"
                   />
-                  <span className="text-sm text-gray-400">Auto-reconnect</span>
+                  <span className="text-sm font-ui text-dark-300">Auto-reconnect</span>
                 </label>
               </div>
 
@@ -350,9 +350,9 @@ function ClusterSettingsPanel({
                 onClick={() => isConnected ? onDisconnect(conn.id) : onConnect(conn.id)}
                 disabled={isConnecting || !conn.host}
                 className={`
-                  px-3 py-1.5 rounded text-sm font-medium transition-colors
+                  px-3 py-1.5 rounded text-sm font-medium font-ui transition-colors
                   ${isConnected
-                    ? 'bg-red-500/20 text-red-400 hover:bg-red-500/30'
+                    ? 'bg-accent-danger/20 text-accent-danger hover:bg-accent-danger/30'
                     : 'bg-accent-primary/20 text-accent-primary hover:bg-accent-primary/30'
                   }
                   disabled:opacity-50 disabled:cursor-not-allowed
@@ -369,7 +369,7 @@ function ClusterSettingsPanel({
       {canAddMore && (
         <button
           onClick={onAddConnection}
-          className="w-full flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-glass-100 rounded-lg text-gray-400 hover:border-accent-primary/50 hover:text-accent-primary transition-colors"
+          className="w-full flex items-center justify-center gap-2 px-4 py-3 border-2 border-dashed border-glass-100 rounded-lg text-dark-300 hover:border-accent-primary/50 hover:text-accent-primary transition-colors font-ui"
         >
           <Plus className="w-4 h-4" />
           Add Cluster (max 4)
@@ -377,11 +377,11 @@ function ClusterSettingsPanel({
       )}
 
       {connections.length === 0 && (
-        <div className="text-center py-6 text-gray-500">
-          <p className="mb-2">No cluster connections configured</p>
+        <div className="text-center py-6 text-dark-300">
+          <p className="mb-2 font-ui">No cluster connections configured</p>
           <button
             onClick={onAddConnection}
-            className="inline-flex items-center gap-2 px-4 py-2 bg-accent-primary/20 text-accent-primary rounded-lg hover:bg-accent-primary/30 transition-colors"
+            className="inline-flex items-center gap-2 px-4 py-2 bg-accent-primary/20 text-accent-primary rounded-lg hover:bg-accent-primary/30 transition-colors font-ui"
           >
             <Plus className="w-4 h-4" />
             Add your first cluster
@@ -548,7 +548,7 @@ export function ClusterPlugin() {
       headerName: 'Band',
       field: 'frequency',
       valueGetter: (params) => getBandFromFrequency(params.data?.frequency || 0),
-      cellClass: 'font-mono text-gray-400',
+      cellClass: 'font-mono text-dark-300',
       width: 60,
       resizable: true,
     },
@@ -570,21 +570,21 @@ export function ClusterPlugin() {
     {
       headerName: 'Country',
       valueGetter: (params) => params.data?.dxStation?.country || params.data?.country || '-',
-      cellClass: 'text-gray-400',
+      cellClass: 'text-dark-300',
       width: 100,
       resizable: true,
     },
     {
       headerName: 'Spotter',
       field: 'spotter',
-      cellClass: 'font-mono text-gray-500',
+      cellClass: 'font-mono text-dark-300',
       width: 100,
       resizable: true,
     },
     {
       headerName: 'Comment',
       field: 'comment',
-      cellClass: 'text-gray-500 truncate',
+      cellClass: 'text-dark-300 truncate',
       flex: 1,
       minWidth: 100,
       resizable: true,
@@ -604,23 +604,23 @@ export function ClusterPlugin() {
         <div className="flex items-center gap-2">
           {/* Connected clusters indicator */}
           {clusterConnections.length > 0 && (
-            <span className="text-xs text-gray-500">
+            <span className="text-xs font-ui text-dark-300">
               {connectedCount}/{clusterConnections.length} connected
             </span>
           )}
-          <span className="text-sm text-gray-400">
+          <span className="text-sm font-mono text-dark-300">
             {filteredSpots?.length || 0} spots
           </span>
           <button
             onClick={() => setSoundEnabled(!soundEnabled)}
-            className={`glass-button p-1.5 ${soundEnabled ? 'text-accent-success' : 'text-gray-500'}`}
+            className={`glass-button p-1.5 ${soundEnabled ? 'text-accent-success' : 'text-dark-300'}`}
             title={soundEnabled ? 'Disable alerts' : 'Enable alerts'}
           >
             {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
           </button>
           <button
             onClick={() => setShowSettings(!showSettings)}
-            className={`glass-button p-1.5 ${showSettings ? 'text-accent-primary' : 'text-gray-500'}`}
+            className={`glass-button p-1.5 ${showSettings ? 'text-accent-primary' : 'text-dark-300'}`}
             title="Cluster settings"
           >
             <Settings className="w-4 h-4" />
@@ -638,10 +638,10 @@ export function ClusterPlugin() {
         >
           <div className="p-4 border-b border-glass-100 bg-dark-900/30">
             <div className="flex items-center justify-between mb-3">
-              <h4 className="text-sm font-medium text-gray-300">Cluster Connections</h4>
+              <h4 className="text-sm font-medium font-ui text-dark-200">Cluster Connections</h4>
               <button
                 onClick={() => setShowSettings(false)}
-                className="p-1 text-gray-500 hover:text-gray-300"
+                className="p-1 text-dark-300 hover:text-dark-200"
               >
                 <ChevronUp className="w-4 h-4" />
               </button>
@@ -661,7 +661,7 @@ export function ClusterPlugin() {
               <div className="mt-4 flex justify-end">
                 <button
                   onClick={() => saveSettings()}
-                  className="px-4 py-2 bg-accent-primary text-white rounded-lg text-sm font-medium hover:bg-accent-primary/80 transition-colors"
+                  className="px-4 py-2 bg-accent-primary text-white rounded-lg text-sm font-medium font-ui hover:bg-accent-primary/80 transition-colors"
                 >
                   Save Settings
                 </button>
@@ -675,18 +675,18 @@ export function ClusterPlugin() {
           <div className="flex gap-3 items-center">
             {/* Fuzzy Search Input */}
             <div className="relative flex-1">
-              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+              <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-300" />
               <input
                 type="text"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 placeholder="Search call, country, spotter..."
-                className="w-full pl-9 pr-3 py-2 bg-dark-800 border border-glass-100 rounded-lg text-sm text-gray-200 placeholder-gray-500 focus:outline-none focus:border-accent-primary/50"
+                className="w-full pl-9 pr-3 py-2 bg-dark-800 border border-glass-100 rounded-lg text-sm text-dark-200 placeholder-dark-400 focus:outline-none focus:border-accent-primary/50"
               />
               {searchQuery && (
                 <button
                   onClick={() => setSearchQuery('')}
-                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-300"
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-dark-300 hover:text-dark-200"
                 >
                   <X className="w-3.5 h-3.5" />
                 </button>
@@ -713,7 +713,7 @@ export function ClusterPlugin() {
             {hasActiveFilters && (
               <button
                 onClick={clearAllFilters}
-                className="flex items-center gap-1.5 px-3 py-2 bg-accent-warning/20 text-accent-warning rounded-lg text-sm hover:bg-accent-warning/30 transition-colors whitespace-nowrap"
+                className="flex items-center gap-1.5 px-3 py-2 bg-accent-warning/20 text-accent-warning rounded-lg text-sm font-ui hover:bg-accent-warning/30 transition-colors whitespace-nowrap"
                 title="Clear all filters"
               >
                 <X className="w-4 h-4" />
@@ -727,18 +727,18 @@ export function ClusterPlugin() {
         <div className="flex-1 px-4 pb-4 min-h-0">
           <div className="ag-theme-alpine-dark h-full">
             {isLoading ? (
-              <div className="flex items-center justify-center py-8 text-gray-500">
+              <div className="flex items-center justify-center py-8 text-dark-300">
                 <Radio className="w-4 h-4 animate-spin mr-2" />
                 Loading spots...
               </div>
             ) : filteredSpots?.length === 0 ? (
-              <div className="text-center py-8 text-gray-500">
+              <div className="text-center py-8 text-dark-300">
                 {hasActiveFilters ? (
                   <>
                     <p>No spots match your filters</p>
                     <button
                       onClick={clearAllFilters}
-                      className="mt-2 text-accent-primary hover:underline"
+                      className="mt-2 text-accent-primary hover:underline font-ui"
                     >
                       Clear filters
                     </button>

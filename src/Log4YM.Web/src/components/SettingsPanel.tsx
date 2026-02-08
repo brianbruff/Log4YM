@@ -66,6 +66,12 @@ const SETTINGS_SECTIONS: { id: SettingsSection; name: string; icon: React.ReactN
     description: 'Theme and display options',
   },
   {
+    id: 'header',
+    name: 'Header Bar',
+    icon: <Eye className="w-5 h-5" />,
+    description: 'Customize header display settings',
+  },
+  {
     id: 'about',
     name: 'About',
     icon: <Info className="w-5 h-5" />,
@@ -84,14 +90,14 @@ function StationSettingsSection() {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold text-gray-100 mb-1">Station Information</h3>
-        <p className="text-sm text-gray-500">Configure your station callsign and location details.</p>
+        <h3 className="text-lg font-semibold font-ui text-dark-200 mb-1">Station Information</h3>
+        <p className="text-sm text-dark-300">Configure your station callsign and location details.</p>
       </div>
 
       <div className="grid grid-cols-2 gap-4">
         {/* Callsign */}
         <div className="space-y-2">
-          <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
+          <label className="flex items-center gap-2 text-sm font-medium font-ui text-dark-200">
             <Radio className="w-4 h-4 text-accent-primary" />
             Callsign
           </label>
@@ -106,7 +112,7 @@ function StationSettingsSection() {
 
         {/* Operator Name */}
         <div className="space-y-2">
-          <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
+          <label className="flex items-center gap-2 text-sm font-medium font-ui text-dark-200">
             <User className="w-4 h-4 text-accent-primary" />
             Operator Name
           </label>
@@ -121,7 +127,7 @@ function StationSettingsSection() {
 
         {/* Grid Square */}
         <div className="space-y-2">
-          <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
+          <label className="flex items-center gap-2 text-sm font-medium font-ui text-dark-200">
             <MapPin className="w-4 h-4 text-accent-primary" />
             Grid Square (Maidenhead)
           </label>
@@ -137,7 +143,7 @@ function StationSettingsSection() {
 
         {/* City */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-300">City</label>
+          <label className="text-sm font-medium font-ui text-dark-200">City</label>
           <input
             type="text"
             value={station.city}
@@ -149,7 +155,7 @@ function StationSettingsSection() {
 
         {/* Country */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-300">Country</label>
+          <label className="text-sm font-medium font-ui text-dark-200">Country</label>
           <input
             type="text"
             value={station.country}
@@ -162,10 +168,10 @@ function StationSettingsSection() {
 
       {/* Coordinates */}
       <div className="border-t border-glass-100 pt-4">
-        <h4 className="text-sm font-medium text-gray-300 mb-3">Coordinates (Optional)</h4>
+        <h4 className="text-sm font-medium font-ui text-dark-200 mb-3">Coordinates (Optional)</h4>
         <div className="grid grid-cols-2 gap-4">
           <div className="space-y-2">
-            <label className="text-sm text-gray-400">Latitude</label>
+            <label className="text-sm font-ui text-dark-300">Latitude</label>
             <input
               type="number"
               step="0.0001"
@@ -180,7 +186,7 @@ function StationSettingsSection() {
             />
           </div>
           <div className="space-y-2">
-            <label className="text-sm text-gray-400">Longitude</label>
+            <label className="text-sm font-ui text-dark-300">Longitude</label>
             <input
               type="number"
               step="0.0001"
@@ -246,8 +252,8 @@ function QrzSettingsSection() {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold text-gray-100 mb-1">QRZ.com Integration</h3>
-        <p className="text-sm text-gray-500">
+        <h3 className="text-lg font-semibold font-ui text-dark-200 mb-1">QRZ.com Integration</h3>
+        <p className="text-sm text-dark-300">
           Configure your QRZ.com credentials for callsign lookups and log uploads.
         </p>
       </div>
@@ -255,8 +261,8 @@ function QrzSettingsSection() {
       {/* Enable toggle */}
       <div className="flex items-center justify-between p-4 bg-dark-700/50 rounded-lg border border-glass-100">
         <div>
-          <p className="font-medium text-gray-200">Enable QRZ Lookups</p>
-          <p className="text-sm text-gray-500">Use QRZ.com for callsign information</p>
+          <p className="font-medium font-ui text-dark-200">Enable QRZ Lookups</p>
+          <p className="text-sm text-dark-300">Use QRZ.com for callsign information</p>
         </div>
         <button
           onClick={() => updateQrzSettings({ enabled: !qrz.enabled })}
@@ -276,8 +282,8 @@ function QrzSettingsSection() {
       {hasXmlSubscription !== null && (
         <div className={`flex items-center gap-2 p-3 rounded-lg border ${
           hasXmlSubscription
-            ? 'bg-green-500/10 border-green-500/30 text-green-400'
-            : 'bg-yellow-500/10 border-yellow-500/30 text-yellow-400'
+            ? 'bg-accent-success/10 border-accent-success/30 text-accent-success'
+            : 'bg-accent-primary/10 border-accent-primary/30 text-accent-primary'
         }`}>
           {hasXmlSubscription ? (
             <>
@@ -296,7 +302,7 @@ function QrzSettingsSection() {
       {/* Credentials */}
       <div className={`space-y-4 ${!qrz.enabled ? 'opacity-50 pointer-events-none' : ''}`}>
         <div className="space-y-2">
-          <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
+          <label className="flex items-center gap-2 text-sm font-medium font-ui text-dark-200">
             <User className="w-4 h-4 text-accent-primary" />
             QRZ Username (Callsign)
           </label>
@@ -311,7 +317,7 @@ function QrzSettingsSection() {
         </div>
 
         <div className="space-y-2">
-          <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
+          <label className="flex items-center gap-2 text-sm font-medium font-ui text-dark-200">
             <Key className="w-4 h-4 text-accent-primary" />
             QRZ Password
           </label>
@@ -327,21 +333,21 @@ function QrzSettingsSection() {
             <button
               type="button"
               onClick={() => setShowPassword(!showPassword)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-300"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-dark-300 hover:text-dark-200"
             >
               {showPassword ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>
-          <p className="text-xs text-gray-600">
+          <p className="text-xs text-dark-300">
             Required for callsign lookups (requires XML subscription on QRZ.com).
           </p>
         </div>
 
         {/* API Key for Logbook */}
         <div className="pt-4 border-t border-glass-100">
-          <h4 className="text-sm font-medium text-gray-300 mb-3">QRZ Logbook Integration</h4>
+          <h4 className="text-sm font-medium font-ui text-dark-200 mb-3">QRZ Logbook Integration</h4>
           <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
+            <label className="flex items-center gap-2 text-sm font-medium font-ui text-dark-200">
               <Key className="w-4 h-4 text-accent-info" />
               Logbook API Key
             </label>
@@ -357,12 +363,12 @@ function QrzSettingsSection() {
               <button
                 type="button"
                 onClick={() => setShowApiKey(!showApiKey)}
-                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-300"
+                className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-dark-300 hover:text-dark-200"
               >
                 {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
               </button>
             </div>
-            <p className="text-xs text-gray-600">
+            <p className="text-xs text-dark-300">
               Get your API key from{' '}
               <a
                 href="https://logbook.qrz.com/logbook"
@@ -401,7 +407,7 @@ function QrzSettingsSection() {
             </span>
           </button>
           {testMessage && (
-            <span className={`text-sm ${testStatus === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+            <span className={`text-sm ${testStatus === 'success' ? 'text-accent-success' : 'text-accent-danger'}`}>
               {testMessage}
             </span>
           )}
@@ -461,8 +467,8 @@ function RotatorSettingsSection() {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold text-gray-100 mb-1">Rotator Control</h3>
-        <p className="text-sm text-gray-500">
+        <h3 className="text-lg font-semibold font-ui text-dark-200 mb-1">Rotator Control</h3>
+        <p className="text-sm text-dark-300">
           Configure connection to hamlib rotctld for antenna rotator control.
         </p>
       </div>
@@ -638,11 +644,11 @@ function RotatorSettingsSection() {
           {rotator.enabled ? (
             <Wifi className="w-5 h-5 text-accent-success" />
           ) : (
-            <WifiOff className="w-5 h-5 text-gray-500" />
+            <WifiOff className="w-5 h-5 text-dark-300" />
           )}
           <div>
-            <p className="font-medium text-gray-200">Enable Rotator Control</p>
-            <p className="text-sm text-gray-500">Connect to rotctld TCP server</p>
+            <p className="font-medium font-ui text-dark-200">Enable Rotator Control</p>
+            <p className="text-sm text-dark-300">Connect to rotctld TCP server</p>
           </div>
         </div>
         <button
@@ -664,7 +670,7 @@ function RotatorSettingsSection() {
         <div className="grid grid-cols-2 gap-4">
           {/* IP Address */}
           <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
+            <label className="flex items-center gap-2 text-sm font-medium font-ui text-dark-200">
               <Globe className="w-4 h-4 text-accent-primary" />
               IP Address
             </label>
@@ -683,7 +689,7 @@ function RotatorSettingsSection() {
 
           {/* Port */}
           <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
+            <label className="flex items-center gap-2 text-sm font-medium font-ui text-dark-200">
               <Compass className="w-4 h-4 text-accent-primary" />
               Port
             </label>
@@ -733,7 +739,7 @@ function RotatorSettingsSection() {
 
         {/* Polling Interval */}
         <div className="space-y-2">
-          <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
+          <label className="flex items-center gap-2 text-sm font-medium font-ui text-dark-200">
             Polling Interval (ms)
           </label>
           <input
@@ -747,14 +753,14 @@ function RotatorSettingsSection() {
             className="glass-input w-48 font-mono"
             disabled={!rotator.enabled}
           />
-          <p className="text-xs text-gray-600">
+          <p className="text-xs text-dark-300">
             How often to poll the rotator for position updates (100-5000ms)
           </p>
         </div>
 
         {/* Rotator ID */}
         <div className="space-y-2">
-          <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
+          <label className="flex items-center gap-2 text-sm font-medium font-ui text-dark-200">
             Rotator ID
           </label>
           <input
@@ -765,10 +771,18 @@ function RotatorSettingsSection() {
             className="glass-input w-48 font-mono"
             disabled={!rotator.enabled}
           />
-          <p className="text-xs text-gray-600">
+          <p className="text-xs text-dark-300">
             Identifier for this rotator (useful if you have multiple rotators)
           </p>
         </div>
+      </div>
+
+      {/* Help text */}
+      <div className="pt-4 border-t border-glass-100">
+        <p className="text-xs text-dark-300">
+          The rotator service connects to hamlib's rotctld daemon via TCP. Make sure rotctld is
+          running and accessible at the configured address. Default port for rotctld is 4533.
+        </p>
       </div>
     </div>
   );
@@ -816,8 +830,8 @@ function DatabaseSettingsSection() {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold text-gray-100 mb-1">Database Connection</h3>
-        <p className="text-sm text-gray-500">
+        <h3 className="text-lg font-semibold font-ui text-dark-200 mb-1">Database Connection</h3>
+        <p className="text-sm text-dark-300">
           Configure your MongoDB connection for QSO and settings storage.
         </p>
       </div>
@@ -826,25 +840,25 @@ function DatabaseSettingsSection() {
       <div
         className={`p-4 rounded-lg border ${
           status?.isConnected
-            ? 'bg-green-500/10 border-green-500/30'
-            : 'bg-red-500/10 border-red-500/30'
+            ? 'bg-accent-success/10 border-accent-success/30'
+            : 'bg-accent-danger/10 border-accent-danger/30'
         }`}
       >
         <div className="flex items-center gap-3">
           {status?.isConnected ? (
-            <CheckCircle className="w-5 h-5 text-green-400" />
+            <CheckCircle className="w-5 h-5 text-accent-success" />
           ) : (
-            <AlertCircle className="w-5 h-5 text-red-400" />
+            <AlertCircle className="w-5 h-5 text-accent-danger" />
           )}
           <div>
-            <p className={`font-medium ${status?.isConnected ? 'text-green-400' : 'text-red-400'}`}>
+            <p className={`font-medium ${status?.isConnected ? 'text-accent-success' : 'text-accent-danger'}`}>
               {status?.isConnected ? 'Connected' : 'Not Connected'}
             </p>
             {status?.databaseName && (
-              <p className="text-sm text-gray-400">Database: {status.databaseName}</p>
+              <p className="text-sm text-dark-300">Database: {status.databaseName}</p>
             )}
             {status?.configuredAt && (
-              <p className="text-xs text-gray-500">
+              <p className="text-xs text-dark-300">
                 Configured: {new Date(status.configuredAt).toLocaleString()}
               </p>
             )}
@@ -866,7 +880,7 @@ function DatabaseSettingsSection() {
       {/* Connection String Input */}
       <div className="space-y-4">
         <div className="space-y-2">
-          <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
+          <label className="flex items-center gap-2 text-sm font-medium font-ui text-dark-200">
             <Server className="w-4 h-4 text-accent-primary" />
             MongoDB Connection String
           </label>
@@ -884,19 +898,19 @@ function DatabaseSettingsSection() {
             <button
               type="button"
               onClick={() => setShowConnectionString(!showConnectionString)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-gray-500 hover:text-gray-300"
+              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-dark-300 hover:text-dark-200"
             >
               {showConnectionString ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
             </button>
           </div>
-          <p className="text-xs text-gray-600">
+          <p className="text-xs text-dark-300">
             Your connection string is stored locally and never sent anywhere except MongoDB.
           </p>
         </div>
 
         {/* Database Name Input */}
         <div className="space-y-2">
-          <label className="text-sm font-medium text-gray-300">Database Name</label>
+          <label className="text-sm font-medium font-ui text-dark-200">Database Name</label>
           <input
             type="text"
             value={databaseName}
@@ -907,7 +921,7 @@ function DatabaseSettingsSection() {
             placeholder="Log4YM"
             className="glass-input w-full font-mono"
           />
-          <p className="text-xs text-gray-600">
+          <p className="text-xs text-dark-300">
             The database will be created automatically if it doesn't exist.
           </p>
         </div>
@@ -918,22 +932,22 @@ function DatabaseSettingsSection() {
         <div
           className={`p-4 rounded-lg border ${
             testResult.success
-              ? 'bg-green-500/10 border-green-500/30'
-              : 'bg-red-500/10 border-red-500/30'
+              ? 'bg-accent-success/10 border-accent-success/30'
+              : 'bg-accent-danger/10 border-accent-danger/30'
           }`}
         >
           <div className="flex items-start gap-3">
             {testResult.success ? (
-              <CheckCircle className="w-5 h-5 text-green-400 flex-shrink-0 mt-0.5" />
+              <CheckCircle className="w-5 h-5 text-accent-success flex-shrink-0 mt-0.5" />
             ) : (
-              <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
+              <AlertCircle className="w-5 h-5 text-accent-danger flex-shrink-0 mt-0.5" />
             )}
             <div>
-              <p className={`font-medium ${testResult.success ? 'text-green-400' : 'text-red-400'}`}>
+              <p className={`font-medium ${testResult.success ? 'text-accent-success' : 'text-accent-danger'}`}>
                 {testResult.message}
               </p>
               {testResult.serverInfo && (
-                <p className="text-sm text-gray-400 mt-1">
+                <p className="text-sm text-dark-300 mt-1">
                   Found {testResult.serverInfo.databaseCount} database(s) on server
                 </p>
               )}
@@ -944,10 +958,10 @@ function DatabaseSettingsSection() {
 
       {/* Error Display */}
       {error && (
-        <div className="p-4 rounded-lg border bg-red-500/10 border-red-500/30">
+        <div className="p-4 rounded-lg border bg-accent-danger/10 border-accent-danger/30">
           <div className="flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-red-400 flex-shrink-0 mt-0.5" />
-            <p className="text-red-400">{error}</p>
+            <AlertCircle className="w-5 h-5 text-accent-danger flex-shrink-0 mt-0.5" />
+            <p className="text-accent-danger">{error}</p>
           </div>
         </div>
       )}
@@ -992,7 +1006,7 @@ function DatabaseSettingsSection() {
 
       {/* Info */}
       <div className="pt-4 border-t border-glass-100">
-        <p className="text-xs text-gray-600">
+        <p className="text-xs text-dark-300">
           Log4YM uses MongoDB to store your QSOs, settings, and layout preferences. You can use a
           free MongoDB Atlas cluster or a local MongoDB installation. Configuration is stored
           locally on your device.
@@ -1010,13 +1024,13 @@ function AppearanceSettingsSection() {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold text-gray-100 mb-1">Appearance</h3>
-        <p className="text-sm text-gray-500">Customize the look and feel of the application.</p>
+        <h3 className="text-lg font-semibold font-ui text-dark-200 mb-1">Appearance</h3>
+        <p className="text-sm text-dark-300">Customize the look and feel of the application.</p>
       </div>
 
       {/* Theme selection */}
       <div className="space-y-3">
-        <label className="text-sm font-medium text-gray-300">Theme</label>
+        <label className="text-sm font-medium font-ui text-dark-200">Theme</label>
         <div className="grid grid-cols-3 gap-3">
           {(['dark', 'light', 'system'] as const).map((theme) => (
             <button
@@ -1032,14 +1046,14 @@ function AppearanceSettingsSection() {
             </button>
           ))}
         </div>
-        <p className="text-xs text-gray-600">Currently only dark theme is available.</p>
+        <p className="text-xs text-dark-300">Currently only dark theme is available.</p>
       </div>
 
       {/* Compact mode toggle */}
       <div className="flex items-center justify-between p-4 bg-dark-700/50 rounded-lg border border-glass-100">
         <div>
-          <p className="font-medium text-gray-200">Compact Mode</p>
-          <p className="text-sm text-gray-500">Use smaller spacing and fonts</p>
+          <p className="font-medium font-ui text-dark-200">Compact Mode</p>
+          <p className="text-sm text-dark-300">Use smaller spacing and fonts</p>
         </div>
         <button
           onClick={() => updateAppearanceSettings({ compactMode: !appearance.compactMode })}
@@ -1058,38 +1072,148 @@ function AppearanceSettingsSection() {
   );
 }
 
+// Header Settings Section
+function HeaderSettingsSection() {
+  const { settings, updateHeaderSettings } = useSettingsStore();
+  const header = settings.header;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold font-ui text-dark-200 mb-1">Header Bar Settings</h3>
+        <p className="text-sm text-dark-300">Customize the header bar display with space weather indices and time formats.</p>
+      </div>
+
+      <div className="space-y-4">
+        {/* Time Format */}
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 text-sm font-medium font-ui text-dark-200">
+            Time Format (Local)
+          </label>
+          <div className="flex gap-2">
+            <button
+              onClick={() => updateHeaderSettings({ timeFormat: '12h' })}
+              className={`flex-1 px-4 py-2 rounded-lg border transition-colors ${
+                header.timeFormat === '12h'
+                  ? 'bg-accent-primary/10 border-accent-primary text-accent-primary'
+                  : 'bg-dark-700/50 border-glass-100 text-dark-300 hover:bg-dark-700'
+              }`}
+            >
+              12-Hour
+            </button>
+            <button
+              onClick={() => updateHeaderSettings({ timeFormat: '24h' })}
+              className={`flex-1 px-4 py-2 rounded-lg border transition-colors ${
+                header.timeFormat === '24h'
+                  ? 'bg-accent-primary/10 border-accent-primary text-accent-primary'
+                  : 'bg-dark-700/50 border-glass-100 text-dark-300 hover:bg-dark-700'
+              }`}
+            >
+              24-Hour
+            </button>
+          </div>
+          <p className="text-xs text-dark-300">You can also click the local time in the header to toggle formats.</p>
+        </div>
+
+        {/* Size Multiplier */}
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 text-sm font-medium font-ui text-dark-200">
+            Header Size
+          </label>
+          <div className="grid grid-cols-4 gap-2">
+            {[0.75, 1.0, 1.25, 1.5].map((size) => (
+              <button
+                key={size}
+                onClick={() => updateHeaderSettings({ sizeMultiplier: size })}
+                className={`px-4 py-2 rounded-lg border transition-colors ${
+                  header.sizeMultiplier === size
+                    ? 'bg-accent-primary/10 border-accent-primary text-accent-primary'
+                    : 'bg-dark-700/50 border-glass-100 text-dark-300 hover:bg-dark-700'
+                }`}
+              >
+                {size === 1.0 ? 'Normal' : `${size}x`}
+              </button>
+            ))}
+          </div>
+          <p className="text-xs text-dark-300">Adjust the size of text and spacing in the header bar.</p>
+        </div>
+
+        {/* Show Weather */}
+        <label className="flex items-center justify-between p-4 bg-dark-700/50 rounded-lg border border-glass-100 cursor-pointer hover:bg-dark-700 transition-colors">
+          <div className="flex items-center gap-3">
+            <Globe className="w-5 h-5 text-accent-primary" />
+            <div>
+              <div className="font-medium font-ui text-dark-200">Show Weather</div>
+              <div className="text-sm text-dark-300">Display current weather in header (requires station coordinates)</div>
+            </div>
+          </div>
+          <input
+            type="checkbox"
+            checked={header.showWeather}
+            onChange={(e) => updateHeaderSettings({ showWeather: e.target.checked })}
+            className="w-5 h-5 rounded border-glass-100 bg-dark-700 text-accent-primary focus:ring-accent-primary focus:ring-offset-0"
+          />
+        </label>
+
+        {/* Info Box */}
+        <div className="p-4 bg-accent-primary/5 border border-accent-primary/20 rounded-lg">
+          <h4 className="font-medium font-ui text-accent-primary mb-2 flex items-center gap-2">
+            <Info className="w-4 h-4" />
+            About the Header Bar
+          </h4>
+          <div className="text-sm text-dark-300 space-y-2">
+            <p>
+              The header bar displays essential operating information inspired by OpenHamClock:
+            </p>
+            <ul className="list-disc list-inside space-y-1 ml-2">
+              <li><strong className="text-accent-secondary">UTC Time</strong>: Essential for logging (always 24-hour format)</li>
+              <li><strong className="text-accent-primary">Local Time</strong>: Your system time (clickable to toggle format)</li>
+              <li><strong className="text-accent-primary">SFI</strong>: Solar Flux Index (higher is better for HF)</li>
+              <li><strong className="text-accent-success">K-Index</strong>: Geomagnetic activity (turns <span className="text-accent-danger">red</span> when ≥4)</li>
+              <li><strong className="text-accent-secondary">SSN</strong>: Sunspot Number (indicates solar activity)</li>
+            </ul>
+            <p className="pt-2 text-xs">
+              Space weather data refreshes every 15 minutes. Weather data requires latitude/longitude in Station settings.
+            </p>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // About Section
 function AboutSection() {
   return (
     <div className="space-y-6">
       <div>
-        <h3 className="text-lg font-semibold text-gray-100 mb-1">About Log4YM</h3>
-        <p className="text-sm text-gray-500">Version and application information.</p>
+        <h3 className="text-lg font-semibold font-ui text-dark-200 mb-1">About Log4YM</h3>
+        <p className="text-sm text-dark-300">Version and application information.</p>
       </div>
 
       <div className="space-y-4">
         <div className="p-4 bg-dark-700/50 rounded-lg border border-glass-100">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-orange-500/20 rounded-lg flex items-center justify-center">
-              <Radio className="w-8 h-8 text-orange-500" />
+            <div className="w-16 h-16 bg-accent-primary/20 rounded-lg flex items-center justify-center">
+              <Radio className="w-8 h-8 text-accent-primary" />
             </div>
             <div>
-              <h4 className="text-xl font-bold text-orange-500">LOG4YM</h4>
-              <p className="text-sm text-gray-400">Ham Radio Logging Software</p>
-              <p className="text-xs text-gray-600 mt-1">Version 0.1.0 (Alpha)</p>
+              <h4 className="text-xl font-bold font-display text-accent-primary">LOG4YM</h4>
+              <p className="text-sm text-dark-300">Ham Radio Logging Software</p>
+              <p className="text-xs text-dark-300 mt-1">Version 0.1.0 (Alpha)</p>
             </div>
           </div>
         </div>
 
-        <div className="space-y-2 text-sm text-gray-400">
+        <div className="space-y-2 text-sm text-dark-300">
           <p>
-            <strong className="text-gray-300">Author:</strong> Brian Keating (EI6LF)
+            <strong className="text-dark-200">Author:</strong> Brian Keating (EI6LF)
           </p>
           <p>
-            <strong className="text-gray-300">License:</strong> MIT
+            <strong className="text-dark-200">License:</strong> MIT
           </p>
           <p>
-            <strong className="text-gray-300">Website:</strong>{' '}
+            <strong className="text-dark-200">Website:</strong>{' '}
             <a href="https://github.com/brianbruff/Log4YM" className="text-accent-primary hover:underline">
               github.com/brianbruff/Log4YM
             </a>
@@ -1097,7 +1221,7 @@ function AboutSection() {
         </div>
 
         <div className="pt-4 border-t border-glass-100">
-          <p className="text-xs text-gray-600">
+          <p className="text-xs text-dark-300">
             Log4YM is a modern ham radio logging application designed for amateur radio operators.
             It features real-time DX cluster integration, rotator control, and QSO logging.
           </p>
@@ -1142,6 +1266,8 @@ export function SettingsPanel() {
         return <DatabaseSettingsSection />;
       case 'appearance':
         return <AppearanceSettingsSection />;
+      case 'header':
+        return <HeaderSettingsSection />;
       case 'about':
         return <AboutSection />;
       default:
@@ -1162,7 +1288,7 @@ export function SettingsPanel() {
           <div className="p-4 border-b border-glass-100">
             <div className="flex items-center gap-3">
               <Settings className="w-6 h-6 text-accent-primary" />
-              <h2 className="text-lg font-semibold">Settings</h2>
+              <h2 className="text-lg font-semibold font-display">Settings</h2>
             </div>
           </div>
 
@@ -1175,15 +1301,15 @@ export function SettingsPanel() {
                 className={`w-full flex items-center gap-3 px-3 py-3 rounded-lg text-left transition-all ${
                   activeSection === section.id
                     ? 'bg-accent-primary/10 text-accent-primary border border-accent-primary/30'
-                    : 'hover:bg-dark-700 text-gray-400 hover:text-gray-200 border border-transparent'
+                    : 'hover:bg-dark-700 text-dark-300 hover:text-dark-200 border border-transparent'
                 }`}
               >
-                <span className={activeSection === section.id ? 'text-accent-primary' : 'text-gray-500'}>
+                <span className={activeSection === section.id ? 'text-accent-secondary' : 'text-dark-300'}>
                   {section.icon}
                 </span>
                 <div>
-                  <p className="font-medium">{section.name}</p>
-                  <p className="text-xs text-gray-600">{section.description}</p>
+                  <p className="font-medium font-ui">{section.name}</p>
+                  <p className="text-xs text-dark-300">{section.description}</p>
                 </div>
               </button>
             ))}
@@ -1205,7 +1331,7 @@ export function SettingsPanel() {
             </button>
             <button
               onClick={resetSettings}
-              className="w-full glass-button flex items-center justify-center gap-2 py-2 text-gray-400"
+              className="w-full glass-button flex items-center justify-center gap-2 py-2 text-dark-300"
             >
               <RotateCcw className="w-4 h-4" />
               <span>Reset to Defaults</span>
@@ -1217,7 +1343,7 @@ export function SettingsPanel() {
         <div className="flex-1 flex flex-col">
           {/* Header with close button */}
           <div className="flex items-center justify-between p-4 border-b border-glass-100">
-            <h3 className="text-lg font-semibold text-gray-100">
+            <h3 className="text-lg font-semibold font-display text-dark-200">
               {SETTINGS_SECTIONS.find((s) => s.id === activeSection)?.name}
             </h3>
             <button onClick={closeSettings} className="p-2 hover:bg-dark-700 rounded-lg transition-colors">
@@ -1230,7 +1356,7 @@ export function SettingsPanel() {
 
           {/* Dirty indicator */}
           {isDirty && (
-            <div className="px-4 py-2 bg-amber-500/10 border-t border-amber-500/30 text-amber-400 text-sm flex items-center gap-2">
+            <div className="px-4 py-2 bg-accent-primary/10 border-t border-accent-primary/30 text-accent-primary text-sm flex items-center gap-2">
               <AlertCircle className="w-4 h-4" />
               <span>You have unsaved changes</span>
             </div>

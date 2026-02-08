@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import basicSsl from "@vitejs/plugin-basic-ssl";
@@ -28,5 +29,11 @@ export default defineConfig({
   build: {
     outDir: "dist",
     emptyOutDir: true,
+  },
+  test: {
+    environment: "happy-dom",
+    globals: true,
+    setupFiles: "./src/test-setup.ts",
+    include: ["src/**/*.test.{ts,tsx}"],
   },
 });

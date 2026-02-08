@@ -1,17 +1,16 @@
-import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
+import { useState, useMemo, useEffect } from 'react';
 import { Radio, Zap, Map, Settings, ChevronUp, Plus, Trash2, X, Search } from 'lucide-react';
 import { AgGridReact } from 'ag-grid-react';
 import { ColDef, ICellRendererParams, RowClickedEvent, CellMouseOverEvent, CellMouseOutEvent } from 'ag-grid-community';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-alpine.css';
-import { api, Spot } from '../api/client';
+import { api } from '../api/client';
 import { useSignalR } from '../hooks/useSignalR';
 import { GlassPanel } from '../components/GlassPanel';
 import { MultiSelectDropdown, MultiSelectOption } from '../components/MultiSelectDropdown';
 import { getCountryFlag } from '../core/countryFlags';
 import { useSettingsStore, ClusterConnection } from '../store/settingsStore';
-import { useAppStore } from '../store/appStore';
+import { useAppStore, Spot } from '../store/appStore';
 
 const BAND_RANGES: Record<string, [number, number]> = {
   '160m': [1800, 2000],
@@ -399,6 +398,9 @@ export function ClusterPlugin() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSettings, setShowSettings] = useState(false);
 
+  // Get spots from app store (ephemeral, in-memory only)
+  const spots = useAppStore((state) => state.dxClusterSpots);
+
   // DX Cluster map overlay state from appStore
   const dxClusterMapEnabled = useAppStore((state) => state.dxClusterMapEnabled);
   const setDxClusterMapEnabled = useAppStore((state) => state.setDxClusterMapEnabled);
@@ -428,11 +430,36 @@ export function ClusterPlugin() {
     return statuses;
   }, [clusterStatusesFromStore]);
 
-  const { data: spots, isLoading } = useQuery({
-    queryKey: ['spots'],
-    queryFn: () => api.getSpots({ limit: 100 }),
-    refetchInterval: 30000,
-  });
+  // Subscribe to spot received events from SignalR
+  useEffect(() => {
+    const unsubscribe = subscribeToSpotReceived((event: SpotReceivedEvent) => {
+      // Convert SpotReceivedEvent to Spot format
+      const newSpot: Spot = {
+        id: event.id,
+        dxCall: event.dxCall,
+        spotter: event.spotter,
+        frequency: event.frequency,
+        mode: event.mode,
+        comment: event.comment,
+        source: event.source,
+        timestamp: event.timestamp.toString(),
+        country: event.country,
+        dxStation: event.country || event.dxcc ? {
+          country: event.country,
+          dxcc: event.dxcc,
+        } : undefined,
+      };
+
+      // Add the new spot to the beginning of the list
+      setSpots((prevSpots) => {
+        // Keep only the most recent 200 spots to prevent memory bloat
+        const updatedSpots = [newSpot, ...prevSpots].slice(0, 200);
+        return updatedSpots;
+      });
+    });
+
+    return () => unsubscribe();
+  }, [subscribeToSpotReceived]);
 
   // Filter spots based on selected bands, modes, and search query
   const filteredSpots = useMemo(() => {

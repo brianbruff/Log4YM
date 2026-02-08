@@ -63,12 +63,19 @@ const formatFrequency = (freq: number) => {
   return (freq / 1000).toFixed(3);
 };
 
-const formatTime = (dateStr: string) => {
+const formatTime = (dateStr: string, timezone: string = 'UTC') => {
   if (!dateStr) return '--:--';
   try {
     const date = new Date(dateStr);
     if (isNaN(date.getTime())) return '--:--';
-    return date.toISOString().slice(11, 16);
+
+    // Format time in specified timezone (defaults to UTC)
+    return date.toLocaleTimeString('en-US', {
+      timeZone: timezone,
+      hour12: false,
+      hour: '2-digit',
+      minute: '2-digit'
+    });
   } catch {
     return '--:--';
   }
@@ -179,15 +186,14 @@ const FlagCellRenderer = (props: ICellRendererParams<Spot>) => {
   return <span className="text-lg">{getCountryFlag(country)}</span>;
 };
 
-// Custom cell renderer for time with age
+// Custom cell renderer for time - shows UTC time only
 const TimeCellRenderer = (props: ICellRendererParams<Spot>) => {
   // Use timestamp field (API returns 'timestamp', not 'time')
   const time = props.data?.timestamp || props.value;
-  const age = getAge(time);
   return (
-    <div className="flex items-center gap-2 text-dark-300">
-      <span className="font-mono">{formatTime(time)}</span>
-      <span className="text-xs text-dark-400">({age})</span>
+    <div className="flex items-center gap-1 text-dark-300">
+      <span className="font-mono text-sm">{formatTime(time, 'UTC')}</span>
+      <span className="text-xs text-dark-400">Z</span>
     </div>
   );
 };
@@ -743,8 +749,18 @@ export function ClusterPlugin() {
                       Clear filters
                     </button>
                   </>
+                ) : connectedCount === 0 ? (
+                  <>
+                    <p className="mb-2">No cluster connections active</p>
+                    <button
+                      onClick={() => setShowSettings(true)}
+                      className="text-accent-primary hover:underline font-ui"
+                    >
+                      Configure clusters
+                    </button>
+                  </>
                 ) : (
-                  'No spots available'
+                  <p>No spots received yet</p>
                 )}
               </div>
             ) : (

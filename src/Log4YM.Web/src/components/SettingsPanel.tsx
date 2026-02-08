@@ -157,6 +157,24 @@ function StationSettingsSection() {
             className="glass-input w-full"
           />
         </div>
+
+        {/* Timezone */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium font-ui text-dark-200">
+            Timezone
+            <span className="ml-1 text-xs text-dark-400">(IANA format)</span>
+          </label>
+          <input
+            type="text"
+            value={station.timezone || 'UTC'}
+            onChange={(e) => updateStationSettings({ timezone: e.target.value })}
+            placeholder="e.g. America/New_York, Europe/Dublin"
+            className="glass-input w-full font-mono"
+          />
+          <p className="text-xs text-dark-400">
+            Used for local time display in DX Cluster and logs. Defaults to UTC.
+          </p>
+        </div>
       </div>
 
       {/* Coordinates */}

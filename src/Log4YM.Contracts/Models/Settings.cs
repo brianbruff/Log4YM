@@ -58,6 +58,9 @@ public class StationSettings
 
     [BsonElement("country")]
     public string Country { get; set; } = string.Empty;
+
+    [BsonElement("timezone")]
+    public string Timezone { get; set; } = "UTC";  // IANA timezone (e.g., "America/New_York", "UTC")
 }
 
 public class QrzSettings

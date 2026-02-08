@@ -9,6 +9,7 @@ export interface StationSettings {
   longitude: number | null;
   city: string;
   country: string;
+  timezone: string;  // IANA timezone (e.g., "America/New_York", "UTC")
 }
 
 export interface QrzSettings {
@@ -139,6 +140,7 @@ const defaultSettings: Settings = {
     longitude: null,
     city: '',
     country: '',
+    timezone: 'UTC',
   },
   qrz: {
     username: '',

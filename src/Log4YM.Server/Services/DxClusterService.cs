@@ -221,10 +221,11 @@ public class DxClusterService : IDxClusterService, IHostedService, IDisposable
 
     private static string GenerateDeduplicationKey(ParsedSpot spot)
     {
-        // Key: DxCall + rounded frequency (to nearest kHz) + minute timestamp
-        var roundedFreq = Math.Round(spot.Frequency);
-        var minute = spot.Timestamp.Ticks / TimeSpan.TicksPerMinute;
-        return $"{spot.DxCall.ToUpperInvariant()}:{roundedFreq}:{minute}";
+        // Key: DxCall + frequency (exact match) + spotter
+        // This ensures we only deduplicate truly identical spots from the same spotter
+        // Different spotters reporting the same station should show separately
+        var normalizedFreq = Math.Round(spot.Frequency, 1); // Round to 0.1 kHz for slight variations
+        return $"{spot.DxCall.ToUpperInvariant()}:{normalizedFreq}:{spot.Spotter.ToUpperInvariant()}";
     }
 
     private void CleanupRecentSpots(object? state)

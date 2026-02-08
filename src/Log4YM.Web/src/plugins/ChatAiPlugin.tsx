@@ -5,6 +5,21 @@ import { useSettingsStore } from '../store/settingsStore';
 import { GlassPanel } from '../components/GlassPanel';
 import { api, type GenerateTalkPointsResponse, type ChatMessage as ChatMessageType } from '../api/client';
 
+const BAND_RANGES: Record<string, [number, number]> = {
+  '160m': [1800, 2000], '80m': [3500, 4000], '60m': [5330, 5410],
+  '40m': [7000, 7300], '30m': [10100, 10150], '20m': [14000, 14350],
+  '17m': [18068, 18168], '15m': [21000, 21450], '12m': [24890, 24990],
+  '10m': [28000, 29700], '6m': [50000, 54000],
+};
+
+const getBandFromFrequency = (freqHz: number): string | undefined => {
+  const freqKhz = freqHz / 1000;
+  for (const [band, [min, max]] of Object.entries(BAND_RANGES)) {
+    if (freqKhz >= min && freqKhz <= max) return band;
+  }
+  return undefined;
+};
+
 export function ChatAiPlugin() {
   const { focusedCallsignInfo, isLookingUpCallsign, rigStatus } = useAppStore();
   const { settings, openSettings } = useSettingsStore();
@@ -46,7 +61,7 @@ export function ChatAiPlugin() {
     try {
       const response = await api.generateTalkPoints({
         callsign,
-        currentBand: rigStatus?.band,
+        currentBand: rigStatus?.frequency ? getBandFromFrequency(rigStatus.frequency) : undefined,
         currentMode: rigStatus?.mode,
       });
       setTalkPointsData(response);

@@ -51,6 +51,7 @@ export function calculateSatellitePosition(
     const positionAndVelocity = satellite.propagate(satrec, date);
 
     if (
+      !positionAndVelocity ||
       typeof positionAndVelocity.position === 'boolean' ||
       typeof positionAndVelocity.velocity === 'boolean'
     ) {

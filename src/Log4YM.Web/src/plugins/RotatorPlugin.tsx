@@ -160,9 +160,9 @@ export function RotatorPlugin() {
                   className={`glass-button px-2 py-1 text-xs ${
                     Math.abs(currentAzimuth - preset.azimuth) < 5 ? 'border-accent-primary text-accent-primary' : ''
                   }`}
-                  title={`${preset.azimuth}°`}
+                  title={`${preset.azimuth}\u00B0`}
                 >
-                  <span className="font-medium">{preset.name}</span>
+                  <span className="font-ui font-medium">{preset.name}</span>
                 </button>
               ))}
 
@@ -174,10 +174,10 @@ export function RotatorPlugin() {
                 <div className="flex rounded overflow-hidden border border-glass-200 text-xs">
                   <button
                     onClick={() => setPathMode('short')}
-                    className={`px-2 py-1 font-medium transition-colors ${
+                    className={`px-2 py-1 font-ui font-medium transition-colors ${
                       pathMode === 'short'
                         ? 'bg-accent-warning text-dark-900'
-                        : 'bg-dark-700 text-gray-400 hover:text-gray-200'
+                        : 'bg-dark-700 text-dark-300 hover:text-dark-200'
                     }`}
                     title="Short Path"
                   >
@@ -185,10 +185,10 @@ export function RotatorPlugin() {
                   </button>
                   <button
                     onClick={() => setPathMode('long')}
-                    className={`px-2 py-1 font-medium transition-colors ${
+                    className={`px-2 py-1 font-ui font-medium transition-colors ${
                       pathMode === 'long'
                         ? 'bg-accent-warning text-dark-900'
-                        : 'bg-dark-700 text-gray-400 hover:text-gray-200'
+                        : 'bg-dark-700 text-dark-300 hover:text-dark-200'
                     }`}
                     title="Long Path"
                   >
@@ -232,7 +232,7 @@ export function RotatorPlugin() {
                     title={`Rotate to ${focusedCallsignInfo?.callsign} (${pathMode === 'short' ? 'SP' : 'LP'})`}
                   >
                     <Target className="w-3.5 h-3.5" />
-                    <span className="font-mono">{selectedBearing?.toFixed(0)}°</span>
+                    <span className="font-mono">{selectedBearing?.toFixed(0)}\u00B0</span>
                   </button>
                 </>
               )}
@@ -252,7 +252,7 @@ export function RotatorPlugin() {
               </button>
             </>
           ) : (
-            <span className="text-sm text-gray-500">Disabled</span>
+            <span className="text-sm font-ui text-dark-300">Disabled</span>
           )}
         </div>
       }
@@ -260,9 +260,9 @@ export function RotatorPlugin() {
       {/* Disabled state */}
       {!rotatorEnabled && (
         <div className="p-8 flex flex-col items-center justify-center text-center">
-          <Compass className="w-16 h-16 text-gray-600 mb-4" />
-          <p className="text-gray-400 text-lg font-medium mb-2">Rotator Disabled</p>
-          <p className="text-gray-500 text-sm">
+          <Compass className="w-16 h-16 text-dark-400 mb-4" />
+          <p className="text-dark-300 text-lg font-ui font-medium mb-2">Rotator Disabled</p>
+          <p className="text-dark-300 text-sm font-ui">
             Enable rotator in Settings to control antenna direction.
           </p>
         </div>
@@ -302,7 +302,7 @@ export function RotatorPlugin() {
                 {/* Inner decorative ring */}
                 <div className="absolute inset-4 rounded-full border border-glass-100" />
 
-                {/* Degree markers - major (every 30°) */}
+                {/* Degree markers - major (every 30deg) */}
                 {[0, 30, 60, 90, 120, 150, 180, 210, 240, 270, 300, 330].map((deg) => (
                   <div
                     key={`major-${deg}`}
@@ -316,7 +316,7 @@ export function RotatorPlugin() {
                   />
                 ))}
 
-                {/* Degree markers - minor (every 10°) */}
+                {/* Degree markers - minor (every 10deg) */}
                 {[10, 20, 40, 50, 70, 80, 100, 110, 130, 140, 160, 170, 190, 200, 220, 230, 250, 260, 280, 290, 310, 320, 340, 350].map((deg) => (
                   <div
                     key={`minor-${deg}`}
@@ -331,36 +331,36 @@ export function RotatorPlugin() {
                 ))}
 
                 {/* Cardinal directions */}
-                <span className="absolute top-5 left-1/2 -translate-x-1/2 text-sm font-bold text-accent-danger">N</span>
-                <span className="absolute bottom-5 left-1/2 -translate-x-1/2 text-sm font-bold text-gray-500">S</span>
-                <span className="absolute left-5 top-1/2 -translate-y-1/2 text-sm font-bold text-gray-500">W</span>
-                <span className="absolute right-5 top-1/2 -translate-y-1/2 text-sm font-bold text-gray-500">E</span>
+                <span className="absolute top-5 left-1/2 -translate-x-1/2 text-sm font-bold text-accent-danger font-display">N</span>
+                <span className="absolute bottom-5 left-1/2 -translate-x-1/2 text-sm font-bold text-dark-300 font-display">S</span>
+                <span className="absolute left-5 top-1/2 -translate-y-1/2 text-sm font-bold text-dark-300 font-display">W</span>
+                <span className="absolute right-5 top-1/2 -translate-y-1/2 text-sm font-bold text-dark-300 font-display">E</span>
 
                 {/* Intercardinal directions */}
-                <span className="absolute top-8 right-8 text-xs text-gray-600">NE</span>
-                <span className="absolute top-8 left-8 text-xs text-gray-600">NW</span>
-                <span className="absolute bottom-8 right-8 text-xs text-gray-600">SE</span>
-                <span className="absolute bottom-8 left-8 text-xs text-gray-600">SW</span>
+                <span className="absolute top-8 right-8 text-xs text-dark-400 font-mono">NE</span>
+                <span className="absolute top-8 left-8 text-xs text-dark-400 font-mono">NW</span>
+                <span className="absolute bottom-8 right-8 text-xs text-dark-400 font-mono">SE</span>
+                <span className="absolute bottom-8 left-8 text-xs text-dark-400 font-mono">SW</span>
 
-                {/* Short path bearing indicator (orange line) */}
+                {/* Short path bearing indicator (amber line) */}
                 {shortPathBearing != null && (
                   <div
                     className="absolute left-1/2 top-1/2 w-1 h-24 -ml-0.5 origin-bottom"
                     style={{
                       transform: `translateY(-100%) rotate(${shortPathBearing}deg)`,
-                      background: 'linear-gradient(to top, transparent, #f97316)',
+                      background: 'linear-gradient(to top, transparent, #ffb432)',
                       opacity: pathMode === 'short' ? 0.8 : 0.3,
                     }}
                   />
                 )}
 
-                {/* Long path bearing indicator (orange dashed line) */}
+                {/* Long path bearing indicator (amber dashed line) */}
                 {longPathBearing != null && (
                   <div
                     className="absolute left-1/2 top-1/2 w-0.5 h-24 origin-bottom"
                     style={{
                       transform: `translateY(-100%) rotate(${longPathBearing}deg)`,
-                      background: `repeating-linear-gradient(to top, transparent 0px, transparent 4px, #f97316 4px, #f97316 8px)`,
+                      background: `repeating-linear-gradient(to top, transparent 0px, transparent 4px, #ffb432 4px, #ffb432 8px)`,
                       opacity: pathMode === 'long' ? 0.8 : 0.3,
                     }}
                   />
@@ -376,7 +376,7 @@ export function RotatorPlugin() {
                   <div
                     className="w-full h-full rounded-full"
                     style={{
-                      background: 'linear-gradient(to top, transparent 0%, #6366f1 30%, #8b5cf6 100%)',
+                      background: 'linear-gradient(to top, transparent 0%, #00ddff 30%, #00ff88 100%)',
                     }}
                   />
                   {/* Needle tip glow */}
@@ -390,14 +390,14 @@ export function RotatorPlugin() {
 
                 {/* Azimuth display */}
                 <div className="absolute left-1/2 top-1/2 -translate-x-1/2 translate-y-10 text-center">
-                  <span className="text-3xl font-mono font-bold text-accent-primary drop-shadow-glow">
-                    {currentAzimuth.toFixed(0)}°
+                  <span className="text-3xl font-display font-bold text-accent-primary drop-shadow-glow">
+                    {currentAzimuth.toFixed(0)}&deg;
                   </span>
                 </div>
 
                 {/* Moving indicator */}
                 {rotatorPosition?.isMoving && (
-                  <div className="absolute left-1/2 -bottom-2 -translate-x-1/2 flex items-center gap-1 text-xs text-accent-warning">
+                  <div className="absolute left-1/2 -bottom-2 -translate-x-1/2 flex items-center gap-1 text-xs text-accent-warning font-ui">
                     <RotateCw className="w-3 h-3 animate-spin" />
                     <span>Moving</span>
                   </div>
@@ -416,15 +416,15 @@ export function RotatorPlugin() {
                 {focusedCallsignInfo.callsign}
               </span>
               {focusedCallsignInfo.grid && (
-                <span className="text-gray-500">{focusedCallsignInfo.grid}</span>
+                <span className="text-dark-300 font-mono">{focusedCallsignInfo.grid}</span>
               )}
             </div>
             <div className="flex items-center gap-3 font-mono">
-              <span className={pathMode === 'short' ? 'text-accent-warning' : 'text-gray-500'}>
-                SP {shortPathBearing?.toFixed(0) ?? '---'}°
+              <span className={pathMode === 'short' ? 'text-accent-warning' : 'text-dark-300'}>
+                SP {shortPathBearing?.toFixed(0) ?? '---'}&deg;
               </span>
-              <span className={pathMode === 'long' ? 'text-accent-warning' : 'text-gray-500'}>
-                LP {longPathBearing?.toFixed(0) ?? '---'}°
+              <span className={pathMode === 'long' ? 'text-accent-warning' : 'text-dark-300'}>
+                LP {longPathBearing?.toFixed(0) ?? '---'}&deg;
               </span>
               {focusedCallsignInfo.distance != null && (
                 <span className="text-accent-info">
@@ -437,9 +437,9 @@ export function RotatorPlugin() {
 
         {/* Status line - only show when moving */}
         {rotatorPosition?.isMoving && rotatorPosition?.targetAzimuth != null && (
-          <div className="flex items-center justify-center text-xs text-accent-warning gap-1">
+          <div className="flex items-center justify-center text-xs text-accent-warning font-ui gap-1">
             <RotateCw className="w-3 h-3 animate-spin" />
-            <span>Moving to {rotatorPosition.targetAzimuth.toFixed(0)}°</span>
+            <span>Moving to {rotatorPosition.targetAzimuth.toFixed(0)}&deg;</span>
           </div>
         )}
       </div>
@@ -496,24 +496,24 @@ function RotatorSettingsModal({ presets, onSave, onClose }: RotatorSettingsModal
     <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50">
       <div className="bg-dark-800 rounded-xl border border-glass-100 shadow-2xl w-full max-w-md mx-4">
         <div className="flex items-center justify-between px-4 py-3 border-b border-glass-100">
-          <h3 className="text-lg font-semibold text-gray-200">Rotator Presets</h3>
+          <h3 className="text-lg font-ui font-semibold text-dark-200">Rotator Presets</h3>
           <button
             onClick={onClose}
-            className="text-gray-400 hover:text-gray-200 transition-colors"
+            className="text-dark-300 hover:text-dark-200 transition-colors"
           >
             <X className="w-5 h-5" />
           </button>
         </div>
 
         <div className="p-4 space-y-4">
-          <p className="text-sm text-gray-400">
-            Configure quick-access heading presets. Examples: N (0°), VK LP (240°), JA SP (30°)
+          <p className="text-sm font-ui text-dark-300">
+            Configure quick-access heading presets. Examples: N (0&deg;), VK LP (240&deg;), JA SP (30&deg;)
           </p>
 
           <div className="space-y-3">
             {editedPresets.map((preset, index) => (
               <div key={index} className="flex items-center gap-3">
-                <span className="text-sm text-gray-500 w-6">{index + 1}.</span>
+                <span className="text-sm text-dark-300 font-mono w-6">{index + 1}.</span>
                 <input
                   type="text"
                   value={preset.name}
@@ -531,19 +531,19 @@ function RotatorSettingsModal({ presets, onSave, onClose }: RotatorSettingsModal
                     max="360"
                     className="glass-input w-20 text-sm font-mono text-center"
                   />
-                  <span className="text-gray-500 text-sm">°</span>
+                  <span className="text-dark-300 text-sm">&deg;</span>
                 </div>
               </div>
             ))}
           </div>
 
-          <div className="text-xs text-gray-500 pt-2 border-t border-glass-50">
-            <p className="font-medium mb-1">Example configurations:</p>
-            <ul className="space-y-0.5 list-disc list-inside">
-              <li>NA (290°) - North America</li>
-              <li>VK LP (240°) - VK Long Path</li>
-              <li>VK SP (60°) - VK Short Path</li>
-              <li>JA SP (30°) - Japan Short Path</li>
+          <div className="text-xs text-dark-300 pt-2 border-t border-glass-100">
+            <p className="font-ui font-medium mb-1">Example configurations:</p>
+            <ul className="space-y-0.5 list-disc list-inside font-mono">
+              <li>NA (290&deg;) - North America</li>
+              <li>VK LP (240&deg;) - VK Long Path</li>
+              <li>VK SP (60&deg;) - VK Short Path</li>
+              <li>JA SP (30&deg;) - Japan Short Path</li>
             </ul>
           </div>
         </div>
@@ -551,20 +551,20 @@ function RotatorSettingsModal({ presets, onSave, onClose }: RotatorSettingsModal
         <div className="flex justify-between gap-2 px-4 py-3 border-t border-glass-100">
           <button
             onClick={handleReset}
-            className="px-3 py-2 text-sm font-medium text-gray-400 hover:text-gray-200 transition-colors"
+            className="px-3 py-2 text-sm font-ui font-medium text-dark-300 hover:text-dark-200 transition-colors"
           >
             Reset to N/E/S/W
           </button>
           <div className="flex gap-2">
             <button
               onClick={onClose}
-              className="px-4 py-2 text-sm font-medium bg-dark-700 text-gray-300 rounded-lg hover:bg-dark-600 transition-all border border-glass-100"
+              className="px-4 py-2 text-sm font-ui font-medium bg-dark-700 text-dark-200 rounded-lg hover:bg-dark-600 transition-all border border-glass-100"
             >
               Cancel
             </button>
             <button
               onClick={() => onSave(editedPresets)}
-              className="px-4 py-2 text-sm font-medium bg-accent-primary text-white rounded-lg hover:bg-accent-primary/80 transition-all"
+              className="px-4 py-2 text-sm font-ui font-medium bg-accent-primary text-white rounded-lg hover:bg-accent-primary/80 transition-all"
             >
               Save
             </button>

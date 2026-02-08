@@ -926,6 +926,14 @@ class SignalRService {
     await this.connection?.invoke('DisconnectHamlibRig');
   }
 
+  async deleteHamlibConfig(): Promise<void> {
+    await this.connection?.invoke('DeleteHamlibConfig');
+  }
+
+  async deleteTciConfig(): Promise<void> {
+    await this.connection?.invoke('DeleteTciConfig');
+  }
+
   // TCI direct connection methods
   async connectTci(host: string, port: number = 50001, name?: string): Promise<void> {
     await this.connection?.invoke('ConnectTci', host, port, name);

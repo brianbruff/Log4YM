@@ -29,10 +29,10 @@ const stationIcon = new L.DivIcon({
     <div style="
       width: 24px;
       height: 24px;
-      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      background: linear-gradient(135deg, #00ddff, #00bbdd);
       border: 3px solid #fff;
       border-radius: 50%;
-      box-shadow: 0 0 10px rgba(99, 102, 241, 0.6);
+      box-shadow: 0 0 10px rgba(0, 221, 255, 0.6);
     "></div>
   `,
   iconSize: [24, 24],
@@ -46,10 +46,10 @@ const targetIcon = new L.DivIcon({
     <div style="
       width: 20px;
       height: 20px;
-      background: linear-gradient(135deg, #f59e0b, #ef4444);
+      background: linear-gradient(135deg, #ffb432, #ff4466);
       border: 2px solid #fff;
       border-radius: 50%;
-      box-shadow: 0 0 8px rgba(245, 158, 11, 0.6);
+      box-shadow: 0 0 8px rgba(255, 180, 50, 0.6);
     "></div>
   `,
   iconSize: [20, 20],
@@ -166,12 +166,12 @@ export function MapPlugin() {
   // Station coordinates - prioritize lat/lon from settings, fall back to grid square, then defaults
   let stationLat = DEFAULT_LAT;
   let stationLon = DEFAULT_LON;
-  
+
   // First priority: explicit lat/lon in settings
   if (settings.station.latitude != null && settings.station.longitude != null) {
     stationLat = settings.station.latitude;
     stationLon = settings.station.longitude;
-  } 
+  }
   // Second priority: convert grid square to coordinates
   else if (settings.station.gridSquare) {
     const coords = gridToLatLon(settings.station.gridSquare);
@@ -237,6 +237,21 @@ export function MapPlugin() {
     });
   }, [focusedCallsignInfo?.latitude, focusedCallsignInfo?.longitude, stationLat, stationLon]);
 
+  // Invalidate map size when container is resized (e.g., FlexLayout panel drag)
+  useEffect(() => {
+    const container = containerRef.current;
+    if (!container) return;
+
+    const observer = new ResizeObserver(() => {
+      requestAnimationFrame(() => {
+        mapRef.current?.invalidateSize();
+      });
+    });
+
+    observer.observe(container);
+    return () => observer.disconnect();
+  }, []);
+
   // Handle click on map to set bearing (only when rotator enabled)
   const handleBearingClick = useCallback((azimuth: number) => {
     if (!rotatorEnabled) return; // Ignore clicks when rotator disabled
@@ -256,14 +271,14 @@ export function MapPlugin() {
     setIsFullscreen(!isFullscreen);
   }, [isFullscreen]);
 
-  // Generate rotator beam visualization line (indigo)
+  // Generate rotator beam visualization line (cyan)
   const beamLinePoints: [number, number][] = [];
   const beamDistance = 5000; // 5000km beam visualization
   for (let d = 0; d <= beamDistance; d += 100) {
     beamLinePoints.push(getDestinationPoint(stationLat, stationLon, currentAzimuth, d));
   }
 
-  // Generate target heading line (orange) - separate from rotator beam
+  // Generate target heading line (amber) - separate from rotator beam
   const targetBearing = focusedCallsignInfo?.bearing;
   const targetLinePoints: [number, number][] = [];
   if (targetBearing != null) {
@@ -285,7 +300,7 @@ export function MapPlugin() {
           {rotatorEnabled ? (
             <span className="text-sm font-mono text-accent-primary">{currentAzimuth}°</span>
           ) : (
-            <span className="text-sm text-gray-500">No Rotator</span>
+            <span className="text-sm font-ui text-dark-300">No Rotator</span>
           )}
           <button
             onClick={toggleFullscreen}
@@ -302,7 +317,7 @@ export function MapPlugin() {
           center={[stationLat, stationLon]}
           zoom={5}
           className="w-full h-full"
-          style={{ background: '#1e1e1e' }}
+          style={{ background: '#0a0e14' }}
           ref={(map) => { mapRef.current = map ?? null; }}
           zoomControl={false}
         >
@@ -322,9 +337,9 @@ export function MapPlugin() {
           <Marker position={[stationLat, stationLon]} icon={stationIcon}>
             <Popup>
               <div className="text-center">
-                <strong className="text-accent-primary">{stationGrid || 'Station'}</strong>
+                <strong style={{ color: '#ffb432' }} className="font-mono">{stationGrid || 'Station'}</strong>
                 <br />
-                <span className="text-xs text-gray-500">Your Location</span>
+                <span className="text-xs font-ui" style={{ color: '#5a7090' }}>Your Location</span>
               </div>
             </Popup>
           </Marker>
@@ -334,20 +349,20 @@ export function MapPlugin() {
             center={[stationLat, stationLon]}
             radius={500000}
             pathOptions={{
-              color: '#6366f1',
-              fillColor: '#6366f1',
+              color: '#00ddff',
+              fillColor: '#00ddff',
               fillOpacity: 0.05,
               weight: 1,
               dashArray: '5, 5',
             }}
           />
 
-          {/* Rotator beam direction line - only show when rotator enabled (indigo) */}
+          {/* Rotator beam direction line - only show when rotator enabled (cyan) */}
           {rotatorEnabled && (
             <Polyline
               positions={beamLinePoints}
               pathOptions={{
-                color: '#6366f1',
+                color: '#00ddff',
                 weight: 3,
                 opacity: 0.7,
                 dashArray: '10, 5',
@@ -355,12 +370,12 @@ export function MapPlugin() {
             />
           )}
 
-          {/* Target heading line - show when we have a focused callsign with bearing (orange) */}
+          {/* Target heading line - show when we have a focused callsign with bearing (amber) */}
           {targetLinePoints.length > 0 && (
             <Polyline
               positions={targetLinePoints}
               pathOptions={{
-                color: '#f97316',
+                color: '#ffb432',
                 weight: 2,
                 opacity: 0.8,
                 dashArray: '5, 10',
@@ -373,15 +388,15 @@ export function MapPlugin() {
             <Marker position={[targetLat, targetLon]} icon={targetIcon}>
               <Popup>
                 <div className="text-center">
-                  <strong className="text-accent-warning">{focusedCallsignInfo?.callsign}</strong>
+                  <strong style={{ color: '#ffb432' }} className="font-mono">{focusedCallsignInfo?.callsign}</strong>
                   <br />
                   {focusedCallsignInfo?.grid && (
-                    <span className="text-xs">{focusedCallsignInfo.grid}</span>
+                    <span className="text-xs font-mono" style={{ color: '#8899aa' }}>{focusedCallsignInfo.grid}</span>
                   )}
                   {focusedCallsignInfo?.bearing != null && (
                     <>
                       <br />
-                      <span className="text-xs text-accent-info">
+                      <span className="text-xs font-mono" style={{ color: '#00ddff' }}>
                         {focusedCallsignInfo.bearing.toFixed(0)}° / {Math.round(focusedCallsignInfo.distance ?? 0)} km
                       </span>
                     </>
@@ -436,8 +451,8 @@ export function MapPlugin() {
                       saveSettings();
                       setShowLayerPicker(false);
                     }}
-                    className={`w-full text-left px-2 py-1 text-sm rounded hover:bg-dark-600 ${
-                      tileLayer === key ? 'text-accent-primary' : 'text-gray-300'
+                    className={`w-full text-left px-2 py-1 text-sm font-ui rounded hover:bg-dark-600 ${
+                      tileLayer === key ? 'text-accent-primary' : 'text-dark-200'
                     }`}
                   >
                     {layer.name}
@@ -462,16 +477,16 @@ export function MapPlugin() {
         {focusedCallsignInfo && (
           <div className="absolute top-4 left-4 glass-panel px-3 py-2 z-[1000]">
             <div className="flex items-center gap-2">
-              <Target className="w-4 h-4 text-accent-warning" />
+              <Target className="w-4 h-4 text-accent-primary" />
               <div>
                 <p className="font-mono font-bold text-accent-primary">
                   {focusedCallsignInfo.callsign}
                 </p>
                 {focusedCallsignInfo.grid && (
-                  <p className="text-xs text-gray-400">{focusedCallsignInfo.grid}</p>
+                  <p className="text-xs font-mono text-dark-300">{focusedCallsignInfo.grid}</p>
                 )}
                 {focusedCallsignInfo.bearing != null && (
-                  <p className="text-xs text-accent-info">
+                  <p className="text-xs font-mono text-accent-secondary">
                     {focusedCallsignInfo.bearing.toFixed(0)}°
                     {focusedCallsignInfo.distance != null && ` / ${Math.round(focusedCallsignInfo.distance)} km`}
                   </p>
@@ -482,7 +497,7 @@ export function MapPlugin() {
         )}
 
         {/* Instructions overlay */}
-        <div className="absolute bottom-4 right-4 glass-panel px-3 py-2 z-[1000] text-xs text-gray-400">
+        <div className="absolute bottom-4 right-4 glass-panel px-3 py-2 z-[1000] text-xs font-ui text-dark-300">
           {rotatorEnabled ? 'Click on map to set bearing' : 'Rotator disabled'}
         </div>
       </div>

@@ -111,6 +111,12 @@ interface AppState {
   showPotaMapMarkers: boolean;
   setPotaSpots: (spots: PotaSpot[]) => void;
   setShowPotaMapMarkers: (show: boolean) => void;
+
+  // DX Cluster map overlay
+  dxClusterMapEnabled: boolean;
+  hoveredSpotId: string | null;
+  setDxClusterMapEnabled: (enabled: boolean) => void;
+  setHoveredSpotId: (id: string | null) => void;
 }
 
 export interface ClusterStatus {
@@ -340,4 +346,10 @@ export const useAppStore = create<AppState>((set) => ({
   showPotaMapMarkers: false,
   setPotaSpots: (spots) => set({ potaSpots: spots }),
   setShowPotaMapMarkers: (show) => set({ showPotaMapMarkers: show }),
+
+  // DX Cluster map overlay
+  dxClusterMapEnabled: false,
+  hoveredSpotId: null,
+  setDxClusterMapEnabled: (enabled) => set({ dxClusterMapEnabled: enabled }),
+  setHoveredSpotId: (id) => set({ hoveredSpotId: id }),
 }));

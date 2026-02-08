@@ -475,12 +475,8 @@
   z-index: 9999;
 }
 
-/* Scrolling ticker animation */
-@keyframes scroll {
+/* DX News ticker scrolling animation */
+@keyframes dxnews-scroll {
   0% { transform: translateX(0); }
   100% { transform: translateX(-50%); }
-}
-
-.animate-scroll {
-  animation-name: scroll;
 }

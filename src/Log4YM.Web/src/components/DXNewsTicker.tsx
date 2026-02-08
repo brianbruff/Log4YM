@@ -4,6 +4,7 @@ import { api, DXNewsItem } from '../api/client';
 export function DXNewsTicker() {
   const [news, setNews] = useState<DXNewsItem[]>([]);
   const [isLoading, setIsLoading] = useState(true);
+  const [animDuration, setAnimDuration] = useState(120);
   const tickerRef = useRef<HTMLDivElement>(null);
   const contentRef = useRef<HTMLDivElement>(null);
 
@@ -21,18 +22,17 @@ export function DXNewsTicker() {
     };
 
     fetchNews();
-    const interval = setInterval(fetchNews, 30 * 60 * 1000); // 30 minutes
-
+    const interval = setInterval(fetchNews, 30 * 60 * 1000);
     return () => clearInterval(interval);
   }, []);
 
-  // Calculate animation duration based on content width
+  // Calculate animation duration based on content width (~90px/s like OpenHamClock)
   useEffect(() => {
-    if (contentRef.current && news.length > 0) {
+    if (contentRef.current && tickerRef.current && news.length > 0) {
       const contentWidth = contentRef.current.scrollWidth;
-      // Speed: ~100 pixels per second
-      const duration = contentWidth / 100;
-      contentRef.current.style.animationDuration = `${duration}s`;
+      const containerWidth = tickerRef.current.offsetWidth;
+      const duration = Math.max(20, (contentWidth + containerWidth) / 90);
+      setAnimDuration(duration);
     }
   }, [news]);
 
@@ -41,44 +41,54 @@ export function DXNewsTicker() {
   }
 
   // Duplicate content for seamless loop
-  const duplicatedNews = [...news, ...news];
+  const tickerItems = news.map(item => ({
+    title: item.title,
+    description: item.description,
+  }));
 
   return (
-    <div className="absolute bottom-0 left-0 right-0 h-8 bg-dark-900/90 backdrop-blur-sm border-t border-glass-100 overflow-hidden z-[1000]">
-      {/* Gradient fade edges */}
-      <div className="absolute left-0 top-0 bottom-0 w-16 bg-gradient-to-r from-dark-900/90 to-transparent z-10 pointer-events-none" />
-      <div className="absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-dark-900/90 to-transparent z-10 pointer-events-none" />
-
+    <div className="absolute bottom-0 left-0 right-0 h-7 bg-dark-900/90 backdrop-blur-sm border-t border-glass-100 overflow-hidden z-[1000]">
       {/* Ticker container */}
       <div ref={tickerRef} className="h-full flex items-center">
         {/* DX NEWS badge */}
-        <div className="flex-shrink-0 px-3 py-1 bg-accent-warning/20 text-accent-warning text-xs font-bold tracking-wide border-r border-glass-100">
+        <div className="flex-shrink-0 px-2 h-full flex items-center bg-accent-warning/20 text-accent-warning text-[10px] font-bold tracking-wide border-r border-glass-100 font-mono">
           DX NEWS
         </div>
 
-        {/* Scrolling content */}
-        <div className="flex-1 relative overflow-hidden">
+        {/* Scrolling content with mask fade edges */}
+        <div
+          className="flex-1 overflow-hidden relative h-full"
+          style={{
+            maskImage: 'linear-gradient(to right, transparent 0%, black 3%, black 97%, transparent 100%)',
+            WebkitMaskImage: 'linear-gradient(to right, transparent 0%, black 3%, black 97%, transparent 100%)',
+          }}
+        >
           <div
             ref={contentRef}
-            className="flex items-center whitespace-nowrap animate-scroll"
+            className="inline-flex items-center h-full whitespace-nowrap"
             style={{
-              animationTimingFunction: 'linear',
-              animationIterationCount: 'infinite',
+              animation: `dxnews-scroll ${animDuration}s linear infinite`,
+              paddingLeft: '100%',
             }}
           >
-            {duplicatedNews.map((item, index) => (
-              <div key={index} className="inline-flex items-center px-4">
-                <span className="text-orange-400 font-medium text-sm">{item.title}</span>
+            {tickerItems.map((item, i) => (
+              <span key={i} className="inline-flex items-center">
+                <span className="text-orange-400 font-bold text-[11px] font-mono mr-1.5">{item.title}</span>
                 {item.description && (
-                  <>
-                    <span className="mx-2 text-gray-500">•</span>
-                    <span className="text-gray-400 text-xs">{item.description}</span>
-                  </>
+                  <span className="text-gray-400 text-[11px] font-mono mr-3">{item.description}</span>
                 )}
-                {index < duplicatedNews.length - 1 && (
-                  <span className="mx-3 text-gray-600">◆</span>
+                <span className="text-gray-600 text-[10px] mr-3">◆</span>
+              </span>
+            ))}
+            {/* Duplicate for seamless loop */}
+            {tickerItems.map((item, i) => (
+              <span key={`dup-${i}`} className="inline-flex items-center">
+                <span className="text-orange-400 font-bold text-[11px] font-mono mr-1.5">{item.title}</span>
+                {item.description && (
+                  <span className="text-gray-400 text-[11px] font-mono mr-3">{item.description}</span>
                 )}
-              </div>
+                <span className="text-gray-600 text-[10px] mr-3">◆</span>
+              </span>
             ))}
           </div>
         </div>

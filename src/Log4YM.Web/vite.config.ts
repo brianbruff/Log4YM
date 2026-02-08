@@ -10,16 +10,16 @@ export default defineConfig({
   plugins: [react(), ...(useHttps ? [basicSsl()] : [])],
   base: "./",
   server: {
-    port: 5203,
+    port: 5173,
     host: true,
     allowedHosts: true,
     proxy: {
       "/api": {
-        target: "http://localhost:5080",
+        target: "http://localhost:5050",
         changeOrigin: true,
       },
       "/hubs": {
-        target: "http://localhost:5080",
+        target: "http://localhost:5050",
         changeOrigin: true,
         ws: true,
       },

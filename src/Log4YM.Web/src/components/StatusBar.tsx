@@ -1,9 +1,11 @@
-import { Radio, Wifi, WifiOff, MapPin, Clock, Loader2 } from 'lucide-react';
+import { Radio, Wifi, WifiOff, MapPin, Clock, Loader2, Settings } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
+import { useSettingsStore } from '../store/settingsStore';
 import { useEffect, useState } from 'react';
 
 export function StatusBar() {
   const { connectionState, reconnectAttempt, stationCallsign, stationGrid, rigStatus } = useAppStore();
+  const { openSettings } = useSettingsStore();
   const [currentTime, setCurrentTime] = useState(new Date());
 
   useEffect(() => {
@@ -56,6 +58,14 @@ export function StatusBar() {
           <Clock className="w-3 h-3" />
           <span className="font-mono">{formatUtcTime(currentTime)} UTC</span>
         </div>
+
+        <button
+          onClick={openSettings}
+          className="p-1 hover:bg-dark-600 rounded transition-colors text-gray-400 hover:text-accent-secondary"
+          title="Settings"
+        >
+          <Settings className="w-4 h-4" />
+        </button>
 
         <div className="flex items-center gap-2">
           {connectionState === 'connected' && (

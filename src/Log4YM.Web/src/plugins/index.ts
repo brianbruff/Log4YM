@@ -14,3 +14,4 @@ export { SolarPanelPlugin } from './SolarPanelPlugin';
 export { AnalogClockPlugin } from './AnalogClockPlugin';
 export { HeaderPlugin } from './HeaderPlugin';
 export { DXpeditionsPlugin } from './DXpeditionsPlugin';
+export { POTAPlugin } from './POTAPlugin';

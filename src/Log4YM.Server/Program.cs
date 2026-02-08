@@ -84,6 +84,12 @@ builder.Services.AddHttpClient("AI", client =>
 // Register default HTTP client factory for space weather and other APIs
 builder.Services.AddHttpClient();
 
+// Register Contests service
+builder.Services.AddSingleton<ContestsService>();
+
+// Register DX News service
+builder.Services.AddScoped<IDXNewsService, DXNewsService>();
+
 // Register event bus
 builder.Services.AddSingleton<IEventBus, EventBus>();
 

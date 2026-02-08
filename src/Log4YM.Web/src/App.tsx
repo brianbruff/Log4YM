@@ -1,11 +1,11 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { Layout, Model, TabNode, TabSetNode, BorderNode, ITabSetRenderValues, Actions, DockLocation } from 'flexlayout-react';
-import { X, Radio, Book, Zap, LayoutGrid, Antenna, Plus, Map, Compass, Gauge, User, Sun, Clock, Bot } from 'lucide-react';
+import { X, Radio, Book, Zap, LayoutGrid, Antenna, Plus, Map, Compass, Gauge, User, Calendar, Sun, Clock, Bot, MapPin } from 'lucide-react';
 import { StatusBar } from './components/StatusBar';
 import { SettingsPanel } from './components/SettingsPanel';
 import { ConnectionOverlay } from './components/ConnectionOverlay';
 import { useSignalRConnection } from './hooks/useSignalR';
-import { LogEntryPlugin, LogHistoryPlugin, ClusterPlugin, MapPlugin, RotatorPlugin, GlobePlugin, AntennaGeniusPlugin, PgxlPlugin, SmartUnlinkPlugin, RigPlugin, QrzProfilePlugin, SolarPanelPlugin, AnalogClockPlugin, HeaderPlugin, DXpeditionsPlugin, ChatAiPlugin } from './plugins';
+import { LogEntryPlugin, LogHistoryPlugin, ClusterPlugin, MapPlugin, RotatorPlugin, GlobePlugin, AntennaGeniusPlugin, PgxlPlugin, SmartUnlinkPlugin, RigPlugin, QrzProfilePlugin, ContestsPlugin, SolarPanelPlugin, AnalogClockPlugin, HeaderPlugin, DXpeditionsPlugin, ChatAiPlugin, POTAPlugin } from './plugins';
 import { Globe as Globe3D } from 'lucide-react';
 import { useLayoutStore, defaultLayout } from './store/layoutStore';
 import { useSettingsStore } from './store/settingsStore';
@@ -71,6 +71,11 @@ const PLUGINS: Record<string, { name: string; icon: React.ReactNode; component: 
     icon: <User className="w-4 h-4" />,
     component: QrzProfilePlugin,
   },
+  'contests': {
+    name: 'Contests',
+    icon: <Calendar className="w-4 h-4" />,
+    component: ContestsPlugin,
+  },
   'solar-panel': {
     name: 'Solar Panel',
     icon: <Sun className="w-4 h-4" />,
@@ -90,10 +95,16 @@ const PLUGINS: Record<string, { name: string; icon: React.ReactNode; component: 
     name: 'DXpeditions',
     icon: <Compass className="w-4 h-4" />,
     component: DXpeditionsPlugin,
+  },
   'chat-ai': {
     name: 'Chat AI',
     icon: <Bot className="w-4 h-4" />,
     component: ChatAiPlugin,
+  },
+  'pota': {
+    name: 'POTA',
+    icon: <MapPin className="w-4 h-4" />,
+    component: POTAPlugin,
   },
 };
 

@@ -145,7 +145,7 @@ public class AiService : IAiService
         return result.Items
             .OrderByDescending(q => q.QsoDate)
             .Select(q => new PreviousQsoSummary(
-                q.QsoDate,
+                q.QsoDate.ToString("yyyy-MM-dd"),
                 q.Band,
                 q.Mode,
                 q.RstSent,
@@ -341,7 +341,7 @@ public class AiService : IAiService
         {
             model = settings.Model,
             messages = messages,
-            max_tokens = 1024
+            max_completion_tokens = 1024
         };
 
         var json = JsonSerializer.Serialize(request);

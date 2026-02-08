@@ -208,7 +208,7 @@ public class AiSettings
     public string ApiKey { get; set; } = string.Empty; // Stored obfuscated
 
     [BsonElement("model")]
-    public string Model { get; set; } = "claude-sonnet-4.5"; // Provider-specific model name
+    public string Model { get; set; } = "claude-sonnet-4-5-20250929"; // Provider-specific model name
 
     [BsonElement("autoGenerateTalkPoints")]
     public bool AutoGenerateTalkPoints { get; set; } = true;

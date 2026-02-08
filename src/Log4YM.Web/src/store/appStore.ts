@@ -13,6 +13,7 @@ import type {
   SmartUnlinkRadioAddedEvent,
   SpotSelectedEvent,
 } from '../api/signalr';
+import type { PotaSpot } from '../api/client';
 
 // Connection state enum for detailed tracking
 // - disconnected: No connection to backend
@@ -104,6 +105,12 @@ interface AppState {
   // DX Cluster connection statuses
   clusterStatuses: Record<string, ClusterStatus>;
   setClusterStatus: (clusterId: string, status: ClusterStatus) => void;
+
+  // POTA spots and map markers
+  potaSpots: PotaSpot[];
+  showPotaMapMarkers: boolean;
+  setPotaSpots: (spots: PotaSpot[]) => void;
+  setShowPotaMapMarkers: (show: boolean) => void;
 }
 
 export interface ClusterStatus {
@@ -327,4 +334,10 @@ export const useAppStore = create<AppState>((set) => ({
         [clusterId]: status,
       },
     })),
+
+  // POTA spots and map markers
+  potaSpots: [],
+  showPotaMapMarkers: false,
+  setPotaSpots: (spots) => set({ potaSpots: spots }),
+  setShowPotaMapMarkers: (show) => set({ showPotaMapMarkers: show }),
 }));

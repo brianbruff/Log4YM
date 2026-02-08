@@ -237,6 +237,11 @@ class ApiClient {
     return this.fetch(`/qrz/lookup/${encodeURIComponent(callsign)}`);
   }
 
+  // POTA
+  async getPotaSpots(): Promise<PotaSpot[]> {
+    return this.fetch<PotaSpot[]>('/pota/spots');
+  }
+
   // ADIF
   async importAdif(
     file: File,
@@ -327,6 +332,20 @@ class ApiClient {
       body: JSON.stringify(request),
     });
   }
+
+  // Contests
+  async getContests(days: number = 7): Promise<Contest[]> {
+    return this.fetch<Contest[]>(`/contests?days=${days}`);
+  }
+
+  async getLiveContests(): Promise<Contest[]> {
+    return this.fetch<Contest[]>('/contests/live');
+  }
+
+  // DX News
+  async getDXNews(): Promise<DXNewsItem[]> {
+    return this.fetch<DXNewsItem[]>('/dxnews');
+  }
 }
 
 // QRZ Types
@@ -379,6 +398,27 @@ export interface QrzCallsignResponse {
   licenseExpiration?: string;
 }
 
+// POTA Types
+export interface PotaSpot {
+  spotId: number;
+  activator: string;
+  frequency: string;
+  mode: string;
+  reference: string;
+  parkName: string;
+  spotTime: string;
+  spotter: string;
+  comments: string;
+  source: string;
+  invalid?: boolean;
+  name?: string;
+  locationDesc?: string;
+  grid4?: string;
+  grid6?: string;
+  latitude?: number;
+  longitude?: number;
+}
+
 // ADIF Types
 export interface AdifImportResponse {
   totalRecords: number;
@@ -395,6 +435,18 @@ export interface AdifExportRequest {
   fromDate?: string;
   toDate?: string;
   qsoIds?: string[];
+}
+
+// Contest Types
+export interface Contest {
+  name: string;
+  mode: string;
+  startTime: string;
+  endTime: string;
+  url: string;
+  isLive: boolean;
+  isStartingSoon: boolean;
+  timeRemaining?: string;
 }
 
 // Space Weather Types
@@ -484,6 +536,14 @@ export interface TestApiKeyRequest {
 export interface TestApiKeyResponse {
   isValid: boolean;
   errorMessage?: string;
+}
+
+// DX News Types
+export interface DXNewsItem {
+  title: string;
+  description: string;
+  link: string;
+  publishedDate: string;
 }
 
 export const api = new ApiClient();

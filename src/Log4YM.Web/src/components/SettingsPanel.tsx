@@ -979,8 +979,8 @@ function AiSettingsSection() {
           Provider
         </label>
         <div className="flex gap-2">
-          <button onClick={() => updateAiSettings({ provider: 'anthropic', model: 'claude-sonnet-4.5' })} className={`flex-1 px-4 py-2 rounded-lg border transition-colors ${ai.provider === 'anthropic' ? 'bg-accent-primary/10 border-accent-primary text-accent-primary' : 'bg-dark-700/50 border-glass-100 text-gray-400 hover:bg-dark-700'}`}>Anthropic</button>
-          <button onClick={() => updateAiSettings({ provider: 'openai', model: 'gpt-4o' })} className={`flex-1 px-4 py-2 rounded-lg border transition-colors ${ai.provider === 'openai' ? 'bg-accent-primary/10 border-accent-primary text-accent-primary' : 'bg-dark-700/50 border-glass-100 text-gray-400 hover:bg-dark-700'}`}>OpenAI</button>
+          <button onClick={() => updateAiSettings({ provider: 'anthropic', model: 'claude-sonnet-4-5-20250929' })} className={`flex-1 px-4 py-2 rounded-lg border transition-colors ${ai.provider === 'anthropic' ? 'bg-accent-primary/10 border-accent-primary text-accent-primary' : 'bg-dark-700/50 border-glass-100 text-gray-400 hover:bg-dark-700'}`}>Anthropic</button>
+          <button onClick={() => updateAiSettings({ provider: 'openai', model: 'gpt-5.2-chat-latest' })} className={`flex-1 px-4 py-2 rounded-lg border transition-colors ${ai.provider === 'openai' ? 'bg-accent-primary/10 border-accent-primary text-accent-primary' : 'bg-dark-700/50 border-glass-100 text-gray-400 hover:bg-dark-700'}`}>OpenAI</button>
         </div>
       </div>
       <div className="space-y-2">
@@ -1007,15 +1007,14 @@ function AiSettingsSection() {
         <select value={ai.model} onChange={(e) => updateAiSettings({ model: e.target.value })} className="glass-input w-full">
           {ai.provider === 'anthropic' ? (
             <>
-              <option value="claude-sonnet-4.5">Claude Sonnet 4.5 (Recommended)</option>
-              <option value="claude-3-5-sonnet-20241022">Claude 3.5 Sonnet</option>
-              <option value="claude-3-haiku-20240307">Claude 3 Haiku (Faster)</option>
+              <option value="claude-sonnet-4-5-20250929">Claude Sonnet 4.5 (Recommended)</option>
+              <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5 (Faster)</option>
             </>
           ) : (
             <>
-              <option value="gpt-4o">GPT-4o (Recommended)</option>
-              <option value="gpt-4o-mini">GPT-4o Mini (Faster)</option>
-              <option value="gpt-4-turbo">GPT-4 Turbo</option>
+              <option value="gpt-5.2-chat-latest">GPT-5.2 Instant (Recommended)</option>
+              <option value="gpt-5-mini">GPT-5 Mini (Faster)</option>
+              <option value="gpt-5.2">GPT-5.2 Thinking (Most Capable)</option>
             </>
           )}
         </select>

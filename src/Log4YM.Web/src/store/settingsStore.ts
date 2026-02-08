@@ -202,7 +202,7 @@ const defaultSettings: Settings = {
   ai: {
     provider: 'anthropic',
     apiKey: '',
-    model: 'claude-sonnet-4.5',
+    model: 'claude-sonnet-4-5-20250929',
     autoGenerateTalkPoints: true,
     includeQrzProfile: true,
     includeQsoHistory: true,
@@ -435,6 +435,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
           map: { ...defaultSettings.map, ...settings.map },
           cluster: { ...defaultSettings.cluster, ...settings.cluster },
           header: { ...defaultSettings.header, ...settings.header },
+          ai: { ...defaultSettings.ai, ...settings.ai },
         };
         set({ settings: mergedSettings, isDirty: false, isLoaded: true });
       } else {

@@ -22,6 +22,7 @@ import {
   Database,
   Server,
   ExternalLink,
+  Bot,
 } from 'lucide-react';
 import { useSettingsStore, SettingsSection } from '../store/settingsStore';
 import { useSetupStore } from '../store/setupStore';
@@ -63,6 +64,12 @@ const SETTINGS_SECTIONS: { id: SettingsSection; name: string; icon: React.ReactN
     name: 'Header Bar',
     icon: <Eye className="w-5 h-5" />,
     description: 'Customize header display settings',
+  },
+  {
+    id: 'ai',
+    name: 'Chat AI',
+    icon: <Bot className="w-5 h-5" />,
+    description: 'LLM API settings for talk points',
   },
   {
     id: 'about',
@@ -932,6 +939,110 @@ function HeaderSettingsSection() {
   );
 }
 
+
+// AI Settings Section
+function AiSettingsSection() {
+  const { settings, updateAiSettings } = useSettingsStore();
+  const ai = settings.ai;
+  const [showApiKey, setShowApiKey] = useState(false);
+  const [isTesting, setIsTesting] = useState(false);
+  const [testResult, setTestResult] = useState<{ success: boolean; message?: string } | null>(null);
+
+  const handleTestApiKey = async () => {
+    if (!ai.apiKey) return;
+    setIsTesting(true);
+    setTestResult(null);
+    try {
+      const response = await fetch('/api/ai/test-key', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ provider: ai.provider, apiKey: ai.apiKey, model: ai.model }),
+      });
+      const result = await response.json();
+      setTestResult({ success: result.isValid, message: result.errorMessage || 'API key is valid!' });
+    } catch (error) {
+      setTestResult({ success: false, message: 'Failed to test API key' });
+    } finally {
+      setIsTesting(false);
+    }
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold text-gray-100 mb-1">AI Provider Settings</h3>
+        <p className="text-sm text-gray-500">Configure your LLM provider for AI-powered talk points.</p>
+      </div>
+      <div className="space-y-2">
+        <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
+          <Bot className="w-4 h-4 text-accent-primary" />
+          Provider
+        </label>
+        <div className="flex gap-2">
+          <button onClick={() => updateAiSettings({ provider: 'anthropic', model: 'claude-sonnet-4-5-20250929' })} className={`flex-1 px-4 py-2 rounded-lg border transition-colors ${ai.provider === 'anthropic' ? 'bg-accent-primary/10 border-accent-primary text-accent-primary' : 'bg-dark-700/50 border-glass-100 text-gray-400 hover:bg-dark-700'}`}>Anthropic</button>
+          <button onClick={() => updateAiSettings({ provider: 'openai', model: 'gpt-5.2-chat-latest' })} className={`flex-1 px-4 py-2 rounded-lg border transition-colors ${ai.provider === 'openai' ? 'bg-accent-primary/10 border-accent-primary text-accent-primary' : 'bg-dark-700/50 border-glass-100 text-gray-400 hover:bg-dark-700'}`}>OpenAI</button>
+        </div>
+      </div>
+      <div className="space-y-2">
+        <label className="flex items-center gap-2 text-sm font-medium text-gray-300">
+          <Key className="w-4 h-4 text-accent-primary" />
+          API Key
+        </label>
+        <div className="flex gap-2">
+          <div className="flex-1 relative">
+            <input type={showApiKey ? 'text' : 'password'} value={ai.apiKey} onChange={(e) => updateAiSettings({ apiKey: e.target.value })} placeholder={ai.provider === 'anthropic' ? 'sk-ant-...' : 'sk-...'} className="glass-input w-full font-mono pr-10" />
+            <button type="button" onClick={() => setShowApiKey(!showApiKey)} className="absolute right-2 top-1/2 -translate-y-1/2 p-1.5 text-gray-500 hover:text-gray-300 transition-colors">
+              {showApiKey ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+            </button>
+          </div>
+          <button onClick={handleTestApiKey} disabled={!ai.apiKey || isTesting} className="glass-button px-4 py-2 disabled:opacity-50 disabled:cursor-not-allowed">
+            {isTesting ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Test'}
+          </button>
+        </div>
+        {testResult && <div className={`text-sm flex items-center gap-2 ${testResult.success ? 'text-green-400' : 'text-red-400'}`}>{testResult.success ? <CheckCircle className="w-4 h-4" /> : <AlertCircle className="w-4 h-4" />}{testResult.message}</div>}
+        <p className="text-xs text-gray-500">Get your API key from {ai.provider === 'anthropic' ? 'console.anthropic.com' : 'platform.openai.com'}</p>
+      </div>
+      <div className="space-y-2">
+        <label className="text-sm font-medium text-gray-300">Model</label>
+        <select value={ai.model} onChange={(e) => updateAiSettings({ model: e.target.value })} className="glass-input w-full">
+          {ai.provider === 'anthropic' ? (
+            <>
+              <option value="claude-sonnet-4-5-20250929">Claude Sonnet 4.5 (Recommended)</option>
+              <option value="claude-haiku-4-5-20251001">Claude Haiku 4.5 (Faster)</option>
+            </>
+          ) : (
+            <>
+              <option value="gpt-5.2-chat-latest">GPT-5.2 Instant (Recommended)</option>
+              <option value="gpt-5-mini">GPT-5 Mini (Faster)</option>
+              <option value="gpt-5.2">GPT-5.2 Thinking (Most Capable)</option>
+            </>
+          )}
+        </select>
+      </div>
+      <div className="border-t border-glass-100 pt-4">
+        <h4 className="text-sm font-medium text-gray-300 mb-3">Behavior</h4>
+        <div className="space-y-3">
+          <label className="flex items-center justify-between p-3 bg-dark-700/50 rounded-lg border border-glass-100 cursor-pointer hover:bg-dark-700 transition-colors">
+            <div><div className="font-medium text-gray-100">Auto-generate talk points</div><div className="text-sm text-gray-500">Generate talk points when callsign is focused</div></div>
+            <input type="checkbox" checked={ai.autoGenerateTalkPoints} onChange={(e) => updateAiSettings({ autoGenerateTalkPoints: e.target.checked })} className="w-5 h-5 rounded border-gray-600 text-accent-primary focus:ring-accent-primary" />
+          </label>
+          <label className="flex items-center justify-between p-3 bg-dark-700/50 rounded-lg border border-glass-100 cursor-pointer hover:bg-dark-700 transition-colors">
+            <div><div className="font-medium text-gray-100">Include QRZ profile</div><div className="text-sm text-gray-500">Use QRZ profile data for context</div></div>
+            <input type="checkbox" checked={ai.includeQrzProfile} onChange={(e) => updateAiSettings({ includeQrzProfile: e.target.checked })} className="w-5 h-5 rounded border-gray-600 text-accent-primary focus:ring-accent-primary" />
+          </label>
+          <label className="flex items-center justify-between p-3 bg-dark-700/50 rounded-lg border border-glass-100 cursor-pointer hover:bg-dark-700 transition-colors">
+            <div><div className="font-medium text-gray-100">Include QSO history</div><div className="text-sm text-gray-500">Use previous QSOs for context</div></div>
+            <input type="checkbox" checked={ai.includeQsoHistory} onChange={(e) => updateAiSettings({ includeQsoHistory: e.target.checked })} className="w-5 h-5 rounded border-gray-600 text-accent-primary focus:ring-accent-primary" />
+          </label>
+        </div>
+      </div>
+      <div className="bg-dark-700/50 rounded-lg p-4 border border-glass-100">
+        <p className="text-sm text-gray-400"><Key className="w-4 h-4 inline mr-2 text-accent-primary" />Your API key is stored locally in MongoDB and calls go directly to the provider. No data is sent through Log4YM servers.</p>
+      </div>
+    </div>
+  );
+}
+
 // About Section
 function AboutSection() {
   return (
@@ -1018,6 +1129,8 @@ export function SettingsPanel() {
         return <AppearanceSettingsSection />;
       case 'header':
         return <HeaderSettingsSection />;
+      case 'ai':
+        return <AiSettingsSection />;
       case 'about':
         return <AboutSection />;
       default:

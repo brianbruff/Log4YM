@@ -1,6 +1,7 @@
 using System.Collections.Concurrent;
 using System.Net;
 using System.Text;
+using System.Text.RegularExpressions;
 using System.Xml.Linq;
 using Log4YM.Contracts.Models;
 using Log4YM.Server.Core.Database;
@@ -18,6 +19,9 @@ public class QrzService : IQrzService
 
     private string? _sessionKey;
     private DateTime? _sessionExpiry;
+
+    private readonly ConcurrentDictionary<string, (string Text, DateTime FetchedAt)> _bioCache = new();
+    private static readonly TimeSpan BioCacheTtl = TimeSpan.FromHours(24);
 
     public QrzService(
         ISettingsRepository settingsRepository,
@@ -312,6 +316,82 @@ public class QrzService : IQrzService
             _logger.LogError(ex, "Error looking up callsign {Callsign} on QRZ", callsign);
             return null;
         }
+    }
+
+    public async Task<string?> GetBiographyAsync(string callsign)
+    {
+        var upperCall = callsign.ToUpperInvariant();
+
+        // Check cache
+        if (_bioCache.TryGetValue(upperCall, out var cached) &&
+            DateTime.UtcNow - cached.FetchedAt < BioCacheTtl)
+        {
+            return cached.Text;
+        }
+
+        try
+        {
+            // Fetch the QRZ profile page and extract biography from the Base64-encoded bio content
+            var url = $"https://www.qrz.com/db/{Uri.EscapeDataString(upperCall)}";
+            using var request = new HttpRequestMessage(HttpMethod.Get, url);
+            request.Headers.Add("User-Agent", "Log4YM/1.0");
+            request.Headers.Add("Accept", "text/html");
+
+            var response = await _httpClient.SendAsync(request);
+            if (!response.IsSuccessStatusCode)
+            {
+                _logger.LogDebug("QRZ page returned {StatusCode} for {Callsign}", response.StatusCode, upperCall);
+                return null;
+            }
+
+            var html = await response.Content.ReadAsStringAsync();
+
+            // QRZ embeds bio content as Base64 in: Base64.decode("...") call
+            var base64Match = Regex.Match(html, @"Base64\.decode\(""([A-Za-z0-9+/=]+)""\)\s*\)");
+            if (!base64Match.Success)
+            {
+                _logger.LogDebug("No Base64 biography content found for {Callsign}", upperCall);
+                return null;
+            }
+
+            var base64 = base64Match.Groups[1].Value;
+            var bioHtml = Encoding.UTF8.GetString(Convert.FromBase64String(base64));
+
+            var plainText = StripHtml(bioHtml);
+            if (string.IsNullOrWhiteSpace(plainText)) return null;
+
+            _bioCache[upperCall] = (plainText, DateTime.UtcNow);
+            _logger.LogDebug("Fetched biography for {Callsign} ({Length} chars)", upperCall, plainText.Length);
+            return plainText;
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to fetch biography for {Callsign}", upperCall);
+            return null;
+        }
+    }
+
+    private static string StripHtml(string html)
+    {
+        // Replace <br>, <p>, <div>, <li> tags with newlines for structure
+        var text = Regex.Replace(html, @"<(br|p|div|li)[^>]*>", "\n", RegexOptions.IgnoreCase);
+        // Strip all remaining HTML tags
+        text = Regex.Replace(text, @"<[^>]+>", string.Empty);
+        // Decode HTML entities
+        text = WebUtility.HtmlDecode(text);
+        // Collapse multiple whitespace/newlines
+        text = Regex.Replace(text, @"[ \t]+", " ");
+        text = Regex.Replace(text, @"\n\s*\n+", "\n");
+        text = text.Trim();
+
+        // Truncate to keep AI context reasonable
+        const int maxLength = 2000;
+        if (text.Length > maxLength)
+        {
+            text = text[..maxLength] + "...";
+        }
+
+        return text;
     }
 
     // QRZ XML namespace

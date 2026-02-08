@@ -20,7 +20,7 @@ export function StatusBar() {
   };
 
   return (
-    <div className="h-8 bg-dark-800/90 backdrop-blur-sm border-t border-glass-100 flex items-center justify-between px-4 text-sm">
+    <div className="h-8 bg-dark-800/90 backdrop-blur-sm border-t border-glass-100 flex items-center justify-between px-4 text-sm font-ui">
       {/* Left side - Station info */}
       <div className="flex items-center gap-6">
         <div className="flex items-center gap-2">
@@ -28,21 +28,21 @@ export function StatusBar() {
           <span className="font-mono font-bold text-accent-primary">{stationCallsign}</span>
         </div>
 
-        <div className="flex items-center gap-2 text-gray-400">
+        <div className="flex items-center gap-2 text-dark-300">
           <MapPin className="w-3 h-3" />
           <span className="font-mono">{stationGrid}</span>
         </div>
 
         {rigStatus && (
           <div className="flex items-center gap-2">
-            <span className="frequency-display text-accent-info">
+            <span className="frequency-display text-accent-secondary">
               {formatFrequency(rigStatus.frequency)} MHz
             </span>
             <span className={`badge ${rigStatus.mode === 'CW' ? 'badge-cw' : rigStatus.mode === 'SSB' ? 'badge-ssb' : 'badge-ft8'}`}>
               {rigStatus.mode}
             </span>
             {rigStatus.isTransmitting && (
-              <span className="px-2 py-0.5 bg-accent-danger/20 text-accent-danger rounded text-xs font-bold animate-pulse">
+              <span className="px-2 py-0.5 bg-accent-danger/20 text-accent-danger rounded text-xs font-bold animate-pulse font-mono">
                 TX
               </span>
             )}
@@ -52,7 +52,7 @@ export function StatusBar() {
 
       {/* Right side - Time and connection */}
       <div className="flex items-center gap-6">
-        <div className="flex items-center gap-2 text-gray-400">
+        <div className="flex items-center gap-2 text-dark-300">
           <Clock className="w-3 h-3" />
           <span className="font-mono">{formatUtcTime(currentTime)} UTC</span>
         </div>
@@ -61,33 +61,33 @@ export function StatusBar() {
           {connectionState === 'connected' && (
             <>
               <Wifi className="w-4 h-4 text-accent-success" />
-              <span className="text-accent-success text-xs">Connected</span>
+              <span className="text-accent-success text-xs font-mono">Connected</span>
             </>
           )}
           {connectionState === 'connecting' && (
             <>
-              <Loader2 className="w-4 h-4 text-accent-info animate-spin" />
-              <span className="text-accent-info text-xs">Connecting...</span>
+              <Loader2 className="w-4 h-4 text-accent-secondary animate-spin" />
+              <span className="text-accent-secondary text-xs font-mono">Connecting...</span>
             </>
           )}
           {connectionState === 'reconnecting' && (
             <>
               <Loader2 className="w-4 h-4 text-accent-warning animate-spin" />
-              <span className="text-accent-warning text-xs">
+              <span className="text-accent-warning text-xs font-mono">
                 Reconnecting{reconnectAttempt > 0 ? ` (${reconnectAttempt})` : '...'}
               </span>
             </>
           )}
           {connectionState === 'rehydrating' && (
             <>
-              <Loader2 className="w-4 h-4 text-accent-info animate-spin" />
-              <span className="text-accent-info text-xs">Loading data...</span>
+              <Loader2 className="w-4 h-4 text-accent-secondary animate-spin" />
+              <span className="text-accent-secondary text-xs font-mono">Loading data...</span>
             </>
           )}
           {connectionState === 'disconnected' && (
             <>
               <WifiOff className="w-4 h-4 text-accent-danger" />
-              <span className="text-accent-danger text-xs">Disconnected</span>
+              <span className="text-accent-danger text-xs font-mono">Disconnected</span>
             </>
           )}
         </div>

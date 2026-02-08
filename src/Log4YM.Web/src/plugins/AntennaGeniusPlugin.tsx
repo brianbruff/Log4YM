@@ -17,10 +17,10 @@ export function AntennaGeniusPlugin() {
         title="Antenna Genius"
         icon={<Radio className="w-5 h-5" />}
       >
-        <div className="flex flex-col items-center justify-center h-full p-8 text-gray-500">
+        <div className="flex flex-col items-center justify-center h-full p-8 text-dark-300">
           <WifiOff className="w-12 h-12 mb-4 opacity-50" />
-          <p className="text-center">No Antenna Genius devices found</p>
-          <p className="text-sm text-gray-600 mt-2 text-center">
+          <p className="text-center font-ui">No Antenna Genius devices found</p>
+          <p className="text-sm text-dark-300 mt-2 text-center font-ui">
             Waiting for device discovery on UDP port 9007...
           </p>
         </div>
@@ -43,7 +43,7 @@ export function AntennaGeniusPlugin() {
               Connected
             </span>
           ) : (
-            <span className="flex items-center gap-1.5 text-xs text-gray-500">
+            <span className="flex items-center gap-1.5 text-xs text-dark-300">
               <WifiOff className="w-3.5 h-3.5" />
               Disconnected
             </span>
@@ -53,8 +53,8 @@ export function AntennaGeniusPlugin() {
     >
       <div className="p-4 space-y-4">
         {/* Device Info */}
-        <div className="text-sm text-gray-400">
-          <span className="font-medium text-gray-200">{device.deviceName}</span>
+        <div className="text-sm text-dark-300 font-mono">
+          <span className="font-medium text-dark-200">{device.deviceName}</span>
           <span className="mx-2">|</span>
           <span>v{device.version}</span>
           <span className="mx-2">|</span>
@@ -105,17 +105,17 @@ function PortHeader({ portId, label, band, isTransmitting }: PortHeaderProps) {
   return (
     <div className="bg-dark-700/50 rounded-lg p-3 border border-glass-100">
       <div className="flex items-center justify-between">
-        <span className={`text-sm font-medium ${portId === 1 ? 'text-accent-primary' : 'text-accent-success'}`}>
+        <span className={`text-sm font-medium font-ui ${portId === 1 ? 'text-accent-primary' : 'text-accent-success'}`}>
           {label}
         </span>
         {isTransmitting && (
-          <span className="flex items-center gap-1 text-xs text-red-500 animate-pulse">
+          <span className="flex items-center gap-1 text-xs text-accent-danger animate-pulse">
             <Zap className="w-3 h-3" />
             TX
           </span>
         )}
       </div>
-      <div className="mt-1 text-lg font-bold text-gray-100">
+      <div className="mt-1 text-lg font-bold text-dark-200 font-mono">
         {band?.name || 'None'}
       </div>
     </div>
@@ -141,7 +141,7 @@ function AntennaRow({ antenna, device, onSelectA, onSelectB }: AntennaRowProps) 
         flex items-center gap-2 p-2 rounded-lg border transition-all duration-200
         ${isSelectedA || isSelectedB
           ? 'bg-dark-600/70 border-glass-200'
-          : 'bg-dark-700/30 border-glass-100 hover:bg-dark-700/50'
+          : 'bg-dark-700/30 border-glass-100 hover:bg-dark-600'
         }
       `}
     >
@@ -152,9 +152,9 @@ function AntennaRow({ antenna, device, onSelectA, onSelectB }: AntennaRowProps) 
           w-8 h-8 rounded flex items-center justify-center text-xs font-bold transition-all
           ${isSelectedA
             ? isTxA
-              ? 'bg-red-500/80 text-white ring-2 ring-red-400 animate-pulse'
+              ? 'bg-accent-danger/80 text-white ring-2 ring-accent-danger animate-pulse'
               : 'bg-accent-primary text-white'
-            : 'bg-dark-600 text-gray-500 hover:bg-accent-primary/30 hover:text-accent-primary'
+            : 'bg-dark-600 text-dark-300 hover:bg-accent-primary/30 hover:text-accent-primary'
           }
         `}
         title={`Select for Radio A`}
@@ -166,8 +166,8 @@ function AntennaRow({ antenna, device, onSelectA, onSelectB }: AntennaRowProps) 
       <div className="flex-1 min-w-0">
         <span
           className={`
-            text-sm font-medium truncate block
-            ${isSelectedA || isSelectedB ? 'text-gray-100' : 'text-gray-400'}
+            text-sm font-medium font-mono truncate block
+            ${isSelectedA || isSelectedB ? 'text-dark-200' : 'text-dark-300'}
           `}
         >
           {antenna.name}
@@ -181,9 +181,9 @@ function AntennaRow({ antenna, device, onSelectA, onSelectB }: AntennaRowProps) 
           w-8 h-8 rounded flex items-center justify-center text-xs font-bold transition-all
           ${isSelectedB
             ? isTxB
-              ? 'bg-red-500/80 text-white ring-2 ring-red-400 animate-pulse'
+              ? 'bg-accent-danger/80 text-white ring-2 ring-accent-danger animate-pulse'
               : 'bg-accent-success text-white'
-            : 'bg-dark-600 text-gray-500 hover:bg-accent-success/30 hover:text-accent-success'
+            : 'bg-dark-600 text-dark-300 hover:bg-accent-success/30 hover:text-accent-success'
           }
         `}
         title={`Select for Radio B`}

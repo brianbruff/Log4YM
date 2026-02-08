@@ -310,6 +310,15 @@ class ApiClient {
 
     return response.blob();
   }
+
+  // Contests
+  async getContests(days: number = 7): Promise<Contest[]> {
+    return this.fetch<Contest[]>(`/contests?days=${days}`);
+  }
+
+  async getLiveContests(): Promise<Contest[]> {
+    return this.fetch<Contest[]>('/contests/live');
+  }
 }
 
 // QRZ Types
@@ -399,6 +408,18 @@ export interface AdifExportRequest {
   fromDate?: string;
   toDate?: string;
   qsoIds?: string[];
+}
+
+// Contest Types
+export interface Contest {
+  name: string;
+  mode: string;
+  startTime: string;
+  endTime: string;
+  url: string;
+  isLive: boolean;
+  isStartingSoon: boolean;
+  timeRemaining?: string;
 }
 
 // Space Weather Types

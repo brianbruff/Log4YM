@@ -8,8 +8,6 @@ export function ConnectionOverlay() {
   const [isManualReconnecting, setIsManualReconnecting] = useState(false);
 
   // Only show overlay when NOT fully connected
-  // Show during: disconnected, reconnecting, rehydrating
-  // Hide during: connected, connecting (initial load handled by app)
   if (connectionState === 'connected' || connectionState === 'connecting') {
     return null;
   }
@@ -34,11 +32,11 @@ export function ConnectionOverlay() {
         <div className="flex justify-center mb-4">
           {isRehydrating ? (
             <div className="relative">
-              <Database className="w-16 h-16 text-accent-info animate-pulse" />
+              <Database className="w-16 h-16 text-accent-secondary animate-pulse" />
             </div>
           ) : showSpinner ? (
             <div className="relative">
-              <Loader2 className="w-16 h-16 text-accent-warning animate-spin" />
+              <Loader2 className="w-16 h-16 text-accent-primary animate-spin" />
             </div>
           ) : (
             <div className="w-16 h-16 rounded-full bg-accent-danger/20 flex items-center justify-center">
@@ -47,11 +45,11 @@ export function ConnectionOverlay() {
           )}
         </div>
 
-        <h2 className="text-xl font-bold text-white mb-2">
+        <h2 className="text-xl font-bold text-accent-primary mb-2 font-display tracking-wide">
           {isRehydrating ? 'Loading Data...' : isReconnecting ? 'Reconnecting...' : 'Connection Lost'}
         </h2>
 
-        <p className="text-gray-400 mb-4">
+        <p className="text-dark-300 mb-4 font-ui">
           {isRehydrating ? (
             <>
               Restoring application state from server.
@@ -63,7 +61,7 @@ export function ConnectionOverlay() {
             <>
               Attempting to reconnect to the server
               {reconnectAttempt > 0 && (
-                <span className="block text-sm mt-1">
+                <span className="block text-sm mt-1 font-mono text-accent-secondary">
                   Attempt {reconnectAttempt}
                 </span>
               )}
@@ -77,7 +75,7 @@ export function ConnectionOverlay() {
           <button
             onClick={handleReconnect}
             disabled={isManualReconnecting}
-            className="glass-button px-6 py-2 flex items-center gap-2 mx-auto hover:border-accent-primary/50 disabled:opacity-50"
+            className="glass-button px-6 py-2 flex items-center gap-2 mx-auto hover:border-accent-secondary/40 disabled:opacity-50"
           >
             <RefreshCw className="w-4 h-4" />
             <span>Reconnect Now</span>
@@ -86,10 +84,10 @@ export function ConnectionOverlay() {
 
         {isDisconnected && (
           <div className="mt-6 pt-4 border-t border-glass-100">
-            <p className="text-xs text-gray-500">
+            <p className="text-xs text-dark-300 font-ui">
               The application will automatically retry connection with exponential backoff.
               {reconnectAttempt > 0 && (
-                <span className="block mt-1">
+                <span className="block mt-1 font-mono text-accent-secondary">
                   Next retry in up to {Math.min(Math.pow(2, reconnectAttempt), 30)} seconds
                 </span>
               )}

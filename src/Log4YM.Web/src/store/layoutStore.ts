@@ -6,7 +6,7 @@ export const defaultLayout: IJsonModel = {
   global: {
     tabEnableFloat: false,
     tabSetMinWidth: 100,
-    tabSetMinHeight: 100,
+    tabSetMinHeight: 40,
     borderMinSize: 100,
   },
   borders: [],
@@ -15,44 +15,70 @@ export const defaultLayout: IJsonModel = {
     weight: 100,
     children: [
       {
-        type: 'tabset',
-        weight: 30,
-        children: [
-          {
-            type: 'tab',
-            name: 'Log Entry',
-            component: 'log-entry',
-          },
-          {
-            type: 'tab',
-            name: '3D Globe',
-            component: 'globe-3d',
-          },
-        ],
-      },
-      {
         type: 'row',
-        weight: 70,
+        weight: 100,
         children: [
+          // Header bar across the top (thin strip)
           {
             type: 'tabset',
-            weight: 60,
+            weight: 6,
             children: [
               {
                 type: 'tab',
-                name: 'Log History',
-                component: 'log-history',
+                name: 'Header Bar',
+                component: 'header-bar',
+                enableClose: false,
               },
             ],
           },
+          // Main content area below
           {
-            type: 'tabset',
-            weight: 40,
+            type: 'row',
+            weight: 94,
             children: [
               {
-                type: 'tab',
-                name: 'DX Cluster',
-                component: 'cluster',
+                type: 'tabset',
+                weight: 30,
+                children: [
+                  {
+                    type: 'tab',
+                    name: 'Log Entry',
+                    component: 'log-entry',
+                  },
+                  {
+                    type: 'tab',
+                    name: '3D Globe',
+                    component: 'globe-3d',
+                  },
+                ],
+              },
+              {
+                type: 'row',
+                weight: 70,
+                children: [
+                  {
+                    type: 'tabset',
+                    weight: 60,
+                    children: [
+                      {
+                        type: 'tab',
+                        name: 'Log History',
+                        component: 'log-history',
+                      },
+                    ],
+                  },
+                  {
+                    type: 'tabset',
+                    weight: 40,
+                    children: [
+                      {
+                        type: 'tab',
+                        name: 'DX Cluster',
+                        component: 'cluster',
+                      },
+                    ],
+                  },
+                ],
               },
             ],
           },

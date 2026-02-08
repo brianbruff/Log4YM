@@ -9,3 +9,6 @@ export { PgxlPlugin } from './PgxlPlugin';
 export { SmartUnlinkPlugin } from './SmartUnlinkPlugin';
 export { RigPlugin } from './RigPlugin';
 export { QrzProfilePlugin } from './QrzProfilePlugin';
+export { AnalogClockPlugin } from './AnalogClockPlugin';
+export { HeaderPlugin } from './HeaderPlugin';
+export { DXpeditionsPlugin } from './DXpeditionsPlugin';

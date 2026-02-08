@@ -407,10 +407,37 @@ public class LogHub : Hub<ILogHubClient>
         {
             await _tciRadioService.ConnectAsync(cmd.RadioId);
         }
+        else if (cmd.RadioId.StartsWith("tci-"))
+        {
+            // Saved TCI rig not in live discovery — parse host:port from ID and connect directly
+            var hostPort = cmd.RadioId["tci-".Length..];
+            var parts = hostPort.Split(':');
+            var host = parts[0];
+            var port = parts.Length > 1 && int.TryParse(parts[1], out var p) ? p : 50001;
+
+            // Load saved name from settings
+            var settings = await _settingsRepository.GetAsync();
+            var name = settings?.Radio?.Tci?.Name;
+
+            await _tciRadioService.ConnectDirectAsync(host, port, !string.IsNullOrEmpty(name) ? name : null);
+        }
         else if (cmd.RadioId == _hamlibService.RadioId)
         {
-            // Hamlib radio is already connected when configured
             _logger.LogDebug("Hamlib radio {RadioId} is already connected", cmd.RadioId);
+        }
+        else if (cmd.RadioId.StartsWith("hamlib-") && !_hamlibService.IsConnected)
+        {
+            // Saved Hamlib rig that's disconnected — load config and reconnect
+            var config = await _hamlibService.LoadConfigAsync();
+            if (config != null)
+            {
+                _logger.LogInformation("Reconnecting to saved Hamlib rig: {ModelName}", config.ModelName);
+                await _hamlibService.ConnectAsync(config);
+            }
+            else
+            {
+                _logger.LogWarning("No saved Hamlib config found for {RadioId}", cmd.RadioId);
+            }
         }
         else
         {
@@ -631,6 +658,37 @@ public class LogHub : Hub<ILogHubClient>
     }
 
     /// <summary>
+    /// Delete saved Hamlib configuration
+    /// </summary>
+    public async Task DeleteHamlibConfig()
+    {
+        _logger.LogInformation("Deleting saved Hamlib configuration");
+        await _hamlibService.DeleteConfigAsync();
+        
+        // Request updated radio status to reflect the removal
+        await RequestRadioStatus();
+    }
+
+    /// <summary>
+    /// Delete saved TCI configuration
+    /// </summary>
+    public async Task DeleteTciConfig()
+    {
+        _logger.LogInformation("Deleting saved TCI configuration");
+
+        // Clear TCI settings to defaults
+        var settings = await _settingsRepository.GetAsync() ?? new Log4YM.Contracts.Models.UserSettings();
+        settings.Radio.Tci = new Log4YM.Contracts.Models.TciSettings();
+        settings.Radio.ActiveRigType = null;
+        settings.Radio.AutoReconnect = false;
+
+        await _settingsRepository.UpsertAsync(settings);
+
+        // Request updated radio status to reflect the removal
+        await RequestRadioStatus();
+    }
+
+    /// <summary>
     /// Connect directly to a TCI server without discovery
     /// </summary>
     public async Task ConnectTci(string host, int port = 50001, string? name = null)
@@ -670,12 +728,12 @@ public class LogHub : Hub<ILogHubClient>
             await Clients.Caller.OnRadioDiscovered(radio);
         }
 
-        foreach (var radio in _tciRadioService.GetDiscoveredRadios())
+        foreach (var radio in await _tciRadioService.GetDiscoveredRadiosAsync())
         {
             await Clients.Caller.OnRadioDiscovered(radio);
         }
 
-        foreach (var radio in _hamlibService.GetDiscoveredRadios())
+        foreach (var radio in await _hamlibService.GetDiscoveredRadiosAsync())
         {
             await Clients.Caller.OnRadioDiscovered(radio);
         }

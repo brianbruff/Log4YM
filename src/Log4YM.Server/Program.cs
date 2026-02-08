@@ -74,6 +74,9 @@ builder.Services.AddHttpClient("QRZ", client =>
     client.DefaultRequestHeaders.Add("User-Agent", "Log4YM/1.0");
 });
 
+// Register default HTTP client factory for space weather and other APIs
+builder.Services.AddHttpClient();
+
 // Register event bus
 builder.Services.AddSingleton<IEventBus, EventBus>();
 

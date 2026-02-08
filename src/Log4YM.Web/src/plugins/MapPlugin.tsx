@@ -499,6 +499,8 @@ export function MapPlugin() {
                   </div>
                 </Popup>
               </Marker>
+            );
+          })}
 
           {/* DX Cluster spot paths - show when enabled */}
           {showDxPathsOnMap && dxSpots?.map((spot) => {

@@ -56,6 +56,8 @@ export interface RadioSettings {
 
 export interface MapSettings {
   tileLayer: 'osm' | 'dark' | 'satellite' | 'terrain';
+  showSatellites: boolean;
+  selectedSatellites: string[]; // Array of satellite names to track
 }
 
 export interface HeaderSettings {
@@ -177,6 +179,8 @@ const defaultSettings: Settings = {
   },
   map: {
     tileLayer: 'dark',
+    showSatellites: false,
+    selectedSatellites: ['ISS', 'AO-91', 'SO-50'], // Default popular ham satellites
   },
   cluster: {
     connections: [],

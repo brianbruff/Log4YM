@@ -76,12 +76,6 @@ export function getMoonPosition(date: Date = new Date()): { lat: number; lon: nu
   // Mean longitude of the Moon
   const L0 = (218.316 + 481267.881 * T) % 360;
 
-  // Mean elongation of the Moon
-  const D = (297.850 + 445267.112 * T) % 360;
-
-  // Mean anomaly of the Sun
-  const M = (357.529 + 35999.050 * T) % 360;
-
   // Mean anomaly of the Moon
   const M1 = (134.963 + 477198.867 * T) % 360;
 
@@ -89,8 +83,6 @@ export function getMoonPosition(date: Date = new Date()): { lat: number; lon: nu
   const F = (93.272 + 483202.018 * T) % 360;
 
   // Convert to radians
-  const D_rad = D * Math.PI / 180;
-  const M_rad = M * Math.PI / 180;
   const M1_rad = M1 * Math.PI / 180;
   const F_rad = F * Math.PI / 180;
 
@@ -154,19 +146,17 @@ export function getSolarElevation(lat: number, lon: number, date: Date = new Dat
  */
 export function getDayNightTerminator(date: Date = new Date()): [number, number][] {
   const points: [number, number][] = [];
-  const sunPos = getSunPosition(date);
 
   // Generate points along the terminator (where solar elevation = 0)
   for (let lon = -180; lon <= 180; lon += 2) {
     // For each longitude, find the latitude where solar elevation is approximately 0
     // This is a simplified approach - we calculate for a grid and interpolate
 
-    let lat = 0;
     let bestLat = 0;
     let minDiff = Infinity;
 
     // Search for latitude where elevation is closest to 0
-    for (lat = -90; lat <= 90; lat += 0.5) {
+    for (let lat = -90; lat <= 90; lat += 0.5) {
       const elevation = getSolarElevation(lat, lon, date);
       const diff = Math.abs(elevation);
 
@@ -198,9 +188,7 @@ export function getGrayLineBoundaries(date: Date = new Date()): {
   civilDawn: [number, number][];
   civilDusk: [number, number][];
 } {
-  const sunPos = getSunPosition(date);
   const civilDawn: [number, number][] = [];
-  const civilDusk: [number, number][] = [];
 
   // Civil twilight occurs when the sun is between 0° and -6° below the horizon
   const civilTwilightAngle = -6;

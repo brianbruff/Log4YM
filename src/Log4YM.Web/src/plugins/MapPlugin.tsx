@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { Map as MapIcon, MapPin, Target, Maximize2, ZoomIn, ZoomOut, Layers, Sun, Moon } from 'lucide-react';
+import { Map as MapIcon, MapPin, Target, Maximize2, ZoomIn, ZoomOut, Layers, Sun } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, Circle, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import { useAppStore } from '../store/appStore';

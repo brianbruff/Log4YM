@@ -65,7 +65,6 @@ export function DayNightOverlay({
         const canvas = this._canvas;
         const ctx = this._context;
         const map = this._map;
-        const bounds = map.getBounds();
 
         // Clear canvas
         ctx.clearRect(0, 0, canvas.width, canvas.height);

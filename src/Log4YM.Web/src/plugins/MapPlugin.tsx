@@ -513,7 +513,7 @@ export function MapPlugin() {
 
         {/* Station info overlay */}
         {stationGrid && (
-          <div className="absolute bottom-4 left-4 glass-panel px-3 py-2 z-[1000]">
+          <div className="absolute bottom-12 left-4 glass-panel px-3 py-2 z-[1000]">
             <div className="flex items-center gap-2 text-accent-primary">
               <MapPin className="w-4 h-4" />
               <span className="font-mono text-sm">{stationGrid}</span>
@@ -545,7 +545,7 @@ export function MapPlugin() {
         )}
 
         {/* Instructions overlay */}
-        <div className="absolute bottom-4 right-4 glass-panel px-3 py-2 z-[1000] text-xs font-ui text-dark-300">
+        <div className="absolute bottom-12 right-4 glass-panel px-3 py-2 z-[1000] text-xs font-ui text-dark-300">
           {rotatorEnabled ? 'Click on map to set bearing' : 'Rotator disabled'}
         </div>
 

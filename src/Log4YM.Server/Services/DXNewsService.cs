@@ -16,7 +16,7 @@ public class DXNewsService : IDXNewsService
     private List<DXNewsItem>? _cachedNews;
     private DateTime _lastFetch = DateTime.MinValue;
     private static readonly TimeSpan CacheDuration = TimeSpan.FromMinutes(30);
-    private const string DXNewsRssUrl = "https://www.dxnews.com/feed/";
+    private const string DXNewsRssUrl = "https://www.dx-world.net/feed/";
 
     public DXNewsService(ILogger<DXNewsService> logger, IHttpClientFactory httpClientFactory)
     {

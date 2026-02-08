@@ -56,6 +56,12 @@ export interface RadioSettings {
 
 export interface MapSettings {
   tileLayer: 'osm' | 'dark' | 'satellite' | 'terrain';
+  showDayNightOverlay: boolean;
+  showGrayLine: boolean;
+  showSunMarker: boolean;
+  showMoonMarker: boolean;
+  dayNightOpacity: number;
+  grayLineOpacity: number;
 }
 
 export interface HeaderSettings {
@@ -177,6 +183,12 @@ const defaultSettings: Settings = {
   },
   map: {
     tileLayer: 'dark',
+    showDayNightOverlay: false,
+    showGrayLine: false,
+    showSunMarker: true,
+    showMoonMarker: true,
+    dayNightOpacity: 0.5,
+    grayLineOpacity: 0.6,
   },
   cluster: {
     connections: [],

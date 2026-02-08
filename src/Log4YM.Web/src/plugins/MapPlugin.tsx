@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { Map as MapIcon, MapPin, Target, Maximize2, ZoomIn, ZoomOut, Layers } from 'lucide-react';
+import { Map as MapIcon, MapPin, Target, Maximize2, ZoomIn, ZoomOut, Layers, Sun, Moon } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, Circle, Polyline } from 'react-leaflet';
 import L from 'leaflet';
 import { useAppStore } from '../store/appStore';
@@ -7,6 +7,8 @@ import { useSettingsStore } from '../store/settingsStore';
 import { useSignalR } from '../hooks/useSignalR';
 import { GlassPanel } from '../components/GlassPanel';
 import { DXNewsTicker } from '../components/DXNewsTicker';
+import { DayNightOverlay } from '../components/DayNightOverlay';
+import { GrayLineOverlay } from '../components/GrayLineOverlay';
 import { gridToLatLon, calculateDistance, getAnimationDuration } from '../utils/maidenhead';
 
 import 'leaflet/dist/leaflet.css';
@@ -174,6 +176,7 @@ export function MapPlugin() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [currentAzimuth, setCurrentAzimuth] = useState(0);
   const [showLayerPicker, setShowLayerPicker] = useState(false);
+  const [showOverlayPanel, setShowOverlayPanel] = useState(false);
 
   // Get tile layer from persisted settings
   const tileLayer = settings.map.tileLayer;
@@ -344,6 +347,22 @@ export function MapPlugin() {
             attribution={TILE_LAYERS[tileLayer].attribution}
           />
 
+          {/* Day/Night Overlay */}
+          {settings.map.showDayNightOverlay && (
+            <DayNightOverlay
+              opacity={settings.map.dayNightOpacity}
+              showSunMarker={settings.map.showSunMarker}
+              showMoonMarker={settings.map.showMoonMarker}
+            />
+          )}
+
+          {/* Gray Line Overlay */}
+          {settings.map.showGrayLine && (
+            <GrayLineOverlay
+              opacity={settings.map.grayLineOpacity}
+            />
+          )}
+
           {/* Click handler */}
           <MapClickHandler
             stationLat={stationLat}
@@ -482,6 +501,7 @@ export function MapPlugin() {
               onClick={(e) => {
                 e.stopPropagation();
                 setShowLayerPicker(!showLayerPicker);
+                setShowOverlayPanel(false);
               }}
               className="glass-button p-2"
               title="Map Layers"
@@ -506,6 +526,136 @@ export function MapPlugin() {
                     {layer.name}
                   </button>
                 ))}
+              </div>
+            )}
+          </div>
+          <div className="relative">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowOverlayPanel(!showOverlayPanel);
+                setShowLayerPicker(false);
+              }}
+              className={`glass-button p-2 ${(settings.map.showDayNightOverlay || settings.map.showGrayLine) ? 'text-accent-primary' : ''}`}
+              title="Day/Night & Gray Line"
+            >
+              <Sun className="w-4 h-4" />
+            </button>
+            {showOverlayPanel && (
+              <div className="absolute right-full mr-2 top-0 glass-panel p-3 min-w-[220px]">
+                <div className="text-xs font-ui text-dark-200 mb-2 font-semibold">Solar Overlays</div>
+
+                {/* Day/Night Overlay Toggle */}
+                <label className="flex items-center gap-2 mb-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={settings.map.showDayNightOverlay}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      updateMapSettings({ showDayNightOverlay: e.target.checked });
+                      saveSettings();
+                    }}
+                    className="w-4 h-4"
+                  />
+                  <span className="text-sm font-ui text-dark-200">Day/Night</span>
+                </label>
+
+                {/* Day/Night Opacity */}
+                {settings.map.showDayNightOverlay && (
+                  <div className="ml-6 mb-2">
+                    <label className="flex items-center gap-2 text-xs text-dark-300">
+                      <span>Opacity:</span>
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.1"
+                        value={settings.map.dayNightOpacity}
+                        onChange={(e) => {
+                          updateMapSettings({ dayNightOpacity: parseFloat(e.target.value) });
+                        }}
+                        onMouseUp={() => saveSettings()}
+                        className="flex-1"
+                      />
+                      <span>{Math.round(settings.map.dayNightOpacity * 100)}%</span>
+                    </label>
+                  </div>
+                )}
+
+                {/* Sun Marker Toggle */}
+                {settings.map.showDayNightOverlay && (
+                  <label className="flex items-center gap-2 mb-2 ml-6 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={settings.map.showSunMarker}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        updateMapSettings({ showSunMarker: e.target.checked });
+                        saveSettings();
+                      }}
+                      className="w-3 h-3"
+                    />
+                    <span className="text-xs font-ui text-dark-300">☀️ Sun</span>
+                  </label>
+                )}
+
+                {/* Moon Marker Toggle */}
+                {settings.map.showDayNightOverlay && (
+                  <label className="flex items-center gap-2 mb-3 ml-6 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={settings.map.showMoonMarker}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        updateMapSettings({ showMoonMarker: e.target.checked });
+                        saveSettings();
+                      }}
+                      className="w-3 h-3"
+                    />
+                    <span className="text-xs font-ui text-dark-300">🌙 Moon</span>
+                  </label>
+                )}
+
+                {/* Gray Line Toggle */}
+                <label className="flex items-center gap-2 mb-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={settings.map.showGrayLine}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      updateMapSettings({ showGrayLine: e.target.checked });
+                      saveSettings();
+                    }}
+                    className="w-4 h-4"
+                  />
+                  <span className="text-sm font-ui text-dark-200">Gray Line</span>
+                </label>
+
+                {/* Gray Line Opacity */}
+                {settings.map.showGrayLine && (
+                  <div className="ml-6">
+                    <label className="flex items-center gap-2 text-xs text-dark-300">
+                      <span>Opacity:</span>
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.1"
+                        value={settings.map.grayLineOpacity}
+                        onChange={(e) => {
+                          updateMapSettings({ grayLineOpacity: parseFloat(e.target.value) });
+                        }}
+                        onMouseUp={() => saveSettings()}
+                        className="flex-1"
+                      />
+                      <span>{Math.round(settings.map.grayLineOpacity * 100)}%</span>
+                    </label>
+                  </div>
+                )}
+
+                <div className="mt-3 pt-2 border-t border-dark-600 text-xs text-dark-400">
+                  Updates every 60 seconds
+                </div>
               </div>
             )}
           </div>

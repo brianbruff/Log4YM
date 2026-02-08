@@ -183,7 +183,7 @@ jobs:
           npm run build
 
       - name: Copy frontend to wwwroot
-        run: cp -r src/Log4YM.Web/dist/* src/Log4YM.Server/wwwroot/
+        run: mkdir -p src/Log4YM.Server/wwwroot && cp -r src/Log4YM.Web/dist/* src/Log4YM.Server/wwwroot/
 
       - name: Build .NET solution
         run: dotnet build --configuration Release

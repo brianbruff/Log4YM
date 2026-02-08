@@ -162,15 +162,24 @@ public class AiService : IAiService
             var profile = await _qrzService.LookupCallsignAsync(callsign);
             if (profile == null) return null;
 
-            // Build a simple bio from available fields
-            var bio = profile.Email != null ? $"Email: {profile.Email}" : null;
+            // Fetch biography in parallel with building the basic profile
+            var bioText = await _qrzService.GetBiographyAsync(callsign);
+
+            // Build bio combining email and biography text
+            var bioParts = new List<string>();
+            if (!string.IsNullOrEmpty(profile.Email))
+                bioParts.Add($"Email: {profile.Email}");
+            if (!string.IsNullOrEmpty(bioText))
+                bioParts.Add(bioText);
+
+            var bio = bioParts.Count > 0 ? string.Join("\n", bioParts) : null;
 
             return new QrzProfileSummary(
                 profile.Name,
                 $"{profile.City}, {profile.State}, {profile.Country}".Trim(' ', ','),
                 profile.Grid,
                 bio,
-                null // QRZ XML doesn't have an "interests" field directly
+                null
             );
         }
         catch (Exception ex)
@@ -209,6 +218,12 @@ public class AiService : IAiService
                 sb.AppendLine($"  Location: {qrzProfile.Location}");
             if (!string.IsNullOrEmpty(qrzProfile.Grid))
                 sb.AppendLine($"  Grid: {qrzProfile.Grid}");
+            if (!string.IsNullOrEmpty(qrzProfile.Bio))
+            {
+                sb.AppendLine();
+                sb.AppendLine("Their QRZ Biography (equipment, interests, station details):");
+                sb.AppendLine(qrzProfile.Bio);
+            }
         }
 
         if (previousQsos.Any())
@@ -252,6 +267,10 @@ public class AiService : IAiService
         if (qrzProfile != null)
         {
             systemContent.AppendLine($"\nTheir profile: {qrzProfile.Name}, {qrzProfile.Location}, Grid: {qrzProfile.Grid}");
+            if (!string.IsNullOrEmpty(qrzProfile.Bio))
+            {
+                systemContent.AppendLine($"\nTheir QRZ biography (equipment, interests, station details):\n{qrzProfile.Bio}");
+            }
         }
 
         if (previousQsos.Any())

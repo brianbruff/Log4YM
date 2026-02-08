@@ -73,7 +73,7 @@ const getModeClass = (mode: string): string => {
 
 export function ContestsPlugin() {
   const [selectedDays, setSelectedDays] = useState(7);
-  const [currentTime, setCurrentTime] = useState(new Date());
+  const [, setCurrentTime] = useState(new Date());
 
   // Update current time every minute to refresh time remaining
   useEffect(() => {
@@ -159,7 +159,6 @@ export function ContestsPlugin() {
                     <ContestCard
                       key={`live-${index}`}
                       contest={contest}
-                      currentTime={currentTime}
                     />
                   ))}
                 </div>
@@ -177,7 +176,6 @@ export function ContestsPlugin() {
                     <ContestCard
                       key={`upcoming-${index}`}
                       contest={contest}
-                      currentTime={currentTime}
                     />
                   ))}
                 </div>
@@ -204,7 +202,7 @@ export function ContestsPlugin() {
 }
 
 // Contest Card Component
-function ContestCard({ contest, currentTime }: { contest: Contest; currentTime: Date }) {
+function ContestCard({ contest }: { contest: Contest }) {
   const isLive = contest.isLive;
   const isStartingSoon = contest.isStartingSoon;
 

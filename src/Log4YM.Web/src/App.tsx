@@ -1,13 +1,12 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { Layout, Model, TabNode, TabSetNode, BorderNode, ITabSetRenderValues, Actions, DockLocation } from 'flexlayout-react';
-import { X, Radio, Book, Zap, LayoutGrid, Antenna, Plus, Map, Compass, Gauge, User } from 'lucide-react';
-import { Header } from './components/Header';
+import { X, Radio, Book, Zap, LayoutGrid, Antenna, Plus, Map, Compass, Gauge, User, Sun, Clock, MapPin } from 'lucide-react';
 import { StatusBar } from './components/StatusBar';
 import { SettingsPanel } from './components/SettingsPanel';
 import { ConnectionOverlay } from './components/ConnectionOverlay';
 import { useSignalRConnection } from './hooks/useSignalR';
-import { LogEntryPlugin, LogHistoryPlugin, ClusterPlugin, MapPlugin, RotatorPlugin, GlobePlugin, AntennaGeniusPlugin, PgxlPlugin, SmartUnlinkPlugin, RigPlugin, QrzProfilePlugin, POTAPlugin } from './plugins';
-import { Globe as Globe3D, MapPin } from 'lucide-react';
+import { LogEntryPlugin, LogHistoryPlugin, ClusterPlugin, MapPlugin, RotatorPlugin, GlobePlugin, AntennaGeniusPlugin, PgxlPlugin, SmartUnlinkPlugin, RigPlugin, QrzProfilePlugin, SolarPanelPlugin, AnalogClockPlugin, HeaderPlugin, DXpeditionsPlugin, POTAPlugin } from './plugins';
+import { Globe as Globe3D } from 'lucide-react';
 import { useLayoutStore, defaultLayout } from './store/layoutStore';
 import { useSettingsStore } from './store/settingsStore';
 import { useSetupStore } from './store/setupStore';
@@ -71,6 +70,26 @@ const PLUGINS: Record<string, { name: string; icon: React.ReactNode; component: 
     name: 'QRZ Profile',
     icon: <User className="w-4 h-4" />,
     component: QrzProfilePlugin,
+  },
+  'solar-panel': {
+    name: 'Solar Panel',
+    icon: <Sun className="w-4 h-4" />,
+    component: SolarPanelPlugin,
+  },
+  'analog-clock': {
+    name: 'Analog Clock',
+    icon: <Clock className="w-4 h-4" />,
+    component: AnalogClockPlugin,
+  },
+  'header-bar': {
+    name: 'Header Bar',
+    icon: <Clock className="w-4 h-4" />,
+    component: HeaderPlugin,
+  },
+  'dxpeditions': {
+    name: 'DXpeditions',
+    icon: <Compass className="w-4 h-4" />,
+    component: DXpeditionsPlugin,
   },
   'pota': {
     name: 'POTA',
@@ -210,7 +229,7 @@ export function App() {
 
     if (plugin) {
       renderValues.leading = (
-        <span className="mr-2 text-accent-primary">{plugin.icon}</span>
+        <span className="mr-2 text-accent-secondary">{plugin.icon}</span>
       );
     }
   }, []);
@@ -241,9 +260,7 @@ export function App() {
   }, [resetLayoutStore]);
 
   return (
-    <div className="h-screen flex flex-col bg-dark-900 text-gray-100">
-      <Header />
-
+    <div className="h-screen flex flex-col bg-dark-900 text-gray-100 crt-scanlines relative">
       <main className="flex-1 relative overflow-hidden">
         <Layout
           ref={layoutRef}
@@ -253,26 +270,25 @@ export function App() {
           onRenderTab={onRenderTab}
           onRenderTabSet={onRenderTabSet}
           classNameMapper={(className) => {
-            // Apply custom dark theme classes
             return className;
           }}
         />
 
         {/* Panel Picker Modal */}
         {showPanelPicker && (
-          <div className="absolute inset-0 bg-dark-900/80 backdrop-blur-sm flex items-center justify-center z-50">
+          <div className="absolute inset-0 bg-dark-900/85 backdrop-blur-sm flex items-center justify-center z-50">
             <div className="glass-panel w-96 animate-fade-in">
               <div className="flex items-center justify-between px-4 py-3 border-b border-glass-100">
                 <div className="flex items-center gap-2">
-                  <LayoutGrid className="w-5 h-5 text-accent-primary" />
-                  <h3 className="font-semibold">Add Panel</h3>
+                  <LayoutGrid className="w-5 h-5 text-accent-secondary" />
+                  <h3 className="font-semibold text-accent-success font-ui text-sm tracking-wide uppercase">Add Panel</h3>
                 </div>
                 <button
                   onClick={() => {
                     setShowPanelPicker(false);
                     setTargetTabSetId(null);
                   }}
-                  className="p-1 hover:bg-dark-600 rounded transition-colors"
+                  className="p-1 hover:bg-dark-600 rounded transition-colors text-dark-300 hover:text-accent-danger"
                 >
                   <X className="w-4 h-4" />
                 </button>
@@ -285,7 +301,7 @@ export function App() {
 
                   if (availablePlugins.length === 0) {
                     return (
-                      <div className="col-span-2 text-center py-4 text-gray-500">
+                      <div className="col-span-2 text-center py-4 text-dark-300">
                         All panels have been added to the layout
                       </div>
                     );
@@ -295,10 +311,10 @@ export function App() {
                     <button
                       key={id}
                       onClick={() => handleAddPanel(id)}
-                      className="glass-button flex flex-col items-center gap-2 p-4 hover:border-accent-primary/50"
+                      className="glass-button flex flex-col items-center gap-2 p-4 hover:border-accent-secondary/40"
                     >
-                      <span className="text-accent-primary">{plugin.icon}</span>
-                      <span className="text-sm">{plugin.name}</span>
+                      <span className="text-accent-secondary">{plugin.icon}</span>
+                      <span className="text-sm font-ui">{plugin.name}</span>
                     </button>
                   ));
                 })()}
@@ -307,7 +323,7 @@ export function App() {
               <div className="px-4 py-3 border-t border-glass-100">
                 <button
                   onClick={handleResetLayout}
-                  className="text-sm text-gray-500 hover:text-gray-300 transition-colors"
+                  className="text-sm text-dark-300 hover:text-accent-danger transition-colors font-ui"
                 >
                   Reset to default layout
                 </button>

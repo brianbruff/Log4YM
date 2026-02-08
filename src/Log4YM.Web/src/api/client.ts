@@ -192,6 +192,16 @@ class ApiClient {
     return this.fetch('/plugins');
   }
 
+  // Space Weather
+  async getSpaceWeather(): Promise<SpaceWeatherData> {
+    return this.fetch('/spaceweather');
+  }
+
+  // DXpeditions
+  async getDXpeditions(): Promise<DXpeditionData> {
+    return this.fetch('/dxpeditions');
+  }
+
   // QRZ
   async getQrzSubscription(): Promise<QrzSubscriptionResponse> {
     return this.fetch('/qrz/subscription');
@@ -389,6 +399,37 @@ export interface AdifExportRequest {
   fromDate?: string;
   toDate?: string;
   qsoIds?: string[];
+}
+
+// Space Weather Types
+export interface SpaceWeatherData {
+  solarFluxIndex: number;
+  kIndex: number;
+  sunspotNumber: number;
+  timestamp: string;
+}
+
+// DXpedition Types
+export interface DXpedition {
+  callsign: string;
+  entity: string;
+  dates: string;
+  qsl: string;
+  info: string;
+  bands: string;
+  modes: string;
+  startDate?: string;
+  endDate?: string;
+  isActive: boolean;
+  isUpcoming: boolean;
+}
+
+export interface DXpeditionData {
+  dxpeditions: DXpedition[];
+  active: number;
+  upcoming: number;
+  source: string;
+  timestamp: string;
 }
 
 export const api = new ApiClient();

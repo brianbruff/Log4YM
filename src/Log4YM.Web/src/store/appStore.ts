@@ -79,6 +79,7 @@ interface AppState {
   setRadioState: (state: RadioStateChangedEvent) => void;
   setRadioSlices: (radioId: string, slices: RadioSliceInfo[]) => void;
   setSelectedRadio: (radioId: string | null) => void;
+  clearRadioState: (radioId: string) => void;
   clearDiscoveredRadios: () => void;
 
   // SmartUnlink
@@ -263,6 +264,12 @@ export const useAppStore = create<AppState>((set) => ({
       return { radioSlices };
     }),
   setSelectedRadio: (radioId) => set({ selectedRadioId: radioId }),
+  clearRadioState: (radioId) =>
+    set((state) => {
+      const radioStates = new Map(state.radioStates);
+      radioStates.delete(radioId);
+      return { radioStates };
+    }),
   clearDiscoveredRadios: () =>
     set({
       discoveredRadios: new Map(),

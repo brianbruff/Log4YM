@@ -21,7 +21,7 @@ const ModeCellRenderer = (props: ICellRendererParams<QsoResponse>) => {
       case 'FT4': return 'badge-ft8';
       case 'RTTY':
       case 'PSK31': return 'badge-rtty';
-      default: return 'bg-dark-600 text-gray-300';
+      default: return 'bg-dark-600 text-dark-200';
     }
   };
   return <span className={`badge text-xs ${getModeClass(mode)}`}>{mode}</span>;
@@ -49,9 +49,9 @@ const DateCellRenderer = (props: ICellRendererParams<QsoResponse>) => {
     });
   };
   return (
-    <div className="flex items-center gap-1 text-gray-400">
+    <div className="flex items-center gap-1 text-dark-300">
       <Calendar className="w-3 h-3" />
-      {formatDate(props.value)}
+      <span className="font-mono">{formatDate(props.value)}</span>
     </div>
   );
 };
@@ -66,14 +66,14 @@ const ActionCellRenderer = (props: ICellRendererParams<QsoResponse> & {
     <div className="flex items-center gap-1">
       <button
         onClick={() => props.onEdit(props.data!)}
-        className="p-1 text-gray-400 hover:text-accent-primary transition-colors"
+        className="p-1 text-dark-300 hover:text-accent-primary transition-colors"
         title="Edit QSO"
       >
         <Pencil className="w-3.5 h-3.5" />
       </button>
       <button
         onClick={() => props.onDelete(props.data!)}
-        className="p-1 text-gray-400 hover:text-red-400 transition-colors"
+        className="p-1 text-dark-300 hover:text-accent-danger transition-colors"
         title="Delete QSO"
       >
         <Trash2 className="w-3.5 h-3.5" />
@@ -262,7 +262,7 @@ export function LogHistoryPlugin() {
       headerName: 'Time',
       field: 'timeOn',
       valueFormatter: (params) => formatTime(params.value),
-      cellClass: 'font-mono text-gray-400',
+      cellClass: 'font-mono text-dark-300',
       width: 70,
       resizable: true,
     },
@@ -290,14 +290,14 @@ export function LogHistoryPlugin() {
     {
       headerName: 'RST S/R',
       valueGetter: (params) => `${params.data?.rstSent || '-'}/${params.data?.rstRcvd || '-'}`,
-      cellClass: 'font-mono text-gray-400',
+      cellClass: 'font-mono text-dark-300',
       width: 80,
       resizable: true,
     },
     {
       headerName: 'Name',
       valueGetter: (params) => params.data?.station?.name || params.data?.name || '-',
-      cellClass: 'text-gray-300',
+      cellClass: 'text-dark-200',
       width: 120,
       resizable: true,
     },
@@ -312,7 +312,7 @@ export function LogHistoryPlugin() {
     {
       headerName: 'Country',
       valueGetter: (params) => params.data?.station?.country || params.data?.country || '-',
-      cellClass: 'text-gray-400',
+      cellClass: 'text-dark-300',
       width: 120,
       resizable: true,
     },
@@ -341,7 +341,7 @@ export function LogHistoryPlugin() {
       title="Log History"
       icon={<Book className="w-5 h-5" />}
       actions={
-        <div className="flex items-center gap-3 text-sm text-gray-400">
+        <div className="flex items-center gap-3 text-sm text-dark-300 font-ui">
           <span>
             {stats?.totalQsos.toLocaleString() || 0}
             {hasActiveFilters && totalCount !== stats?.totalQsos && (
@@ -398,13 +398,13 @@ export function LogHistoryPlugin() {
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <Loader2 className="w-4 h-4 text-accent-info animate-spin" />
-                <span className="text-sm text-gray-300">
+                <span className="text-sm text-dark-200 font-ui">
                   Connecting to QRZ.com...
                 </span>
               </div>
               <button
                 onClick={handleCancelSync}
-                className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 px-2 py-1 rounded hover:bg-red-500/10 transition-colors"
+                className="text-xs text-accent-danger hover:text-accent-danger/80 flex items-center gap-1 px-2 py-1 rounded hover:bg-accent-danger/10 transition-colors"
                 title="Cancel sync"
               >
                 <X className="w-3 h-3" />
@@ -420,17 +420,17 @@ export function LogHistoryPlugin() {
             <div className="flex items-center justify-between mb-2">
               <div className="flex items-center gap-2">
                 <Loader2 className="w-4 h-4 text-accent-info animate-spin" />
-                <span className="text-sm text-gray-300">
+                <span className="text-sm text-dark-200 font-ui">
                   {qrzSyncProgress.message || `Syncing to QRZ.com...`}
                 </span>
               </div>
               <div className="flex items-center gap-3">
-                <span className="text-xs text-gray-400">
+                <span className="text-xs text-dark-300 font-mono">
                   {qrzSyncProgress.completed} / {qrzSyncProgress.total}
                 </span>
                 <button
                   onClick={handleCancelSync}
-                  className="text-xs text-red-400 hover:text-red-300 flex items-center gap-1 px-2 py-1 rounded hover:bg-red-500/10 transition-colors"
+                  className="text-xs text-accent-danger hover:text-accent-danger/80 flex items-center gap-1 px-2 py-1 rounded hover:bg-accent-danger/10 transition-colors"
                   title="Cancel sync"
                 >
                   <X className="w-3 h-3" />
@@ -444,10 +444,10 @@ export function LogHistoryPlugin() {
                 style={{ width: `${(qrzSyncProgress.completed / qrzSyncProgress.total) * 100}%` }}
               />
             </div>
-            <div className="flex justify-between text-xs text-gray-500 mt-1">
+            <div className="flex justify-between text-xs text-dark-300 mt-1 font-mono">
               <span className="text-accent-success">{qrzSyncProgress.successful} successful</span>
               {qrzSyncProgress.failed > 0 && (
-                <span className="text-accent-error">{qrzSyncProgress.failed} failed</span>
+                <span className="text-accent-danger">{qrzSyncProgress.failed} failed</span>
               )}
             </div>
           </div>
@@ -457,17 +457,17 @@ export function LogHistoryPlugin() {
         {qrzSyncProgress?.isComplete && (
           <div className={`bg-dark-700/80 rounded-lg p-3 border ${
             qrzSyncProgress.message?.includes('cancelled')
-              ? 'border-yellow-500/30'
+              ? 'border-accent-primary/30'
               : 'border-accent-success/30'
           }`}>
             <div className="flex items-center justify-between">
               <div className="flex items-center gap-2">
                 <CloudUpload className={`w-4 h-4 ${
                   qrzSyncProgress.message?.includes('cancelled')
-                    ? 'text-yellow-400'
+                    ? 'text-accent-primary'
                     : 'text-accent-success'
                 }`} />
-                <span className="text-sm text-gray-300">
+                <span className="text-sm text-dark-200 font-ui">
                   {qrzSyncProgress.message?.includes('cancelled')
                     ? `Sync cancelled: ${qrzSyncProgress.successful} of ${qrzSyncProgress.total} uploaded`
                     : qrzSyncProgress.total === 0
@@ -478,7 +478,7 @@ export function LogHistoryPlugin() {
               </div>
               <button
                 onClick={() => setQrzSyncProgress(null)}
-                className="text-gray-500 hover:text-gray-300"
+                className="text-dark-300 hover:text-dark-200"
               >
                 <X className="w-4 h-4" />
               </button>
@@ -493,38 +493,38 @@ export function LogHistoryPlugin() {
               onClick={() => setShowSummary(!showSummary)}
               className="w-full flex items-center justify-between p-3 hover:bg-dark-600/50 transition-colors"
             >
-              <div className="flex items-center gap-2 text-sm text-gray-300">
+              <div className="flex items-center gap-2 text-sm text-dark-200 font-ui">
                 <span className="font-medium">Summary</span>
-                <span className="text-gray-500">|</span>
-                <span className="text-accent-primary font-bold">{stats.totalQsos.toLocaleString()}</span>
+                <span className="text-dark-300">|</span>
+                <span className="text-accent-primary font-display font-bold">{stats.totalQsos.toLocaleString()}</span>
                 {hasActiveFilters && totalCount !== stats.totalQsos && (
-                  <span className="text-accent-info font-bold">({totalCount.toLocaleString()})</span>
+                  <span className="text-accent-info font-display font-bold">({totalCount.toLocaleString()})</span>
                 )}
-                <span className="text-gray-500">QSOs</span>
+                <span className="text-dark-300">QSOs</span>
               </div>
               {showSummary ? (
-                <ChevronUp className="w-4 h-4 text-gray-400" />
+                <ChevronUp className="w-4 h-4 text-dark-300" />
               ) : (
-                <ChevronDown className="w-4 h-4 text-gray-400" />
+                <ChevronDown className="w-4 h-4 text-dark-300" />
               )}
             </button>
             {showSummary && (
               <div className="grid grid-cols-4 gap-4 p-4 pt-2 border-t border-glass-100">
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-accent-primary">{stats.totalQsos.toLocaleString()}</p>
-                  <p className="text-xs text-gray-500">Total QSOs</p>
+                  <p className="text-2xl font-display font-bold text-accent-primary">{stats.totalQsos.toLocaleString()}</p>
+                  <p className="text-xs text-dark-300 font-ui">Total QSOs</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-accent-success">{stats.uniqueCountries}</p>
-                  <p className="text-xs text-gray-500">Countries</p>
+                  <p className="text-2xl font-display font-bold text-accent-success">{stats.uniqueCountries}</p>
+                  <p className="text-xs text-dark-300 font-ui">Countries</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-accent-info">{stats.uniqueGrids}</p>
-                  <p className="text-xs text-gray-500">Grids</p>
+                  <p className="text-2xl font-display font-bold text-accent-info">{stats.uniqueGrids}</p>
+                  <p className="text-xs text-dark-300 font-ui">Grids</p>
                 </div>
                 <div className="text-center">
-                  <p className="text-2xl font-bold text-accent-warning">{stats.qsosToday}</p>
-                  <p className="text-xs text-gray-500">Today</p>
+                  <p className="text-2xl font-display font-bold text-accent-warning">{stats.qsosToday}</p>
+                  <p className="text-xs text-dark-300 font-ui">Today</p>
                 </div>
               </div>
             )}
@@ -535,7 +535,7 @@ export function LogHistoryPlugin() {
         <div className="flex gap-3 flex-wrap">
           {/* Callsign Search */}
           <div className="flex-1 min-w-[150px] relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-300" />
             <input
               type="text"
               value={callsignSearch}
@@ -550,7 +550,7 @@ export function LogHistoryPlugin() {
 
           {/* Name Search */}
           <div className="flex-1 min-w-[150px] relative">
-            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-gray-500" />
+            <Search className="absolute left-3 top-1/2 -translate-y-1/2 w-4 h-4 text-dark-300" />
             <input
               type="text"
               value={nameSearch}
@@ -570,7 +570,7 @@ export function LogHistoryPlugin() {
               setSelectedBand(e.target.value);
               setCurrentPage(1);
             }}
-            className="glass-input w-24"
+            className="glass-input w-24 font-mono"
           >
             <option value="">Band</option>
             <option value="160m">160m</option>
@@ -593,7 +593,7 @@ export function LogHistoryPlugin() {
               setSelectedMode(e.target.value);
               setCurrentPage(1);
             }}
-            className="glass-input w-24"
+            className="glass-input w-24 font-mono"
           >
             <option value="">Mode</option>
             <option value="SSB">SSB</option>
@@ -619,7 +619,7 @@ export function LogHistoryPlugin() {
           {hasActiveFilters && (
             <button
               onClick={clearFilters}
-              className="glass-button p-2 text-red-400 hover:text-red-300"
+              className="glass-button p-2 text-accent-danger hover:text-accent-danger/80"
               title="Clear all filters"
             >
               <X className="w-4 h-4" />
@@ -630,9 +630,9 @@ export function LogHistoryPlugin() {
         {/* Date Range Filters (Collapsible) */}
         {showFilters && (
           <div className="flex gap-3 items-center p-3 bg-dark-700/50 rounded-lg">
-            <Calendar className="w-4 h-4 text-gray-500" />
+            <Calendar className="w-4 h-4 text-dark-300" />
             <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-400">From:</label>
+              <label className="text-sm text-dark-300 font-ui">From:</label>
               <input
                 type="date"
                 value={fromDate}
@@ -640,11 +640,11 @@ export function LogHistoryPlugin() {
                   setFromDate(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="glass-input px-2 py-1 text-sm"
+                className="glass-input px-2 py-1 text-sm font-mono"
               />
             </div>
             <div className="flex items-center gap-2">
-              <label className="text-sm text-gray-400">To:</label>
+              <label className="text-sm text-dark-300 font-ui">To:</label>
               <input
                 type="date"
                 value={toDate}
@@ -652,7 +652,7 @@ export function LogHistoryPlugin() {
                   setToDate(e.target.value);
                   setCurrentPage(1);
                 }}
-                className="glass-input px-2 py-1 text-sm"
+                className="glass-input px-2 py-1 text-sm font-mono"
               />
             </div>
           </div>
@@ -661,7 +661,7 @@ export function LogHistoryPlugin() {
         {/* AG Grid Table */}
         <div className="ag-theme-alpine-dark h-[calc(100vh-380px)]">
           {isLoading ? (
-            <div className="flex items-center justify-center py-8 text-gray-500">
+            <div className="flex items-center justify-center py-8 text-dark-300">
               <Radio className="w-4 h-4 animate-spin mr-2" />
               Loading...
             </div>
@@ -683,7 +683,7 @@ export function LogHistoryPlugin() {
         {/* Pagination */}
         {totalPages > 1 && (
           <div className="flex items-center justify-between pt-2 border-t border-glass-100">
-            <div className="text-sm text-gray-400">
+            <div className="text-sm text-dark-300 font-mono">
               Showing {((currentPage - 1) * pageSize) + 1} - {Math.min(currentPage * pageSize, totalCount)} of {totalCount.toLocaleString()}
             </div>
             <div className="flex items-center gap-1">
@@ -713,9 +713,9 @@ export function LogHistoryPlugin() {
                   }}
                   min={1}
                   max={totalPages}
-                  className="glass-input w-16 text-center text-sm py-1"
+                  className="glass-input w-16 text-center text-sm py-1 font-mono"
                 />
-                <span className="text-gray-400 text-sm">/ {totalPages}</span>
+                <span className="text-dark-300 text-sm font-mono">/ {totalPages}</span>
               </div>
               <button
                 onClick={() => handlePageChange(currentPage + 1)}
@@ -752,18 +752,18 @@ export function LogHistoryPlugin() {
       {/* Delete Confirmation Modal */}
       {deletingQso && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-dark-800 rounded-lg p-6 max-w-md w-full mx-4 border border-glass-100">
-            <h3 className="text-lg font-semibold text-white mb-4">Delete QSO?</h3>
-            <p className="text-gray-400 mb-2">
+          <div className="bg-dark-800 rounded-lg p-6 max-w-md w-full mx-4 border border-glass-200">
+            <h3 className="text-lg font-ui font-semibold text-white mb-4">Delete QSO?</h3>
+            <p className="text-dark-300 mb-2">
               Are you sure you want to delete this QSO?
             </p>
             <div className="bg-dark-700/50 rounded p-3 mb-6">
               <p className="text-accent-primary font-mono font-bold">{deletingQso.callsign}</p>
-              <p className="text-sm text-gray-400">
+              <p className="text-sm text-dark-300 font-mono">
                 {new Date(deletingQso.qsoDate).toLocaleDateString()} • {deletingQso.band} • {deletingQso.mode}
               </p>
             </div>
-            <p className="text-sm text-red-400 mb-4">
+            <p className="text-sm text-accent-danger mb-4">
               This action cannot be undone.
             </p>
             <div className="flex gap-3 justify-end">
@@ -777,7 +777,7 @@ export function LogHistoryPlugin() {
               <button
                 onClick={handleDelete}
                 disabled={isDeleting}
-                className="bg-red-600 hover:bg-red-700 text-white px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50"
+                className="bg-accent-danger hover:bg-accent-danger/80 text-white px-4 py-2 rounded-lg flex items-center gap-2 disabled:opacity-50"
               >
                 {isDeleting ? (
                   <Loader2 className="w-4 h-4 animate-spin" />
@@ -794,21 +794,21 @@ export function LogHistoryPlugin() {
       {/* ADIF Import Modal */}
       {showImportModal && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-dark-800 rounded-lg p-6 max-w-lg w-full mx-4 border border-glass-100">
+          <div className="bg-dark-800 rounded-lg p-6 max-w-lg w-full mx-4 border border-glass-200">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-white flex items-center gap-2">
+              <h3 className="text-lg font-ui font-semibold text-white flex items-center gap-2">
                 <Upload className="w-5 h-5 text-accent-success" />
                 Import ADIF
               </h3>
               <button
                 onClick={() => setShowImportModal(false)}
-                className="text-gray-400 hover:text-white"
+                className="text-dark-300 hover:text-white"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
 
-            <p className="text-sm text-gray-400 mb-4">
+            <p className="text-sm text-dark-300 mb-4">
               Import QSOs from an ADIF file. Supports .adi, .adif, and .xml formats.
             </p>
 
@@ -819,11 +819,11 @@ export function LogHistoryPlugin() {
                   type="checkbox"
                   checked={markAsSyncedToQrz}
                   onChange={e => setMarkAsSyncedToQrz(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-600 text-accent-primary focus:ring-accent-primary"
+                  className="w-4 h-4 rounded border-glass-200 text-accent-primary focus:ring-accent-primary/40"
                 />
                 <div>
-                  <p className="text-sm text-gray-200">Mark as already synced to QRZ</p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-sm text-dark-200 font-ui">Mark as already synced to QRZ</p>
+                  <p className="text-xs text-dark-300">
                     Recommended when importing from QRZ.com export (prevents re-uploading)
                   </p>
                 </div>
@@ -834,26 +834,26 @@ export function LogHistoryPlugin() {
                   type="checkbox"
                   checked={skipDuplicates}
                   onChange={e => setSkipDuplicates(e.target.checked)}
-                  className="w-4 h-4 rounded border-gray-600 text-accent-primary focus:ring-accent-primary"
+                  className="w-4 h-4 rounded border-glass-200 text-accent-primary focus:ring-accent-primary/40"
                 />
                 <div>
-                  <p className="text-sm text-gray-200">Skip duplicate QSOs</p>
-                  <p className="text-xs text-gray-500">
+                  <p className="text-sm text-dark-200 font-ui">Skip duplicate QSOs</p>
+                  <p className="text-xs text-dark-300">
                     Skip QSOs that match existing records (callsign, date, time, band, mode)
                   </p>
                 </div>
               </label>
 
-              <label className="flex items-center gap-3 p-3 bg-red-500/10 border border-red-500/30 rounded-lg cursor-pointer hover:bg-red-500/20">
+              <label className="flex items-center gap-3 p-3 bg-accent-danger/10 border border-accent-danger/30 rounded-lg cursor-pointer hover:bg-accent-danger/20">
                 <input
                   type="checkbox"
                   checked={clearExistingLogs}
                   onChange={e => setClearExistingLogs(e.target.checked)}
-                  className="w-4 h-4 rounded border-red-600 text-red-500 focus:ring-red-500"
+                  className="w-4 h-4 rounded border-accent-danger/30 text-accent-danger focus:ring-accent-danger/40"
                 />
                 <div>
-                  <p className="text-sm text-red-400">Clear existing log before import</p>
-                  <p className="text-xs text-red-400/70">
+                  <p className="text-sm text-accent-danger font-ui">Clear existing log before import</p>
+                  <p className="text-xs text-accent-danger/70">
                     Warning: This will delete ALL existing QSOs before importing
                   </p>
                 </div>
@@ -901,41 +901,41 @@ export function LogHistoryPlugin() {
       {/* Import Results */}
       {importResult && (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-          <div className="bg-dark-800 rounded-lg p-6 max-w-md w-full mx-4 border border-glass-100">
-            <h3 className="text-lg font-semibold text-white flex items-center gap-2 mb-4">
+          <div className="bg-dark-800 rounded-lg p-6 max-w-md w-full mx-4 border border-glass-200">
+            <h3 className="text-lg font-ui font-semibold text-white flex items-center gap-2 mb-4">
               {importResult.errorCount === 0 && importResult.importedCount > 0 ? (
-                <CheckCircle className="w-5 h-5 text-green-400" />
+                <CheckCircle className="w-5 h-5 text-accent-success" />
               ) : importResult.errorCount > 0 ? (
-                <AlertTriangle className="w-5 h-5 text-yellow-400" />
+                <AlertTriangle className="w-5 h-5 text-accent-primary" />
               ) : (
-                <XCircle className="w-5 h-5 text-red-400" />
+                <XCircle className="w-5 h-5 text-accent-danger" />
               )}
               Import Results
             </h3>
 
             <div className="grid grid-cols-4 gap-4 mb-4">
               <div className="text-center">
-                <p className="text-2xl font-bold text-accent-primary">{importResult.totalRecords}</p>
-                <p className="text-xs text-gray-500">Total</p>
+                <p className="text-2xl font-display font-bold text-accent-primary">{importResult.totalRecords}</p>
+                <p className="text-xs text-dark-300 font-ui">Total</p>
               </div>
               <div className="text-center">
-                <p className="text-2xl font-bold text-green-400">{importResult.importedCount}</p>
-                <p className="text-xs text-gray-500">Imported</p>
+                <p className="text-2xl font-display font-bold text-accent-success">{importResult.importedCount}</p>
+                <p className="text-xs text-dark-300 font-ui">Imported</p>
               </div>
               <div className="text-center">
-                <p className="text-2xl font-bold text-yellow-400">{importResult.skippedDuplicates}</p>
-                <p className="text-xs text-gray-500">Duplicates</p>
+                <p className="text-2xl font-display font-bold text-accent-primary">{importResult.skippedDuplicates}</p>
+                <p className="text-xs text-dark-300 font-ui">Duplicates</p>
               </div>
               <div className="text-center">
-                <p className="text-2xl font-bold text-red-400">{importResult.errorCount}</p>
-                <p className="text-xs text-gray-500">Errors</p>
+                <p className="text-2xl font-display font-bold text-accent-danger">{importResult.errorCount}</p>
+                <p className="text-xs text-dark-300 font-ui">Errors</p>
               </div>
             </div>
 
             {importResult.errors.length > 0 && (
               <div className="max-h-24 overflow-auto bg-dark-700/50 rounded p-2 mb-4">
                 {importResult.errors.map((error, i) => (
-                  <p key={i} className="text-sm text-red-400 flex items-start gap-2 py-1">
+                  <p key={i} className="text-sm text-accent-danger flex items-start gap-2 py-1">
                     <XCircle className="w-4 h-4 flex-shrink-0 mt-0.5" />
                     {error}
                   </p>
@@ -1003,13 +1003,13 @@ function EditQsoModal({
 
   return (
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
-      <div className="bg-dark-800 rounded-lg p-6 max-w-2xl w-full mx-4 border border-glass-100 max-h-[90vh] overflow-y-auto">
-        <h3 className="text-lg font-semibold text-white mb-4">Edit QSO</h3>
+      <div className="bg-dark-800 rounded-lg p-6 max-w-2xl w-full mx-4 border border-glass-200 max-h-[90vh] overflow-y-auto">
+        <h3 className="text-lg font-ui font-semibold text-white mb-4">Edit QSO</h3>
         <form onSubmit={handleSubmit} className="space-y-4">
           {/* Row 1: Callsign, Date, Time */}
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm text-gray-400 mb-1">Callsign</label>
+              <label className="block text-sm text-dark-300 mb-1 font-ui">Callsign</label>
               <input
                 type="text"
                 value={formData.callsign}
@@ -1019,17 +1019,17 @@ function EditQsoModal({
               />
             </div>
             <div>
-              <label className="block text-sm text-gray-400 mb-1">Date</label>
+              <label className="block text-sm text-dark-300 mb-1 font-ui">Date</label>
               <input
                 type="date"
                 value={formData.qsoDate}
                 onChange={(e) => setFormData({ ...formData, qsoDate: e.target.value })}
-                className="glass-input w-full"
+                className="glass-input w-full font-mono"
                 required
               />
             </div>
             <div>
-              <label className="block text-sm text-gray-400 mb-1">Time (UTC)</label>
+              <label className="block text-sm text-dark-300 mb-1 font-ui">Time (UTC)</label>
               <input
                 type="text"
                 value={formData.timeOn}
@@ -1044,11 +1044,11 @@ function EditQsoModal({
           {/* Row 2: Band, Mode, Frequency */}
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm text-gray-400 mb-1">Band</label>
+              <label className="block text-sm text-dark-300 mb-1 font-ui">Band</label>
               <select
                 value={formData.band}
                 onChange={(e) => setFormData({ ...formData, band: e.target.value })}
-                className="glass-input w-full"
+                className="glass-input w-full font-mono"
                 required
               >
                 <option value="">Select</option>
@@ -1066,11 +1066,11 @@ function EditQsoModal({
               </select>
             </div>
             <div>
-              <label className="block text-sm text-gray-400 mb-1">Mode</label>
+              <label className="block text-sm text-dark-300 mb-1 font-ui">Mode</label>
               <select
                 value={formData.mode}
                 onChange={(e) => setFormData({ ...formData, mode: e.target.value })}
-                className="glass-input w-full"
+                className="glass-input w-full font-mono"
                 required
               >
                 <option value="">Select</option>
@@ -1085,7 +1085,7 @@ function EditQsoModal({
               </select>
             </div>
             <div>
-              <label className="block text-sm text-gray-400 mb-1">Frequency (MHz)</label>
+              <label className="block text-sm text-dark-300 mb-1 font-ui">Frequency (MHz)</label>
               <input
                 type="number"
                 step="0.001"
@@ -1100,7 +1100,7 @@ function EditQsoModal({
           {/* Row 3: RST Sent, RST Rcvd */}
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block text-sm text-gray-400 mb-1">RST Sent</label>
+              <label className="block text-sm text-dark-300 mb-1 font-ui">RST Sent</label>
               <input
                 type="text"
                 value={formData.rstSent}
@@ -1110,7 +1110,7 @@ function EditQsoModal({
               />
             </div>
             <div>
-              <label className="block text-sm text-gray-400 mb-1">RST Rcvd</label>
+              <label className="block text-sm text-dark-300 mb-1 font-ui">RST Rcvd</label>
               <input
                 type="text"
                 value={formData.rstRcvd}
@@ -1124,7 +1124,7 @@ function EditQsoModal({
           {/* Row 4: Name, Grid, Country */}
           <div className="grid grid-cols-3 gap-4">
             <div>
-              <label className="block text-sm text-gray-400 mb-1">Name</label>
+              <label className="block text-sm text-dark-300 mb-1 font-ui">Name</label>
               <input
                 type="text"
                 value={formData.name}
@@ -1133,7 +1133,7 @@ function EditQsoModal({
               />
             </div>
             <div>
-              <label className="block text-sm text-gray-400 mb-1">Grid</label>
+              <label className="block text-sm text-dark-300 mb-1 font-ui">Grid</label>
               <input
                 type="text"
                 value={formData.grid}
@@ -1143,7 +1143,7 @@ function EditQsoModal({
               />
             </div>
             <div>
-              <label className="block text-sm text-gray-400 mb-1">Country</label>
+              <label className="block text-sm text-dark-300 mb-1 font-ui">Country</label>
               <input
                 type="text"
                 value={formData.country}
@@ -1155,7 +1155,7 @@ function EditQsoModal({
 
           {/* Row 5: Comment */}
           <div>
-            <label className="block text-sm text-gray-400 mb-1">Comment</label>
+            <label className="block text-sm text-dark-300 mb-1 font-ui">Comment</label>
             <textarea
               value={formData.comment}
               onChange={(e) => setFormData({ ...formData, comment: e.target.value })}

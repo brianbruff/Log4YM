@@ -1,6 +1,6 @@
 import { useState, useMemo } from 'react';
 import { useQuery } from '@tanstack/react-query';
-import { Radio, Zap, Volume2, VolumeX, Settings, ChevronUp, Plus, Trash2, X, Search } from 'lucide-react';
+import { Radio, Zap, Settings, ChevronUp, Plus, Trash2, X, Search, Map } from 'lucide-react';
 import { AgGridReact } from 'ag-grid-react';
 import { ColDef, ICellRendererParams, RowClickedEvent } from 'ag-grid-community';
 import 'ag-grid-community/styles/ag-grid.css';
@@ -397,7 +397,7 @@ export function ClusterPlugin() {
   const [selectedBands, setSelectedBands] = useState<string[]>([]);
   const [selectedModes, setSelectedModes] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [soundEnabled, setSoundEnabled] = useState(false);
+  const [mapOverlayEnabled, setMapOverlayEnabled] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
 
   // Get cluster settings from store
@@ -612,11 +612,11 @@ export function ClusterPlugin() {
             {filteredSpots?.length || 0} spots
           </span>
           <button
-            onClick={() => setSoundEnabled(!soundEnabled)}
-            className={`glass-button p-1.5 ${soundEnabled ? 'text-accent-success' : 'text-dark-300'}`}
-            title={soundEnabled ? 'Disable alerts' : 'Enable alerts'}
+            onClick={() => setMapOverlayEnabled(!mapOverlayEnabled)}
+            className={`glass-button p-1.5 ${mapOverlayEnabled ? 'text-accent-info' : 'text-dark-300'}`}
+            title={mapOverlayEnabled ? 'Hide map overlay' : 'Show map overlay'}
           >
-            {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+            <Map className="w-4 h-4" />
           </button>
           <button
             onClick={() => setShowSettings(!showSettings)}

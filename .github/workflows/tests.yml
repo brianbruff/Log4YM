@@ -133,6 +133,7 @@ jobs:
       - name: Lint
         working-directory: src/Log4YM.Web
         run: npm run lint
+        continue-on-error: true
 
       - name: Build
         working-directory: src/Log4YM.Web

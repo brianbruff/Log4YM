@@ -2,12 +2,14 @@ import { useEffect, useRef, useCallback, useState } from 'react';
 import { Map as MapIcon, MapPin, Target, Maximize2, ZoomIn, ZoomOut, Layers } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, Circle, Polyline } from 'react-leaflet';
 import L from 'leaflet';
+import { useQuery } from '@tanstack/react-query';
 import { useAppStore } from '../store/appStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { useSignalR } from '../hooks/useSignalR';
 import { GlassPanel } from '../components/GlassPanel';
 import { DXNewsTicker } from '../components/DXNewsTicker';
 import { gridToLatLon, calculateDistance, getAnimationDuration } from '../utils/maidenhead';
+import { api, Spot } from '../api/client';
 
 import 'leaflet/dist/leaflet.css';
 
@@ -100,6 +102,45 @@ const TILE_LAYERS = {
 
 type TileLayerKey = keyof typeof TILE_LAYERS;
 
+// Band colors for DX Cluster paths (inspired by OpenHamClock)
+const BAND_COLORS: Record<string, string> = {
+  '160m': '#ff4444', // Red
+  '80m': '#ff8844', // Orange
+  '60m': '#ffaa44', // Light Orange
+  '40m': '#ffcc44', // Yellow
+  '30m': '#ddff44', // Yellow-Green
+  '20m': '#88ff44', // Green
+  '17m': '#44ff88', // Light Green
+  '15m': '#44ffcc', // Cyan
+  '12m': '#44ccff', // Light Blue
+  '10m': '#4488ff', // Blue
+  '6m': '#8844ff', // Purple
+};
+
+// Get band from frequency (in kHz)
+const getBandFromFrequency = (freq: number): string => {
+  const BAND_RANGES: Record<string, [number, number]> = {
+    '160m': [1800, 2000],
+    '80m': [3500, 4000],
+    '60m': [5330, 5410],
+    '40m': [7000, 7300],
+    '30m': [10100, 10150],
+    '20m': [14000, 14350],
+    '17m': [18068, 18168],
+    '15m': [21000, 21450],
+    '12m': [24890, 24990],
+    '10m': [28000, 29700],
+    '6m': [50000, 54000],
+  };
+
+  for (const [band, [min, max]] of Object.entries(BAND_RANGES)) {
+    if (freq >= min && freq <= max) {
+      return band;
+    }
+  }
+  return '?';
+};
+
 // Map click handler component
 function MapClickHandler({
   stationLat,
@@ -168,12 +209,19 @@ export function MapPlugin() {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const lastTargetCoordsRef = useRef<{ lat: number; lon: number } | null>(null);
-  const { stationGrid, rotatorPosition, focusedCallsignInfo, potaSpots, showPotaMapMarkers } = useAppStore();
+  const { stationGrid, rotatorPosition, focusedCallsignInfo, potaSpots, showPotaMapMarkers, showDxPathsOnMap } = useAppStore();
   const { settings, updateMapSettings, saveSettings } = useSettingsStore();
   const { commandRotator } = useSignalR();
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [currentAzimuth, setCurrentAzimuth] = useState(0);
   const [showLayerPicker, setShowLayerPicker] = useState(false);
+  // Fetch DX cluster spots for map overlay
+  const { data: dxSpots } = useQuery({
+    queryKey: ['spots'],
+    queryFn: () => api.getSpots({ limit: 100 }),
+    refetchInterval: 30000,
+    enabled: showDxPathsOnMap,
+  });
 
   // Get tile layer from persisted settings
   const tileLayer = settings.map.tileLayer;
@@ -451,6 +499,46 @@ export function MapPlugin() {
                   </div>
                 </Popup>
               </Marker>
+
+          {/* DX Cluster spot paths - show when enabled */}
+          {showDxPathsOnMap && dxSpots?.map((spot) => {
+            // Only render if we have grid square to derive coordinates
+            if (!spot.dxStation?.grid) return null;
+            
+            const dxCoords = gridToLatLon(spot.dxStation.grid);
+            if (!dxCoords) return null;
+            
+            // Calculate great circle path from station to DX
+            const pathPoints: [number, number][] = [];
+            const numPoints = 50; // Number of points along the path
+            
+            // Calculate bearing from station to DX
+            const bearing = calculateAzimuth(stationLat, stationLon, dxCoords.lat, dxCoords.lon);
+            
+            // Calculate distance
+            const distance = calculateDistance(stationLat, stationLon, dxCoords.lat, dxCoords.lon);
+            
+            // Generate points along the great circle path
+            for (let i = 0; i <= numPoints; i++) {
+              const fraction = i / numPoints;
+              const d = distance * fraction;
+              pathPoints.push(getDestinationPoint(stationLat, stationLon, bearing, d));
+            }
+            
+            // Get band and color
+            const band = getBandFromFrequency(spot.frequency);
+            const color = BAND_COLORS[band] || '#888888';
+            
+            return (
+              <Polyline
+                key={spot.id}
+                positions={pathPoints}
+                pathOptions={{
+                  color: color,
+                  weight: 2,
+                  opacity: 0.6,
+                }}
+              />
             );
           })}
         </MapContainer>
@@ -550,6 +638,24 @@ export function MapPlugin() {
         </div>
 
         {/* DX News Ticker */}
+
+        {/* Band Color Legend - show when DX paths are enabled */}
+        {showDxPathsOnMap && (
+          <div className="absolute bottom-16 right-4 glass-panel px-3 py-2 z-[1000]">
+            <div className="text-xs font-ui text-dark-200 mb-2 font-semibold">Band Colors</div>
+            <div className="grid grid-cols-2 gap-x-3 gap-y-1">
+              {Object.entries(BAND_COLORS).map(([band, color]) => (
+                <div key={band} className="flex items-center gap-2">
+                  <div
+                    className="w-6 h-0.5"
+                    style={{ backgroundColor: color }}
+                  />
+                  <span className="text-xs font-mono text-dark-300">{band}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
         <DXNewsTicker />
       </div>
     </GlassPanel>

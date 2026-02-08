@@ -111,6 +111,10 @@ interface AppState {
   showPotaMapMarkers: boolean;
   setPotaSpots: (spots: PotaSpot[]) => void;
   setShowPotaMapMarkers: (show: boolean) => void;
+
+  // DX Cluster spots and map paths
+  showDxPathsOnMap: boolean;
+  setShowDxPathsOnMap: (show: boolean) => void;
 }
 
 export interface ClusterStatus {
@@ -340,4 +344,8 @@ export const useAppStore = create<AppState>((set) => ({
   showPotaMapMarkers: false,
   setPotaSpots: (spots) => set({ potaSpots: spots }),
   setShowPotaMapMarkers: (show) => set({ showPotaMapMarkers: show }),
+
+  // DX Cluster spots and map paths
+  showDxPathsOnMap: false,
+  setShowDxPathsOnMap: (show) => set({ showDxPathsOnMap: show }),
 }));

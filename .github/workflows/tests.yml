@@ -1,0 +1,189 @@
+# =============================================================================
+# Log4YM Test Pipeline
+# =============================================================================
+#
+# Required GitHub Secrets:
+#   - OPENAI_API_KEY:    OpenAI API key (only needed if AI live tests are enabled)
+#   - ANTHROPIC_API_KEY: Anthropic API key (only needed if AI live tests are enabled)
+#   - AI_LIVE_TESTS:     Set to 'true' to enable expensive AI live tests
+#   - QRZ_USERNAME:      QRZ.com username (only needed if QRZ live tests are enabled)
+#   - QRZ_PASSWORD:      QRZ.com password (only needed if QRZ live tests are enabled)
+#   - QRZ_API_KEY:       QRZ.com API key (only needed if QRZ live tests are enabled)
+#   - QRZ_LIVE_TESTS:    Set to 'true' to enable rate-limited QRZ live tests
+#
+# Test Categories:
+#   - Unit:        Fast, isolated tests with no external dependencies. Always run.
+#   - Integration: Tests that verify component interactions (mocked external services).
+#                  Always run on CI.
+#   - LiveAI:      Tests that call real AI APIs (OpenAI, Anthropic). Expensive and
+#                  slow. Only run when AI_LIVE_TESTS secret is 'true' or manually
+#                  triggered with run_ai_tests input.
+#   - RateLimited: Tests that call rate-limited external APIs (QRZ.com). Only run
+#                  when QRZ_LIVE_TESTS secret is 'true' or manually triggered with
+#                  run_qrz_tests input.
+#
+# Enabling/Disabling Expensive Tests:
+#   - Via secrets: Set AI_LIVE_TESTS or QRZ_LIVE_TESTS to 'true' in repo settings
+#     to always run these tests on PRs and pushes.
+#   - Via manual trigger: Use "Run workflow" in the Actions tab and check the
+#     desired test inputs. Manual inputs override secret-based defaults.
+#
+# =============================================================================
+
+name: Tests
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+  workflow_dispatch:
+    inputs:
+      run_ai_tests:
+        description: 'Run expensive AI live tests'
+        type: boolean
+        default: false
+      run_qrz_tests:
+        description: 'Run rate-limited QRZ live tests'
+        type: boolean
+        default: false
+
+jobs:
+  backend-tests:
+    name: Backend Tests (.NET)
+    runs-on: ubuntu-latest
+
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: 1
+      DOTNET_NOLOGO: 1
+      AI_LIVE_TESTS: ${{ secrets.AI_LIVE_TESTS }}
+      QRZ_LIVE_TESTS: ${{ secrets.QRZ_LIVE_TESTS }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Restore dependencies
+        run: dotnet restore src/Log4YM.Server.Tests/Log4YM.Server.Tests.csproj
+
+      - name: Build
+        run: dotnet build src/Log4YM.Server.Tests/Log4YM.Server.Tests.csproj --no-restore -c Release
+
+      - name: Run unit tests
+        run: dotnet test src/Log4YM.Server.Tests/Log4YM.Server.Tests.csproj --no-build -c Release --filter "Category=Unit" --logger "trx;LogFileName=unit-results.trx" --results-directory ./test-results
+
+      - name: Run integration tests
+        run: dotnet test src/Log4YM.Server.Tests/Log4YM.Server.Tests.csproj --no-build -c Release --filter "Category=Integration" --logger "trx;LogFileName=integration-results.trx" --results-directory ./test-results
+
+      - name: Run AI live tests
+        if: env.AI_LIVE_TESTS == 'true' || github.event.inputs.run_ai_tests == 'true'
+        env:
+          OPENAI_API_KEY: ${{ secrets.OPENAI_API_KEY }}
+          ANTHROPIC_API_KEY: ${{ secrets.ANTHROPIC_API_KEY }}
+        run: dotnet test src/Log4YM.Server.Tests/Log4YM.Server.Tests.csproj --no-build -c Release --filter "Category=LiveAI" --logger "trx;LogFileName=liveai-results.trx" --results-directory ./test-results
+
+      - name: Run QRZ rate-limited tests
+        if: env.QRZ_LIVE_TESTS == 'true' || github.event.inputs.run_qrz_tests == 'true'
+        env:
+          QRZ_USERNAME: ${{ secrets.QRZ_USERNAME }}
+          QRZ_PASSWORD: ${{ secrets.QRZ_PASSWORD }}
+          QRZ_API_KEY: ${{ secrets.QRZ_API_KEY }}
+        run: dotnet test src/Log4YM.Server.Tests/Log4YM.Server.Tests.csproj --no-build -c Release --filter "Category=RateLimited" --logger "trx;LogFileName=qrz-results.trx" --results-directory ./test-results
+
+      - name: Upload test results
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: backend-test-results
+          path: ./test-results/*.trx
+          if-no-files-found: ignore
+
+  frontend-tests:
+    name: Frontend Tests (React)
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: src/Log4YM.Web/package-lock.json
+
+      - name: Install dependencies
+        working-directory: src/Log4YM.Web
+        run: npm ci
+
+      - name: Lint
+        working-directory: src/Log4YM.Web
+        run: npm run lint
+        continue-on-error: true
+
+      - name: Build
+        working-directory: src/Log4YM.Web
+        run: npm run build
+
+      - name: Test
+        working-directory: src/Log4YM.Web
+        run: npm run test
+
+  build-check:
+    name: Full Build Verification
+    runs-on: ubuntu-latest
+    needs: [backend-tests, frontend-tests]
+
+    env:
+      DOTNET_CLI_TELEMETRY_OPTOUT: 1
+      DOTNET_NOLOGO: 1
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup .NET
+        uses: actions/setup-dotnet@v4
+        with:
+          dotnet-version: '10.0.x'
+
+      - name: Setup Node.js
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+          cache: 'npm'
+          cache-dependency-path: src/Log4YM.Web/package-lock.json
+
+      - name: Cache NuGet packages
+        uses: actions/cache@v4
+        with:
+          path: ~/.nuget/packages
+          key: ${{ runner.os }}-nuget-${{ hashFiles('**/*.csproj') }}
+          restore-keys: |
+            ${{ runner.os }}-nuget-
+
+      - name: Build frontend
+        working-directory: src/Log4YM.Web
+        run: |
+          npm ci
+          npm run build
+
+      - name: Copy frontend to wwwroot
+        run: mkdir -p src/Log4YM.Server/wwwroot && cp -r src/Log4YM.Web/dist/* src/Log4YM.Server/wwwroot/
+
+      - name: Build .NET solution
+        run: dotnet build --configuration Release

@@ -6,6 +6,7 @@ This directory contains native Hamlib libraries for each supported platform. The
 
 **Hamlib 4.6.5** binaries are included for:
 - **Windows x64** - All required DLLs bundled
+- **Windows x86 (32-bit)** - All required DLLs bundled (see win-x86/native/README.md)
 - **macOS ARM64** - For Apple Silicon Macs
 
 For other platforms, the application will automatically search system library paths.
@@ -17,6 +18,11 @@ runtimes/
 ├── win-x64/native/
 │   ├── libhamlib-4.dll       (main library)
 │   ├── libgcc_s_seh-1.dll    (dependency)
+│   ├── libwinpthread-1.dll   (dependency)
+│   └── libusb-1.0.dll        (dependency)
+├── win-x86/native/
+│   ├── libhamlib-4.dll       (main library, 32-bit)
+│   ├── libgcc_s_dw2-1.dll    (dependency, may vary)
 │   ├── libwinpthread-1.dll   (dependency)
 │   └── libusb-1.0.dll        (dependency)
 ├── linux-x64/native/
@@ -33,6 +39,9 @@ runtimes/
 
 ### Windows x64
 **Pre-bundled** - No action required. Libraries are included in this repository.
+
+### Windows x86 (32-bit)
+**Pre-bundled** - Libraries should be placed in `win-x86/native/`. See [win-x86/native/README.md](win-x86/native/README.md) for instructions on obtaining the 32-bit Hamlib DLLs.
 
 ### macOS ARM64 (Apple Silicon)
 **Pre-bundled** - No action required. Libraries are included in this repository.
@@ -73,8 +82,13 @@ The application searches these system paths automatically:
 ### Windows
 Download from [Hamlib Releases](https://github.com/Hamlib/Hamlib/releases):
 ```bash
+# For 64-bit (x64)
 # Download and extract hamlib-w64-X.X.X.zip
 # Copy all .dll files from bin/ to runtimes/win-x64/native/
+
+# For 32-bit (x86)
+# Download and extract hamlib-w32-X.X.X.zip
+# Copy all .dll files from bin/ to runtimes/win-x86/native/
 ```
 
 ### macOS
@@ -100,4 +114,4 @@ Common issues:
 1. **Library not found** - Ensure library exists in `runtimes/{RID}/native/` or is installed system-wide
 2. **Permission denied** - On Linux/macOS, verify the library has read permissions
 3. **Missing dependencies** - On Windows, ensure all DLLs from the Hamlib release are present
-4. **Architecture mismatch** - Ensure the library matches your CPU architecture (x64 vs arm64)
+4. **Architecture mismatch** - Ensure the library matches your CPU architecture (x64 vs x86 vs arm64)

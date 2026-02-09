@@ -1,7 +1,8 @@
-import { useEffect, useRef, useCallback, useState } from 'react';
+import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import { Map as MapIcon, MapPin, Target, Maximize2, ZoomIn, ZoomOut, Layers, Sun } from 'lucide-react';
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents, Circle, Polyline } from 'react-leaflet';
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents, Circle, Polyline, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
+import { useQuery } from '@tanstack/react-query';
 import { useAppStore } from '../store/appStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { useSignalR } from '../hooks/useSignalR';
@@ -10,6 +11,7 @@ import { DXNewsTicker } from '../components/DXNewsTicker';
 import { DayNightOverlay } from '../components/DayNightOverlay';
 import { GrayLineOverlay } from '../components/GrayLineOverlay';
 import { gridToLatLon, calculateDistance, getAnimationDuration } from '../utils/maidenhead';
+import { api, Spot } from '../api/client';
 
 import 'leaflet/dist/leaflet.css';
 
@@ -166,13 +168,123 @@ function getDestinationPoint(lat: number, lon: number, azimuth: number, distance
 }
 
 
+// Band colors for DX cluster spot paths (matching typical ham radio conventions)
+const BAND_COLORS: Record<string, string> = {
+  '160m': '#8B0000', // dark red
+  '80m': '#DC143C',  // crimson
+  '60m': '#FF6347',  // tomato
+  '40m': '#FF8C00',  // dark orange
+  '30m': '#FFD700',  // gold
+  '20m': '#32CD32',  // lime green
+  '17m': '#00CED1',  // dark turquoise
+  '15m': '#00BFFF',  // deep sky blue
+  '12m': '#4169E1',  // royal blue
+  '10m': '#8A2BE2',  // blue violet
+  '6m': '#FF00FF',   // magenta
+};
+
+const BAND_RANGES: Record<string, [number, number]> = {
+  '160m': [1800, 2000],
+  '80m': [3500, 4000],
+  '60m': [5330, 5410],
+  '40m': [7000, 7300],
+  '30m': [10100, 10150],
+  '20m': [14000, 14350],
+  '17m': [18068, 18168],
+  '15m': [21000, 21450],
+  '12m': [24890, 24990],
+  '10m': [28000, 29700],
+  '6m': [50000, 54000],
+};
+
+function getBandFromFrequency(freq: number): string {
+  for (const [band, [min, max]] of Object.entries(BAND_RANGES)) {
+    if (freq >= min && freq <= max) return band;
+  }
+  return '?';
+}
+
+// Generate intermediate great-circle path points between two coordinates
+function generateGreatCirclePoints(
+  lat1: number, lon1: number, lat2: number, lon2: number, numPoints = 50
+): [number, number][] {
+  const points: [number, number][] = [];
+  const toRad = Math.PI / 180;
+  const toDeg = 180 / Math.PI;
+
+  const lat1Rad = lat1 * toRad;
+  const lon1Rad = lon1 * toRad;
+  const lat2Rad = lat2 * toRad;
+  const lon2Rad = lon2 * toRad;
+
+  // Angular distance between the two points
+  const d = 2 * Math.asin(Math.sqrt(
+    Math.pow(Math.sin((lat1Rad - lat2Rad) / 2), 2) +
+    Math.cos(lat1Rad) * Math.cos(lat2Rad) * Math.pow(Math.sin((lon1Rad - lon2Rad) / 2), 2)
+  ));
+
+  if (d === 0) return [[lat1, lon1]];
+
+  for (let i = 0; i <= numPoints; i++) {
+    const f = i / numPoints;
+    const A = Math.sin((1 - f) * d) / Math.sin(d);
+    const B = Math.sin(f * d) / Math.sin(d);
+
+    const x = A * Math.cos(lat1Rad) * Math.cos(lon1Rad) + B * Math.cos(lat2Rad) * Math.cos(lon2Rad);
+    const y = A * Math.cos(lat1Rad) * Math.sin(lon1Rad) + B * Math.cos(lat2Rad) * Math.sin(lon2Rad);
+    const z = A * Math.sin(lat1Rad) + B * Math.sin(lat2Rad);
+
+    const lat = Math.atan2(z, Math.sqrt(x * x + y * y)) * toDeg;
+    const lon = Math.atan2(y, x) * toDeg;
+    points.push([lat, lon]);
+  }
+
+  return points;
+}
+
+// Custom DX spot marker (small diamond)
+function createSpotIcon(color: string, isHighlighted: boolean) {
+  const size = isHighlighted ? 10 : 6;
+  return new L.DivIcon({
+    className: 'custom-spot-marker',
+    html: `<div style="
+      width: ${size}px;
+      height: ${size}px;
+      background: ${color};
+      border: 1px solid rgba(255,255,255,${isHighlighted ? '0.9' : '0.5'});
+      border-radius: 50%;
+      box-shadow: 0 0 ${isHighlighted ? '8' : '3'}px ${color};
+    "></div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
+}
+
+// Compute spot path data (memoizable)
+interface SpotPathData {
+  spot: Spot;
+  band: string;
+  color: string;
+  targetLat: number;
+  targetLon: number;
+  pathPoints: [number, number][];
+}
+
 export function MapPlugin() {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const lastTargetCoordsRef = useRef<{ lat: number; lon: number } | null>(null);
-  const { stationGrid, rotatorPosition, focusedCallsignInfo, potaSpots, showPotaMapMarkers } = useAppStore();
+  const { stationGrid, rotatorPosition, focusedCallsignInfo, potaSpots, showPotaMapMarkers, dxClusterMapEnabled, hoveredSpotId } = useAppStore();
   const { settings, updateMapSettings, saveSettings } = useSettingsStore();
   const { commandRotator } = useSignalR();
+
+  // Fetch spots for map overlay
+  const { data: spots } = useQuery({
+    queryKey: ['spots'],
+    queryFn: () => api.getSpots({ limit: 100 }),
+    refetchInterval: 30000,
+    enabled: dxClusterMapEnabled,
+  });
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [currentAzimuth, setCurrentAzimuth] = useState(0);
   const [showLayerPicker, setShowLayerPicker] = useState(false);
@@ -209,6 +321,31 @@ export function MapPlugin() {
       stationLon = coords.lon;
     }
   }
+
+  // Compute DX cluster spot paths for map overlay
+  const spotPaths = useMemo<SpotPathData[]>(() => {
+    if (!dxClusterMapEnabled || !spots?.length) return [];
+
+    return spots
+      .filter(spot => spot.dxStation?.grid) // Only spots with grid data
+      .map(spot => {
+        const coords = gridToLatLon(spot.dxStation!.grid!);
+        if (!coords) return null;
+        const band = getBandFromFrequency(spot.frequency);
+        const color = BAND_COLORS[band] || '#888888';
+        const pathPoints = generateGreatCirclePoints(
+          stationLat, stationLon, coords.lat, coords.lon
+        );
+        return { spot, band, color, targetLat: coords.lat, targetLon: coords.lon, pathPoints };
+      })
+      .filter((p): p is SpotPathData => p !== null);
+  }, [dxClusterMapEnabled, spots, stationLat, stationLon]);
+
+  // Active bands for the legend (only bands that have spots visible)
+  const activeBands = useMemo(() => {
+    const bands = new Set(spotPaths.map(sp => sp.band));
+    return Object.entries(BAND_COLORS).filter(([band]) => bands.has(band));
+  }, [spotPaths]);
 
   // Update azimuth from rotator position only
   useEffect(() => {
@@ -472,6 +609,48 @@ export function MapPlugin() {
               </Marker>
             );
           })}
+
+          {/* DX Cluster spot paths overlay */}
+          {dxClusterMapEnabled && spotPaths.map((sp) => {
+            const isHovered = hoveredSpotId === sp.spot.id;
+            return (
+              <Polyline
+                key={`path-${sp.spot.id}`}
+                positions={sp.pathPoints}
+                pathOptions={{
+                  color: sp.color,
+                  weight: isHovered ? 3 : 1.5,
+                  opacity: isHovered ? 1 : 0.5,
+                }}
+              />
+            );
+          })}
+
+          {/* DX Cluster spot endpoint markers */}
+          {dxClusterMapEnabled && spotPaths.map((sp) => {
+            const isHovered = hoveredSpotId === sp.spot.id;
+            return (
+              <Marker
+                key={`spot-${sp.spot.id}`}
+                position={[sp.targetLat, sp.targetLon]}
+                icon={createSpotIcon(sp.color, isHovered)}
+              >
+                <Tooltip
+                  direction="top"
+                  offset={[0, -6]}
+                  permanent={isHovered}
+                  className="dx-spot-tooltip"
+                >
+                  <span style={{ color: sp.color, fontFamily: 'monospace', fontWeight: 'bold', fontSize: '11px' }}>
+                    {sp.spot.dxCall}
+                  </span>
+                  <span style={{ color: '#999', fontSize: '10px', marginLeft: '4px' }}>
+                    {(sp.spot.frequency / 1000).toFixed(1)}
+                  </span>
+                </Tooltip>
+              </Marker>
+            );
+          })}
         </MapContainer>
 
         {/* Map controls overlay - positioned outside MapContainer to avoid event conflicts */}
@@ -698,6 +877,23 @@ export function MapPlugin() {
         <div className="absolute bottom-12 right-4 glass-panel px-3 py-2 z-[1000] text-xs font-ui text-dark-300">
           {rotatorEnabled ? 'Click on map to set bearing' : 'Rotator disabled'}
         </div>
+
+        {/* Band color legend - shown when DX cluster map overlay is active */}
+        {dxClusterMapEnabled && activeBands.length > 0 && (
+          <div className="absolute top-4 right-14 glass-panel px-2 py-1.5 z-[1000]">
+            <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+              {activeBands.map(([band, color]) => (
+                <div key={band} className="flex items-center gap-1">
+                  <div
+                    className="w-3 h-1 rounded-sm"
+                    style={{ backgroundColor: color }}
+                  />
+                  <span className="text-[10px] font-mono text-dark-300">{band}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
 
         {/* DX News Ticker */}
         <DXNewsTicker />

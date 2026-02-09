@@ -1,3 +1,4 @@
+/// <reference types="vitest" />
 import { defineConfig } from "vite";
 import react from "@vitejs/plugin-react";
 import basicSsl from "@vitejs/plugin-basic-ssl";
@@ -10,16 +11,16 @@ export default defineConfig({
   plugins: [react(), ...(useHttps ? [basicSsl()] : [])],
   base: "./",
   server: {
-    port: 5173,
+    port: 5183,
     host: true,
     allowedHosts: true,
     proxy: {
       "/api": {
-        target: "http://localhost:5050",
+        target: "http://localhost:5060",
         changeOrigin: true,
       },
       "/hubs": {
-        target: "http://localhost:5050",
+        target: "http://localhost:5060",
         changeOrigin: true,
         ws: true,
       },
@@ -28,5 +29,11 @@ export default defineConfig({
   build: {
     outDir: "dist",
     emptyOutDir: true,
+  },
+  test: {
+    environment: "happy-dom",
+    globals: true,
+    setupFiles: "./src/test-setup.ts",
+    include: ["src/**/*.test.{ts,tsx}"],
   },
 });

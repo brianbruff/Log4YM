@@ -1,16 +1,17 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { Layout, Model, TabNode, TabSetNode, BorderNode, ITabSetRenderValues, Actions, DockLocation } from 'flexlayout-react';
-import { X, Radio, Book, Zap, LayoutGrid, Antenna, Plus, Map, Compass, Gauge, User, Calendar, Sun, Clock, MapPin } from 'lucide-react';
+import { X, Radio, Book, Zap, LayoutGrid, Antenna, Plus, Map, Compass, Gauge, User, Calendar, Sun, Clock, Bot, MapPin } from 'lucide-react';
 import { StatusBar } from './components/StatusBar';
 import { SettingsPanel } from './components/SettingsPanel';
 import { ConnectionOverlay } from './components/ConnectionOverlay';
 import { useSignalRConnection } from './hooks/useSignalR';
-import { LogEntryPlugin, LogHistoryPlugin, ClusterPlugin, MapPlugin, RotatorPlugin, GlobePlugin, AntennaGeniusPlugin, PgxlPlugin, SmartUnlinkPlugin, RigPlugin, QrzProfilePlugin, ContestsPlugin, SolarPanelPlugin, AnalogClockPlugin, HeaderPlugin, DXpeditionsPlugin, POTAPlugin } from './plugins';
+import { LogEntryPlugin, LogHistoryPlugin, ClusterPlugin, MapPlugin, RotatorPlugin, GlobePlugin, AntennaGeniusPlugin, PgxlPlugin, SmartUnlinkPlugin, RigPlugin, QrzProfilePlugin, ContestsPlugin, SolarPanelPlugin, AnalogClockPlugin, HeaderPlugin, DXpeditionsPlugin, ChatAiPlugin, POTAPlugin } from './plugins';
 import { Globe as Globe3D } from 'lucide-react';
 import { useLayoutStore, defaultLayout } from './store/layoutStore';
 import { useSettingsStore } from './store/settingsStore';
 import { useSetupStore } from './store/setupStore';
 import { useAppStore } from './store/appStore';
+import { useTheme } from './hooks/useTheme';
 
 import 'flexlayout-react/style/dark.css';
 
@@ -96,6 +97,11 @@ const PLUGINS: Record<string, { name: string; icon: React.ReactNode; component: 
     icon: <Compass className="w-4 h-4" />,
     component: DXpeditionsPlugin,
   },
+  'chat-ai': {
+    name: 'Chat AI',
+    icon: <Bot className="w-4 h-4" />,
+    component: ChatAiPlugin,
+  },
   'pota': {
     name: 'POTA',
     icon: <MapPin className="w-4 h-4" />,
@@ -113,6 +119,9 @@ export function App() {
   const [model, setModel] = useState<Model>(() => Model.fromJson(layout));
   const [showPanelPicker, setShowPanelPicker] = useState(false);
   const [targetTabSetId, setTargetTabSetId] = useState<string | null>(null);
+
+  // Apply theme from settings (dark/light/system)
+  useTheme();
 
   // Check setup status on mount (for status display, not blocking)
   useEffect(() => {

@@ -64,11 +64,18 @@ builder.Services.AddScoped<IQsoService, QsoService>();
 builder.Services.AddScoped<ISettingsService, SettingsService>();
 builder.Services.AddScoped<IQrzService, QrzService>();
 builder.Services.AddScoped<IAdifService, AdifService>();
+builder.Services.AddScoped<IAiService, AiService>();
 
 // Register HTTP client for external APIs
 builder.Services.AddHttpClient("QRZ", client =>
 {
     client.Timeout = TimeSpan.FromSeconds(30);
+    client.DefaultRequestHeaders.Add("User-Agent", "Log4YM/1.0");
+});
+
+builder.Services.AddHttpClient("AI", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(60);
     client.DefaultRequestHeaders.Add("User-Agent", "Log4YM/1.0");
 });
 

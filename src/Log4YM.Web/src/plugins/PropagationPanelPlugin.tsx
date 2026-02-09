@@ -1,6 +1,10 @@
 import { useState, useCallback, useMemo } from 'react';
-import { Radio, ChevronLeft, ChevronRight } from 'lucide-react';
+import { useQuery } from '@tanstack/react-query';
+import { Radio, ChevronLeft, ChevronRight, Loader2, MapPin } from 'lucide-react';
 import { GlassPanel } from '../components/GlassPanel';
+import { useSettingsStore } from '../store/settingsStore';
+import { useAppStore } from '../store/appStore';
+import { api, type GenericBandConditions } from '../api/client';
 
 // HF Bands (80m through 10m)
 const HF_BANDS = [
@@ -24,54 +28,42 @@ type ViewType = 'heatmap' | 'bar-chart' | 'band-conditions';
 // Band condition status
 type BandStatus = 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR' | 'CLOSED';
 
-// Mock propagation data generator (in production, fetch from VOACAP API)
-function generateMockPropagationData(): number[][] {
-  // Returns reliability percentage [0-100] for each hour and band
-  // Row = band index, Column = hour
-  const data: number[][] = [];
+// Convert N0NBH generic conditions to a simplified heatmap
+function buildHeatmapFromGeneric(conditions: GenericBandConditions): number[][] {
+  const bandOrder = ['80m', '60m', '40m', '30m', '20m', '17m', '15m', '12m', '10m'];
 
-  for (let bandIdx = 0; bandIdx < HF_BANDS.length; bandIdx++) {
-    const bandData: number[] = [];
-    const band = HF_BANDS[bandIdx];
+  return bandOrder.map((bandName) => {
+    const entry = conditions.bands.find((b) => b.band === bandName);
+    const dayRel = statusToReliability(entry?.dayStatus ?? 'Fair');
+    const nightRel = statusToReliability(entry?.nightStatus ?? 'Fair');
 
-    for (let hour = 0; hour < 24; hour++) {
-      // Higher bands better during day, lower bands better at night
-      let reliability = 0;
+    return Array.from({ length: 24 }, (_, hour) => {
+      // Smooth day/night transitions (day = 06-18 UTC roughly)
+      if (hour >= 7 && hour <= 16) return dayRel;
+      if (hour <= 4 || hour >= 20) return nightRel;
+      // Dawn/dusk transitions
+      const blend = hour < 7 ? (hour - 4) / 3 : (20 - hour) / 3;
+      return Math.round(nightRel + (dayRel - nightRel) * blend);
+    });
+  });
+}
 
-      if (band.freq >= 14.0) {
-        // Higher bands (20m, 17m, 15m, 12m, 10m) - daytime bands
-        const dayPeak = 12; // UTC noon
-        const hourDiff = Math.abs(hour - dayPeak);
-        reliability = Math.max(0, 85 - hourDiff * 6 + Math.random() * 20);
-      } else if (band.freq >= 7.0) {
-        // Mid bands (40m, 30m) - twilight bands
-        const dawnPeak = 6;
-        const duskPeak = 18;
-        const dawnDiff = Math.abs(hour - dawnPeak);
-        const duskDiff = Math.abs(hour - duskPeak);
-        reliability = Math.max(0, 80 - Math.min(dawnDiff, duskDiff) * 5 + Math.random() * 20);
-      } else {
-        // Lower bands (80m, 60m) - nighttime bands
-        const nightPeak = 0; // UTC midnight
-        const hourDiff = Math.min(Math.abs(hour - nightPeak), Math.abs(hour - 24 + nightPeak));
-        reliability = Math.max(0, 90 - hourDiff * 5 + Math.random() * 15);
-      }
-
-      bandData.push(Math.min(100, Math.max(0, reliability)));
-    }
-    data.push(bandData);
+function statusToReliability(status: string): number {
+  switch (status.toLowerCase()) {
+    case 'good': return 75;
+    case 'fair': return 50;
+    case 'poor': return 25;
+    default: return 10;
   }
-
-  return data;
 }
 
 // Color mapping for reliability (0-100)
 function getReliabilityColor(reliability: number): string {
-  if (reliability >= 75) return '#ef4444'; // red (excellent)
-  if (reliability >= 60) return '#f97316'; // orange
+  if (reliability >= 75) return '#22c55e'; // green (excellent)
+  if (reliability >= 60) return '#a3e635'; // lime
   if (reliability >= 45) return '#fbbf24'; // yellow
-  if (reliability >= 30) return '#a3e635'; // lime
-  return '#22c55e'; // green (poor)
+  if (reliability >= 30) return '#f97316'; // orange
+  return '#ef4444'; // red (poor)
 }
 
 // Get band status from reliability
@@ -86,16 +78,16 @@ function getBandStatus(reliability: number): BandStatus {
 // Get status color
 function getStatusColor(status: BandStatus): string {
   switch (status) {
-    case 'EXCELLENT': return '#ef4444'; // red
-    case 'GOOD': return '#22c55e'; // green
-    case 'FAIR': return '#fbbf24'; // yellow
-    case 'POOR': return '#f97316'; // orange
-    case 'CLOSED': return '#6b7280'; // gray
+    case 'EXCELLENT': return '#22c55e';
+    case 'GOOD': return '#a3e635';
+    case 'FAIR': return '#fbbf24';
+    case 'POOR': return '#f97316';
+    case 'CLOSED': return '#6b7280';
   }
 }
 
-// View 1: VOACAP Heatmap
-function VOACAPHeatmapView({ data }: { data: number[][] }) {
+// View 1: Heatmap
+function HeatmapView({ data, bandNames }: { data: number[][]; bandNames: string[] }) {
   const currentHour = new Date().getUTCHours();
 
   return (
@@ -107,7 +99,7 @@ function VOACAPHeatmapView({ data }: { data: number[][] }) {
       <div className="flex-1 flex flex-col gap-1 overflow-auto">
         {/* Header row - UTC hours */}
         <div className="flex gap-0.5">
-          <div className="w-12 flex-shrink-0" /> {/* Band label space */}
+          <div className="w-12 flex-shrink-0" />
           {UTC_HOURS.map((hour) => (
             <div
               key={hour}
@@ -119,17 +111,15 @@ function VOACAPHeatmapView({ data }: { data: number[][] }) {
         </div>
 
         {/* Heatmap grid */}
-        {HF_BANDS.map((band, bandIdx) => (
-          <div key={band.name} className="flex gap-0.5">
-            {/* Band label */}
+        {bandNames.map((bandName, bandIdx) => (
+          <div key={bandName} className="flex gap-0.5">
             <div className="w-12 flex-shrink-0 flex items-center justify-end pr-2">
               <span className="text-xs font-mono font-bold text-accent-primary">
-                {band.name}
+                {bandName}
               </span>
             </div>
 
-            {/* Hour cells */}
-            {data[bandIdx].map((reliability, hourIdx) => (
+            {data[bandIdx]?.map((reliability, hourIdx) => (
               <div
                 key={hourIdx}
                 className="flex-1 min-w-[16px] h-6 rounded-sm relative group cursor-pointer transition-transform hover:scale-110"
@@ -138,11 +128,10 @@ function VOACAPHeatmapView({ data }: { data: number[][] }) {
                   opacity: reliability < 20 ? 0.3 : 0.8,
                   border: hourIdx === currentHour ? '2px solid #fff' : 'none',
                 }}
-                title={`${band.name} @ ${hourIdx}:00 UTC - ${reliability.toFixed(0)}%`}
+                title={`${bandName} @ ${hourIdx}:00 UTC - ${reliability}%`}
               >
-                {/* Tooltip on hover */}
                 <div className="absolute bottom-full left-1/2 transform -translate-x-1/2 mb-2 px-2 py-1 bg-dark-800 border border-glass-100 rounded text-[10px] whitespace-nowrap opacity-0 group-hover:opacity-100 pointer-events-none z-10">
-                  {reliability.toFixed(0)}%
+                  {reliability}%
                 </div>
               </div>
             ))}
@@ -153,7 +142,7 @@ function VOACAPHeatmapView({ data }: { data: number[][] }) {
       {/* Legend */}
       <div className="flex items-center justify-center gap-4 text-[10px] text-gray-400 mt-2">
         <div className="flex items-center gap-1">
-          <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: '#22c55e' }} />
+          <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: '#ef4444' }} />
           <span>Poor</span>
         </div>
         <div className="flex items-center gap-1">
@@ -161,7 +150,7 @@ function VOACAPHeatmapView({ data }: { data: number[][] }) {
           <span>Fair</span>
         </div>
         <div className="flex items-center gap-1">
-          <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: '#ef4444' }} />
+          <div className="w-3 h-3 rounded-sm" style={{ backgroundColor: '#22c55e' }} />
           <span>Excellent</span>
         </div>
       </div>
@@ -170,10 +159,8 @@ function VOACAPHeatmapView({ data }: { data: number[][] }) {
 }
 
 // View 2: Bar Chart
-function BarChartView({ data }: { data: number[][] }) {
+function BarChartView({ data, bandNames }: { data: number[][]; bandNames: string[] }) {
   const currentHour = new Date().getUTCHours();
-
-  // Get current hour reliability for each band
   const currentReliability = data.map((bandData) => bandData[currentHour]);
 
   return (
@@ -183,15 +170,14 @@ function BarChartView({ data }: { data: number[][] }) {
       </div>
 
       <div className="flex gap-3 items-end justify-center h-64">
-        {HF_BANDS.map((band, idx) => {
+        {bandNames.map((bandName, idx) => {
           const reliability = currentReliability[idx];
           const status = getBandStatus(reliability);
           const color = getReliabilityColor(reliability);
           const height = Math.max(10, (reliability / 100) * 100);
 
           return (
-            <div key={band.name} className="flex flex-col items-center gap-2 flex-1 max-w-[60px]">
-              {/* Bar */}
+            <div key={bandName} className="flex flex-col items-center gap-2 flex-1 max-w-[60px]">
               <div className="w-full flex flex-col items-center justify-end" style={{ height: '200px' }}>
                 <div
                   className="w-full rounded-t transition-all duration-300 relative group cursor-pointer hover:opacity-90"
@@ -201,19 +187,16 @@ function BarChartView({ data }: { data: number[][] }) {
                     opacity: 0.9,
                   }}
                 >
-                  {/* Percentage label */}
                   <div className="absolute -top-6 left-1/2 transform -translate-x-1/2 text-xs font-mono font-bold text-white">
-                    {reliability.toFixed(0)}%
+                    {reliability}%
                   </div>
                 </div>
               </div>
 
-              {/* Band label */}
               <div className="text-xs font-mono font-bold text-accent-primary">
-                {band.name}
+                {bandName}
               </div>
 
-              {/* Status label */}
               <div
                 className="text-[10px] font-bold px-1.5 py-0.5 rounded"
                 style={{
@@ -233,24 +216,34 @@ function BarChartView({ data }: { data: number[][] }) {
 }
 
 // View 3: Band Conditions Grid
-function BandConditionsView({ data }: { data: number[][] }) {
+function BandConditionsView({
+  data,
+  bandNames,
+  muf,
+  luf,
+}: {
+  data: number[][];
+  bandNames: string[];
+  muf?: number;
+  luf?: number;
+}) {
   const currentHour = new Date().getUTCHours();
-
-  // Get current hour reliability for each band
   const currentReliability = data.map((bandData) => bandData[currentHour]);
 
-  // Calculate MUF and LUF (mock calculations)
-  const muf = useMemo(() => {
-    const maxBandIdx = currentReliability.reduce((maxIdx, reliability, idx) => {
-      return reliability > 50 && reliability > currentReliability[maxIdx] ? idx : maxIdx;
+  // Use server-provided MUF/LUF if available, otherwise estimate from heatmap
+  const displayMuf = useMemo(() => {
+    if (muf != null) return muf.toFixed(1);
+    const maxBandIdx = currentReliability.reduce((maxIdx, rel, idx) => {
+      return rel > 50 && rel > currentReliability[maxIdx] ? idx : maxIdx;
     }, 0);
     return HF_BANDS[maxBandIdx].freq.toFixed(1);
-  }, [currentReliability]);
+  }, [muf, currentReliability]);
 
-  const luf = useMemo(() => {
-    const minBandIdx = currentReliability.findIndex((reliability) => reliability > 30);
+  const displayLuf = useMemo(() => {
+    if (luf != null) return luf.toFixed(1);
+    const minBandIdx = currentReliability.findIndex((rel) => rel > 30);
     return minBandIdx >= 0 ? HF_BANDS[minBandIdx].freq.toFixed(1) : '3.5';
-  }, [currentReliability]);
+  }, [luf, currentReliability]);
 
   return (
     <div className="flex flex-col gap-4 h-full p-4">
@@ -262,26 +255,26 @@ function BandConditionsView({ data }: { data: number[][] }) {
       <div className="grid grid-cols-2 gap-3">
         <div className="glass-panel p-3 text-center">
           <div className="text-xs text-gray-400 mb-1">MUF</div>
-          <div className="text-2xl font-mono font-bold text-accent-primary">{muf} MHz</div>
+          <div className="text-2xl font-mono font-bold text-accent-primary">{displayMuf} MHz</div>
           <div className="text-[10px] text-gray-500 mt-1">Maximum Usable Frequency</div>
         </div>
         <div className="glass-panel p-3 text-center">
           <div className="text-xs text-gray-400 mb-1">LUF</div>
-          <div className="text-2xl font-mono font-bold text-accent-secondary">{luf} MHz</div>
+          <div className="text-2xl font-mono font-bold text-accent-secondary">{displayLuf} MHz</div>
           <div className="text-[10px] text-gray-500 mt-1">Lowest Usable Frequency</div>
         </div>
       </div>
 
       {/* Band condition tiles */}
       <div className="grid grid-cols-3 gap-2 flex-1">
-        {HF_BANDS.map((band, idx) => {
+        {bandNames.map((bandName, idx) => {
           const reliability = currentReliability[idx];
           const status = getBandStatus(reliability);
           const color = getStatusColor(status);
 
           return (
             <div
-              key={band.name}
+              key={bandName}
               className="glass-panel p-3 flex flex-col items-center justify-center gap-2 cursor-pointer transition-all hover:scale-105"
               style={{
                 backgroundColor: `${color}15`,
@@ -289,7 +282,7 @@ function BandConditionsView({ data }: { data: number[][] }) {
               }}
             >
               <div className="text-xl font-mono font-bold text-accent-primary">
-                {band.name}
+                {bandName}
               </div>
               <div
                 className="text-sm font-bold px-2 py-1 rounded"
@@ -301,7 +294,7 @@ function BandConditionsView({ data }: { data: number[][] }) {
                 {status}
               </div>
               <div className="text-xs font-mono text-gray-400">
-                {reliability.toFixed(0)}%
+                {reliability}%
               </div>
             </div>
           );
@@ -309,7 +302,7 @@ function BandConditionsView({ data }: { data: number[][] }) {
       </div>
 
       <div className="text-[10px] text-gray-500 text-center">
-        Predictions update when DX target changes
+        {muf != null ? 'Path-specific prediction' : 'General conditions from N0NBH'}
       </div>
     </div>
   );
@@ -319,12 +312,60 @@ function BandConditionsView({ data }: { data: number[][] }) {
 export function PropagationPanelPlugin() {
   const [currentView, setCurrentView] = useState<ViewType>('heatmap');
 
-  // Generate mock data (in production, fetch from VOACAP API based on station and target)
-  const propagationData = useMemo(() => generateMockPropagationData(), []);
+  // Get DE station location
+  const station = useSettingsStore((s) => s.settings.station);
+  const hasStationLocation = station.latitude != null && station.longitude != null;
+
+  // Get DX target from focused callsign
+  const focusedCallsignInfo = useAppStore((s) => s.focusedCallsignInfo);
+  const focusedCallsign = useAppStore((s) => s.focusedCallsign);
+  const hasDxTarget = !!(focusedCallsignInfo?.latitude != null && focusedCallsignInfo?.longitude != null);
+
+  // Fetch path-specific propagation when we have both DE and DX
+  const { data: prediction, isLoading: isPredictionLoading } = useQuery({
+    queryKey: ['propagation', focusedCallsignInfo?.latitude, focusedCallsignInfo?.longitude],
+    queryFn: () => api.getPropagation(
+      focusedCallsignInfo!.latitude!,
+      focusedCallsignInfo!.longitude!,
+    ),
+    enabled: hasStationLocation && hasDxTarget,
+    refetchInterval: 5 * 60 * 1000,
+    staleTime: 2 * 60 * 1000,
+  });
+
+  // Fetch generic conditions when no DX target
+  const { data: genericConditions, isLoading: isGenericLoading } = useQuery({
+    queryKey: ['propagation-conditions'],
+    queryFn: () => api.getGenericConditions(),
+    enabled: !hasDxTarget,
+    refetchInterval: 15 * 60 * 1000,
+    staleTime: 10 * 60 * 1000,
+  });
+
+  const isLoading = hasDxTarget ? isPredictionLoading : isGenericLoading;
+
+  // Derive heatmap data and band names from API response
+  const { heatmapData, bandNames } = useMemo(() => {
+    if (prediction) {
+      return { heatmapData: prediction.heatmapData, bandNames: prediction.bandNames };
+    }
+    if (genericConditions) {
+      return {
+        heatmapData: buildHeatmapFromGeneric(genericConditions),
+        bandNames: HF_BANDS.map((b) => b.name),
+      };
+    }
+    return { heatmapData: null, bandNames: HF_BANDS.map((b) => b.name) };
+  }, [prediction, genericConditions]);
+
+  // Subtitle
+  const subtitle = hasDxTarget && prediction
+    ? `${station.callsign || 'DE'} \u2192 ${focusedCallsign || 'DX'} (${prediction.distanceKm.toLocaleString()} km)`
+    : 'General Conditions';
 
   const views: ViewType[] = ['heatmap', 'bar-chart', 'band-conditions'];
-  const viewTitles = {
-    'heatmap': 'VOACAP Heatmap',
+  const viewTitles: Record<ViewType, string> = {
+    'heatmap': 'Heatmap',
     'bar-chart': 'Bar Chart',
     'band-conditions': 'Band Conditions',
   };
@@ -366,9 +407,41 @@ export function PropagationPanelPlugin() {
       }
     >
       <div className="h-full overflow-auto">
-        {currentView === 'heatmap' && <VOACAPHeatmapView data={propagationData} />}
-        {currentView === 'bar-chart' && <BarChartView data={propagationData} />}
-        {currentView === 'band-conditions' && <BandConditionsView data={propagationData} />}
+        {!hasStationLocation ? (
+          <div className="flex flex-col items-center justify-center h-full gap-3 text-gray-400 p-6">
+            <MapPin className="w-8 h-8 opacity-50" />
+            <div className="text-sm text-center">
+              Set your station location in Settings to enable propagation predictions.
+            </div>
+          </div>
+        ) : isLoading ? (
+          <div className="flex flex-col items-center justify-center h-full gap-3 text-gray-400">
+            <Loader2 className="w-6 h-6 animate-spin" />
+            <div className="text-sm">Loading propagation data...</div>
+          </div>
+        ) : heatmapData ? (
+          <>
+            <div className="text-[10px] text-gray-500 text-center py-1">{subtitle}</div>
+            {currentView === 'heatmap' && (
+              <HeatmapView data={heatmapData} bandNames={bandNames} />
+            )}
+            {currentView === 'bar-chart' && (
+              <BarChartView data={heatmapData} bandNames={bandNames} />
+            )}
+            {currentView === 'band-conditions' && (
+              <BandConditionsView
+                data={heatmapData}
+                bandNames={bandNames}
+                muf={prediction?.mufMHz}
+                luf={prediction?.lufMHz}
+              />
+            )}
+          </>
+        ) : (
+          <div className="flex items-center justify-center h-full text-sm text-gray-400">
+            Unable to load propagation data.
+          </div>
+        )}
       </div>
     </GlassPanel>
   );

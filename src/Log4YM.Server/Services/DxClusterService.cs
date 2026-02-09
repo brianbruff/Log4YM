@@ -54,6 +54,10 @@ public class DxClusterService : IDxClusterService, IHostedService, IDisposable
         _logger.LogInformation("DX Cluster service starting...");
         _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
+        // Clear any stale connections from previous session
+        _connections.Clear();
+        _statuses.Clear();
+
         // Start cleanup timer for deduplication cache
         _cleanupTimer = new Timer(CleanupRecentSpots, null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
 
@@ -160,14 +164,23 @@ public class DxClusterService : IDxClusterService, IHostedService, IDisposable
             return;
         }
 
+        // If already connected or connecting, disconnect first to allow reconnection
+        if (_connections.TryGetValue(clusterId, out var existingHandler))
+        {
+            _logger.LogInformation("Cluster {ClusterId} already exists, disconnecting before reconnect", clusterId);
+            await existingHandler.DisconnectAsync();
+            _connections.TryRemove(clusterId, out _);
+        }
+
         await ConnectClusterInternalAsync(cluster, settings?.Station?.Callsign);
     }
 
     private async Task ConnectClusterInternalAsync(ClusterConnection config, string? stationCallsign)
     {
+        // Check if already connected - this shouldn't happen after fix in ConnectClusterAsync, but keep as safety
         if (_connections.ContainsKey(config.Id))
         {
-            _logger.LogWarning("Cluster {Id} is already connected or connecting", config.Id);
+            _logger.LogWarning("Cluster {Id} is already in connections map, skipping", config.Id);
             return;
         }
 

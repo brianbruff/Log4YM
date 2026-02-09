@@ -112,7 +112,7 @@ const PLUGINS: Record<string, { name: string; icon: React.ReactNode; component: 
 
 export function App() {
   const layoutRef = useRef<Layout>(null);
-  const { layout, setLayout, resetLayout: resetLayoutStore, loadFromMongo: loadLayout } = useLayoutStore();
+  const { layout, setLayout, resetLayout: resetLayoutStore, loadFromMongo: loadLayout, syncToMongoSync } = useLayoutStore();
   const { loadSettings, openSettings, settings } = useSettingsStore();
   const { fetchStatus } = useSetupStore();
   const { setStationInfo, setMongoDbConnected } = useAppStore();
@@ -205,10 +205,25 @@ export function App() {
 
   // Debounced save to MongoDB
   const saveTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const pendingLayoutRef = useRef<Model | null>(null);
+
+  // Save layout immediately (synchronous, for shutdown/unload)
+  const saveLayoutImmediately = useCallback(() => {
+    if (pendingLayoutRef.current) {
+      const layoutJson = pendingLayoutRef.current.toJson();
+      syncToMongoSync(layoutJson);
+      pendingLayoutRef.current = null;
+      if (saveTimeoutRef.current) {
+        clearTimeout(saveTimeoutRef.current);
+        saveTimeoutRef.current = null;
+      }
+    }
+  }, [syncToMongoSync]);
 
   // Save layout changes (debounced)
   const handleModelChange = useCallback((newModel: Model) => {
     setModel(newModel);
+    pendingLayoutRef.current = newModel;
 
     // Debounce the save - wait 1 second after last change
     if (saveTimeoutRef.current) {
@@ -216,8 +231,23 @@ export function App() {
     }
     saveTimeoutRef.current = setTimeout(() => {
       setLayout(newModel.toJson());
+      pendingLayoutRef.current = null;
     }, 1000);
   }, [setLayout]);
+
+  // Save layout before app closes (browser/Electron window close)
+  useEffect(() => {
+    const handleBeforeUnload = () => {
+      saveLayoutImmediately();
+    };
+
+    window.addEventListener('beforeunload', handleBeforeUnload);
+    return () => {
+      window.removeEventListener('beforeunload', handleBeforeUnload);
+      // Also save on cleanup
+      saveLayoutImmediately();
+    };
+  }, [saveLayoutImmediately]);
 
   // Factory function to render components
   const factory = useCallback((node: TabNode) => {

@@ -75,7 +75,28 @@ export function useSignalRConnection() {
           signalRService.requestRotatorStatus(),
         ]);
 
-        // 3. Invalidate and refetch React Query caches
+        // 3. Request cluster statuses to update connection states
+        console.log('Requesting cluster statuses...');
+        try {
+          const response = await fetch('/api/cluster/status');
+          if (response.ok) {
+            const statuses = await response.json();
+            // Update app store with current cluster statuses
+            for (const [clusterId, status] of Object.entries(statuses)) {
+              const clusterStatus = status as { clusterId: string; name: string; status: string; errorMessage: string | null };
+              setClusterStatus(clusterId, {
+                clusterId: clusterStatus.clusterId,
+                name: clusterStatus.name,
+                status: clusterStatus.status as 'connected' | 'connecting' | 'disconnected' | 'error',
+                errorMessage: clusterStatus.errorMessage,
+              });
+            }
+          }
+        } catch (err) {
+          console.error('Failed to fetch cluster statuses:', err);
+        }
+
+        // 4. Invalidate and refetch React Query caches
         console.log('Invalidating query caches...');
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ['qsos'] }),
@@ -83,7 +104,7 @@ export function useSignalRConnection() {
         ]);
 
         console.log('Rehydration complete');
-        // 4. Now we can set state to fully connected
+        // 5. Now we can set state to fully connected
         setConnectionState('connected', 0);
       } catch (err) {
         console.error('Error during rehydration:', err);

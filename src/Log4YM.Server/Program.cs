@@ -82,6 +82,12 @@ builder.Services.AddHttpClient("AI", client =>
 // Register default HTTP client factory for space weather and other APIs
 builder.Services.AddHttpClient();
 
+// Register Space Weather service (shared data source for controllers and propagation)
+builder.Services.AddSingleton<ISpaceWeatherService, SpaceWeatherService>();
+
+// Register Propagation service
+builder.Services.AddSingleton<IPropagationService, PropagationService>();
+
 // Register Contests service
 builder.Services.AddSingleton<ContestsService>();
 

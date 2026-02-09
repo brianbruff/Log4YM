@@ -16,3 +16,4 @@ export { HeaderPlugin } from './HeaderPlugin';
 export { DXpeditionsPlugin } from './DXpeditionsPlugin';
 export { ChatAiPlugin } from './ChatAiPlugin';
 export { POTAPlugin } from './POTAPlugin';
+export { PropagationPanelPlugin } from './PropagationPanelPlugin';

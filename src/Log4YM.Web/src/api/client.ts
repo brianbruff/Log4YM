@@ -376,6 +376,15 @@ class ApiClient {
   async getDXNews(): Promise<DXNewsItem[]> {
     return this.fetch<DXNewsItem[]>('/dxnews');
   }
+
+  // Propagation
+  async getPropagation(dxLat: number, dxLon: number): Promise<PropagationPrediction> {
+    return this.fetch<PropagationPrediction>(`/propagation?dxLat=${dxLat}&dxLon=${dxLon}`);
+  }
+
+  async getGenericConditions(): Promise<GenericBandConditions> {
+    return this.fetch<GenericBandConditions>('/propagation/conditions');
+  }
 }
 
 // QRZ Types
@@ -574,6 +583,46 @@ export interface DXNewsItem {
   description: string;
   link: string;
   publishedDate: string;
+}
+
+// Propagation Types
+export interface BandPrediction {
+  band: string;
+  freqMHz: number;
+  reliability: number;
+  status: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR' | 'CLOSED';
+}
+
+export interface PropagationPrediction {
+  deLat: number;
+  deLon: number;
+  dxLat: number;
+  dxLon: number;
+  distanceKm: number;
+  bearingDeg: number;
+  mufMHz: number;
+  lufMHz: number;
+  sfi: number;
+  kIndex: number;
+  currentBands: BandPrediction[];
+  heatmapData: number[][];
+  bandNames: string[];
+  timestamp: string;
+}
+
+export interface BandConditionEntry {
+  band: string;
+  dayStatus: string;
+  nightStatus: string;
+}
+
+export interface GenericBandConditions {
+  bands: BandConditionEntry[];
+  sfi: number;
+  kIndex: number;
+  ssn: number;
+  source: string;
+  timestamp: string;
 }
 
 export const api = new ApiClient();

@@ -1,17 +1,15 @@
 import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Radio, Zap, Volume2, VolumeX, Settings, ChevronUp, Plus, Trash2, X, Search } from 'lucide-react';
+import { Zap, Map, Settings, ChevronUp, Plus, Trash2, X, Search } from 'lucide-react';
 import { AgGridReact } from 'ag-grid-react';
-import { ColDef, ICellRendererParams, RowClickedEvent } from 'ag-grid-community';
+import { ColDef, ICellRendererParams, RowClickedEvent, CellMouseOverEvent, CellMouseOutEvent } from 'ag-grid-community';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-alpine.css';
-import { api, Spot } from '../api/client';
 import { useSignalR } from '../hooks/useSignalR';
 import { GlassPanel } from '../components/GlassPanel';
 import { MultiSelectDropdown, MultiSelectOption } from '../components/MultiSelectDropdown';
 import { getCountryFlag } from '../core/countryFlags';
 import { useSettingsStore, ClusterConnection } from '../store/settingsStore';
-import { useAppStore } from '../store/appStore';
+import { useAppStore, Spot } from '../store/appStore';
 
 const BAND_RANGES: Record<string, [number, number]> = {
   '160m': [1800, 2000],
@@ -397,8 +395,15 @@ export function ClusterPlugin() {
   const [selectedBands, setSelectedBands] = useState<string[]>([]);
   const [selectedModes, setSelectedModes] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
-  const [soundEnabled, setSoundEnabled] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+
+  // Get spots from app store (ephemeral, in-memory only)
+  const spots = useAppStore((state) => state.dxClusterSpots);
+
+  // DX Cluster map overlay state from appStore
+  const dxClusterMapEnabled = useAppStore((state) => state.dxClusterMapEnabled);
+  const setDxClusterMapEnabled = useAppStore((state) => state.setDxClusterMapEnabled);
+  const setHoveredSpotId = useAppStore((state) => state.setHoveredSpotId);
 
   // Get cluster settings from store
   const {
@@ -423,12 +428,6 @@ export function ClusterPlugin() {
     }
     return statuses;
   }, [clusterStatusesFromStore]);
-
-  const { data: spots, isLoading } = useQuery({
-    queryKey: ['spots'],
-    queryFn: () => api.getSpots({ limit: 100 }),
-    refetchInterval: 30000,
-  });
 
   // Filter spots based on selected bands, modes, and search query
   const filteredSpots = useMemo(() => {
@@ -612,11 +611,11 @@ export function ClusterPlugin() {
             {filteredSpots?.length || 0} spots
           </span>
           <button
-            onClick={() => setSoundEnabled(!soundEnabled)}
-            className={`glass-button p-1.5 ${soundEnabled ? 'text-accent-success' : 'text-dark-300'}`}
-            title={soundEnabled ? 'Disable alerts' : 'Enable alerts'}
+            onClick={() => setDxClusterMapEnabled(!dxClusterMapEnabled)}
+            className={`glass-button p-1.5 ${dxClusterMapEnabled ? 'text-accent-info' : 'text-dark-300'}`}
+            title={dxClusterMapEnabled ? 'Hide map overlay' : 'Show map overlay'}
           >
-            {soundEnabled ? <Volume2 className="w-4 h-4" /> : <VolumeX className="w-4 h-4" />}
+            <Map className="w-4 h-4" />
           </button>
           <button
             onClick={() => setShowSettings(!showSettings)}
@@ -726,12 +725,7 @@ export function ClusterPlugin() {
         {/* AG Grid Table */}
         <div className="flex-1 px-4 pb-4 min-h-0">
           <div className="ag-theme-alpine-dark h-full">
-            {isLoading ? (
-              <div className="flex items-center justify-center py-8 text-dark-300">
-                <Radio className="w-4 h-4 animate-spin mr-2" />
-                Loading spots...
-              </div>
-            ) : filteredSpots?.length === 0 ? (
+            {filteredSpots?.length === 0 ? (
               <div className="text-center py-8 text-dark-300">
                 {hasActiveFilters ? (
                   <>
@@ -757,6 +751,12 @@ export function ClusterPlugin() {
                 suppressCellFocus={true}
                 animateRows={true}
                 onRowClicked={handleRowClick}
+                onCellMouseOver={(event: CellMouseOverEvent<Spot>) => {
+                  if (event.data?.id) setHoveredSpotId(event.data.id);
+                }}
+                onCellMouseOut={(_event: CellMouseOutEvent<Spot>) => {
+                  setHoveredSpotId(null);
+                }}
                 rowClass="cursor-pointer hover:bg-dark-600/50"
                 getRowId={(params) => params.data.id}
               />

@@ -2,6 +2,136 @@
 @tailwind components;
 @tailwind utilities;
 
+/* ============================================================
+   THEME VARIABLES
+   Light theme (default :root) and dark theme (.dark)
+   All colors use space-separated RGB for Tailwind alpha support
+   ============================================================ */
+
+:root {
+  /* Surface / background colors (maps to dark-* Tailwind classes) */
+  --surface-900: 246 247 249;     /* #f6f7f9 — deepest background */
+  --surface-850: 240 241 244;     /* #f0f1f4 */
+  --surface-800: 255 255 255;     /* #ffffff — panel background */
+  --surface-700: 243 244 246;     /* #f3f4f6 — elevated surface */
+  --surface-600: 216 220 227;     /* #d8dce3 — borders, dividers */
+  --surface-500: 192 199 209;     /* #c0c7d1 — lighter elements */
+  --surface-400: 156 163 175;     /* #9ca3af — muted interactive */
+  --surface-300: 107 114 128;     /* #6b7280 — muted text */
+  --surface-200: 55 65 81;        /* #374151 — secondary text */
+
+  /* Accent colors — deep indigo/purple for light theme */
+  --accent-primary: 74 61 143;    /* #4a3d8f */
+  --accent-secondary: 99 102 241; /* #6366f1 */
+  --accent-success: 5 150 105;    /* #059669 */
+  --accent-warning: 217 119 6;    /* #d97706 */
+  --accent-danger: 220 38 38;     /* #dc2626 */
+  --accent-info: 37 99 235;       /* #2563eb */
+
+  /* Ham radio mode colors */
+  --ham-cw: 180 83 9;             /* #b45309 */
+  --ham-ssb: 5 150 105;           /* #059669 */
+  --ham-ft8: 37 99 235;           /* #2563eb */
+  --ham-rtty: 124 58 237;         /* #7c3aed */
+
+  /* Gray scale — semantic (inverted for light mode so gray-100 = dark text) */
+  --gray-50: 17 24 39;
+  --gray-100: 31 41 55;
+  --gray-200: 55 65 81;
+  --gray-300: 75 85 99;
+  --gray-400: 107 114 128;
+  --gray-500: 156 163 175;
+  --gray-600: 209 213 219;
+  --gray-700: 229 231 235;
+  --gray-800: 243 244 246;
+  --gray-900: 249 250 251;
+
+  /* Text foreground */
+  --text-foreground: 75 85 99;    /* #4b5563 */
+
+  /* Shadows — soft, minimal for light theme */
+  --shadow-glass: 0 1px 3px 0 rgba(0, 0, 0, 0.07), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
+  --shadow-glass-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
+  --shadow-glow: 0 0 15px rgba(74, 61, 143, 0.12);
+  --shadow-glow-success: 0 0 15px rgba(5, 150, 105, 0.12);
+  --shadow-glow-cyan: 0 0 15px rgba(99, 102, 241, 0.12);
+
+  /* Scrollbar */
+  --scrollbar-track: #f3f4f6;
+  --scrollbar-thumb: #d1d5db;
+  --scrollbar-thumb-hover: #9ca3af;
+
+  /* Text glow — disabled in light mode */
+  --text-glow-primary: none;
+  --text-glow-secondary: none;
+
+  color-scheme: light;
+}
+
+.dark {
+  /* Surface / background colors */
+  --surface-900: 10 14 20;        /* #0a0e14 */
+  --surface-850: 14 19 25;        /* #0e1319 */
+  --surface-800: 17 24 32;        /* #111820 */
+  --surface-700: 26 35 50;        /* #1a2332 */
+  --surface-600: 36 48 68;        /* #243044 */
+  --surface-500: 46 61 85;        /* #2e3d55 */
+  --surface-400: 61 80 112;       /* #3d5070 */
+  --surface-300: 90 112 144;      /* #5a7090 */
+  --surface-200: 136 153 170;     /* #8899aa */
+
+  /* Accent colors — amber/cyan for dark theme */
+  --accent-primary: 255 180 50;   /* #ffb432 */
+  --accent-secondary: 0 221 255;  /* #00ddff */
+  --accent-success: 0 255 136;    /* #00ff88 */
+  --accent-warning: 255 180 50;   /* #ffb432 */
+  --accent-danger: 255 68 102;    /* #ff4466 */
+  --accent-info: 0 221 255;       /* #00ddff */
+
+  /* Ham radio mode colors */
+  --ham-cw: 255 180 50;           /* #ffb432 */
+  --ham-ssb: 0 255 136;           /* #00ff88 */
+  --ham-ft8: 0 221 255;           /* #00ddff */
+  --ham-rtty: 170 102 255;        /* #aa66ff */
+
+  /* Gray scale — standard Tailwind grays */
+  --gray-50: 249 250 251;
+  --gray-100: 243 244 246;
+  --gray-200: 229 231 235;
+  --gray-300: 209 213 219;
+  --gray-400: 156 163 175;
+  --gray-500: 107 114 128;
+  --gray-600: 75 85 99;
+  --gray-700: 55 65 81;
+  --gray-800: 31 41 55;
+  --gray-900: 17 24 39;
+
+  /* Text foreground */
+  --text-foreground: 160 176 192;  /* #a0b0c0 */
+
+  /* Shadows — dramatic for dark theme */
+  --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 180, 50, 0.05);
+  --shadow-glass-sm: 0 4px 16px 0 rgba(0, 0, 0, 0.4);
+  --shadow-glow: 0 0 20px rgba(255, 180, 50, 0.25);
+  --shadow-glow-success: 0 0 20px rgba(0, 255, 136, 0.25);
+  --shadow-glow-cyan: 0 0 20px rgba(0, 221, 255, 0.25);
+
+  /* Scrollbar */
+  --scrollbar-track: #0a0e14;
+  --scrollbar-thumb: #243044;
+  --scrollbar-thumb-hover: #2e3d55;
+
+  /* Text glow — enabled in dark mode */
+  --text-glow-primary: 0 0 12px rgb(var(--accent-primary) / 0.3);
+  --text-glow-secondary: 0 0 10px rgb(var(--accent-primary) / 0.2);
+
+  color-scheme: dark;
+}
+
+/* ============================================================
+   BASE LAYER
+   ============================================================ */
+
 @layer base {
   * {
     @apply border-glass-100;
@@ -12,28 +142,32 @@
     font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
   }
 
-  /* Custom scrollbar — dark instrument panel */
+  /* Custom scrollbar — themed */
   ::-webkit-scrollbar {
     width: 8px;
     height: 8px;
   }
 
   ::-webkit-scrollbar-track {
-    background: #0a0e14;
+    background: var(--scrollbar-track);
   }
 
   ::-webkit-scrollbar-thumb {
-    background: #243044;
+    background: var(--scrollbar-thumb);
     border-radius: 9999px;
   }
 
   ::-webkit-scrollbar-thumb:hover {
-    background: #2e3d55;
+    background: var(--scrollbar-thumb-hover);
   }
 }
 
+/* ============================================================
+   COMPONENT LAYER
+   ============================================================ */
+
 @layer components {
-  /* Glassmorphic panel — OpenHamClock instrument style */
+  /* Glassmorphic panel — dark=glass, light=card */
   .glass-panel {
     @apply bg-dark-800/90 backdrop-blur-xl border border-glass-100 rounded-xl shadow-glass;
   }
@@ -42,7 +176,7 @@
     @apply bg-dark-800 border border-glass-100 rounded-xl shadow-glass;
   }
 
-  /* Glassmorphic input — amber-tinted focus */
+  /* Glassmorphic input — themed focus ring */
   .glass-input {
     @apply bg-dark-700/50 backdrop-blur-sm border border-glass-100 rounded-lg px-4 py-2
            text-gray-100 placeholder-gray-500
@@ -51,7 +185,7 @@
     font-family: 'JetBrains Mono', 'Consolas', monospace;
   }
 
-  /* Glassmorphic button — instrument panel */
+  /* Glassmorphic button — themed */
   .glass-button {
     @apply bg-dark-700/80 backdrop-blur-sm border border-glass-100 rounded-lg px-4 py-2
            text-gray-100 font-medium
@@ -126,19 +260,22 @@
   }
 
   .status-connected {
-    @apply bg-accent-success shadow-[0_0_8px_rgba(0,255,136,0.5)];
+    @apply bg-accent-success shadow-[0_0_8px_rgb(var(--accent-success)/0.5)];
   }
 
   .status-disconnected {
-    @apply bg-accent-danger shadow-[0_0_8px_rgba(255,68,102,0.5)];
+    @apply bg-accent-danger shadow-[0_0_8px_rgb(var(--accent-danger)/0.5)];
   }
 
   .status-warning {
-    @apply bg-accent-warning shadow-[0_0_8px_rgba(255,180,50,0.5)];
+    @apply bg-accent-warning shadow-[0_0_8px_rgb(var(--accent-warning)/0.5)];
   }
 }
 
-/* FlexLayout overrides — OpenHamClock dark instrument panel */
+/* ============================================================
+   FLEXLAYOUT OVERRIDES — themed via CSS custom properties
+   ============================================================ */
+
 .flexlayout__layout {
   @apply bg-transparent;
 }
@@ -146,7 +283,7 @@
 .flexlayout__tab_button {
   background: transparent;
   border-color: transparent;
-  color: #5a7090;
+  color: rgb(var(--surface-300));
   font-family: 'JetBrains Mono', monospace;
   font-size: 12px;
   font-weight: 500;
@@ -155,47 +292,47 @@
 }
 
 .flexlayout__tab_button:hover {
-  color: #a0b0c0;
-  background: rgba(26, 35, 50, 0.6);
+  color: rgb(var(--text-foreground));
+  background: rgb(var(--surface-700) / 0.6);
 }
 
 .flexlayout__tab_button--selected {
-  background: #0a0e14;
-  color: #00ddff;
-  border-bottom: 2px solid #00ddff;
+  background: rgb(var(--surface-900));
+  color: rgb(var(--accent-secondary));
+  border-bottom: 2px solid rgb(var(--accent-secondary));
 }
 
 .flexlayout__tabset {
-  background: #111820;
-  border: 1px solid rgba(255, 180, 50, 0.1);
+  background: rgb(var(--surface-800));
+  border: 1px solid rgb(var(--accent-primary) / 0.1);
   border-radius: 8px 8px 0 0;
   overflow: hidden;
 }
 
 .flexlayout__tabset_tabbar_outer {
-  background: #111820;
-  border-bottom: 1px solid rgba(255, 180, 50, 0.1);
+  background: rgb(var(--surface-800));
+  border-bottom: 1px solid rgb(var(--accent-primary) / 0.1);
 }
 
 .flexlayout__tab {
-  background: #0a0e14;
+  background: rgb(var(--surface-900));
 }
 
 .flexlayout__splitter {
-  background: rgba(255, 180, 50, 0.08);
+  background: rgb(var(--accent-primary) / 0.08);
   transition: background 0.2s ease;
 }
 
 .flexlayout__splitter:hover {
-  background: rgba(0, 221, 255, 0.3);
+  background: rgb(var(--accent-secondary) / 0.3);
 }
 
 .flexlayout__border {
-  background: #111820;
+  background: rgb(var(--surface-800));
 }
 
 .flexlayout__tabset_header {
-  background: #111820;
+  background: rgb(var(--surface-800));
 }
 
 .flexlayout__tab_button_content {
@@ -207,83 +344,86 @@
 }
 
 .flexlayout__popup_menu {
-  background: #111820;
-  border: 1px solid rgba(255, 180, 50, 0.15);
+  background: rgb(var(--surface-800));
+  border: 1px solid rgb(var(--accent-primary) / 0.15);
   border-radius: 8px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6);
+  box-shadow: var(--shadow-glass);
 }
 
 .flexlayout__popup_menu_item {
   @apply px-4 py-2 cursor-pointer;
-  color: #a0b0c0;
+  color: rgb(var(--text-foreground));
   font-family: 'Space Grotesk', system-ui, sans-serif;
   transition: background 0.15s ease, color 0.15s ease;
 }
 
 .flexlayout__popup_menu_item:hover {
-  background: #1a2332;
-  color: #00ddff;
+  background: rgb(var(--surface-700));
+  color: rgb(var(--accent-secondary));
 }
 
 .flexlayout__drag_rect {
-  background: rgba(0, 221, 255, 0.1);
-  border: 2px dashed #00ddff;
+  background: rgb(var(--accent-secondary) / 0.1);
+  border: 2px dashed rgb(var(--accent-secondary));
   border-radius: 8px;
 }
 
 .flexlayout__outline_rect {
-  border: 2px solid #00ddff;
+  border: 2px solid rgb(var(--accent-secondary));
   border-radius: 8px;
 }
 
 .flexlayout__edge_rect {
-  background: rgba(0, 221, 255, 0.2);
+  background: rgb(var(--accent-secondary) / 0.2);
 }
 
 .flexlayout__tabset-selected {
-  box-shadow: inset 0 0 0 1px rgba(0, 221, 255, 0.3);
+  box-shadow: inset 0 0 0 1px rgb(var(--accent-secondary) / 0.3);
 }
 
 .flexlayout__tab_floating {
-  background: #111820;
-  border: 1px solid rgba(255, 180, 50, 0.15);
+  background: rgb(var(--surface-800));
+  border: 1px solid rgb(var(--accent-primary) / 0.15);
   border-radius: 8px;
-  box-shadow: 0 12px 40px rgba(0, 0, 0, 0.7);
+  box-shadow: var(--shadow-glass);
 }
 
-/* AG Grid Dark Theme Overrides — OpenHamClock instrument panel */
+/* ============================================================
+   AG GRID OVERRIDES — themed via CSS custom properties
+   ============================================================ */
+
 .ag-theme-alpine-dark {
-  --ag-background-color: #0a0e14;
-  --ag-header-background-color: #111820;
-  --ag-odd-row-background-color: #0e1319;
-  --ag-row-hover-color: rgba(0, 221, 255, 0.06);
-  --ag-selected-row-background-color: rgba(255, 180, 50, 0.12);
-  --ag-border-color: rgba(255, 180, 50, 0.1);
-  --ag-header-foreground-color: #00ff88;
-  --ag-foreground-color: #a0b0c0;
-  --ag-row-border-color: rgba(255, 180, 50, 0.05);
+  --ag-background-color: rgb(var(--surface-900));
+  --ag-header-background-color: rgb(var(--surface-800));
+  --ag-odd-row-background-color: rgb(var(--surface-850));
+  --ag-row-hover-color: rgb(var(--accent-secondary) / 0.06);
+  --ag-selected-row-background-color: rgb(var(--accent-primary) / 0.12);
+  --ag-border-color: rgb(var(--accent-primary) / 0.1);
+  --ag-header-foreground-color: rgb(var(--accent-success));
+  --ag-foreground-color: rgb(var(--text-foreground));
+  --ag-row-border-color: rgb(var(--accent-primary) / 0.05);
   --ag-font-family: 'JetBrains Mono', 'Consolas', monospace;
   --ag-font-size: 13px;
   --ag-grid-size: 4px;
   --ag-cell-horizontal-padding: 12px;
-  --ag-header-column-separator-color: rgba(255, 180, 50, 0.1);
-  --ag-header-column-resize-handle-color: #00ddff;
-  --ag-range-selection-border-color: #00ddff;
-  --ag-input-focus-border-color: #ffb432;
-  --ag-checkbox-checked-color: #ffb432;
-  --ag-range-selection-background-color: rgba(0, 221, 255, 0.1);
+  --ag-header-column-separator-color: rgb(var(--accent-primary) / 0.1);
+  --ag-header-column-resize-handle-color: rgb(var(--accent-secondary));
+  --ag-range-selection-border-color: rgb(var(--accent-secondary));
+  --ag-input-focus-border-color: rgb(var(--accent-primary));
+  --ag-checkbox-checked-color: rgb(var(--accent-primary));
+  --ag-range-selection-background-color: rgb(var(--accent-secondary) / 0.1);
 }
 
 .ag-theme-alpine-dark .ag-root-wrapper {
-  background-color: #0a0e14;
-  border: 1px solid rgba(255, 180, 50, 0.1);
+  background-color: rgb(var(--surface-900));
+  border: 1px solid rgb(var(--accent-primary) / 0.1);
   border-radius: 4px;
   overflow: hidden;
 }
 
 .ag-theme-alpine-dark .ag-header {
-  background-color: #111820;
-  border-bottom: 1px solid rgba(255, 180, 50, 0.1);
+  background-color: rgb(var(--surface-800));
+  border-bottom: 1px solid rgb(var(--accent-primary) / 0.1);
 }
 
 .ag-theme-alpine-dark .ag-header-cell {
@@ -299,21 +439,21 @@
 }
 
 .ag-theme-alpine-dark .ag-header-cell-resize::after {
-  background-color: #00ddff;
+  background-color: rgb(var(--accent-secondary));
 }
 
 .ag-theme-alpine-dark .ag-row {
-  background-color: #0a0e14;
-  border-bottom: 1px solid rgba(255, 180, 50, 0.04);
+  background-color: rgb(var(--surface-900));
+  border-bottom: 1px solid rgb(var(--accent-primary) / 0.04);
   transition: background-color 0.1s ease;
 }
 
 .ag-theme-alpine-dark .ag-row-odd {
-  background-color: #0e1319;
+  background-color: rgb(var(--surface-850));
 }
 
 .ag-theme-alpine-dark .ag-row:hover {
-  background-color: rgba(0, 221, 255, 0.06) !important;
+  background-color: rgb(var(--accent-secondary) / 0.06) !important;
 }
 
 .ag-theme-alpine-dark .ag-cell {
@@ -321,18 +461,21 @@
 }
 
 .ag-theme-alpine-dark .ag-body-viewport {
-  background-color: #0a0e14;
+  background-color: rgb(var(--surface-900));
 }
 
 .ag-theme-alpine-dark .ag-overlay-no-rows-wrapper {
-  background-color: #0a0e14;
+  background-color: rgb(var(--surface-900));
 }
 
 .ag-theme-alpine-dark .ag-overlay-no-rows-center {
-  color: #5a7090;
+  color: rgb(var(--surface-300));
 }
 
-/* Header Plugin — dockable instrument bar */
+/* ============================================================
+   HEADER PLUGIN — themed
+   ============================================================ */
+
 .header-plugin {
   display: flex;
   align-items: center;
@@ -343,7 +486,7 @@
   height: 100%;
   width: 100%;
   min-height: 0;
-  background: #0a0e14;
+  background: rgb(var(--surface-900));
   font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
   overflow: hidden;
   box-sizing: border-box;
@@ -361,7 +504,7 @@
 .header-plugin__sep {
   width: 1px;
   height: 32px;
-  background: rgba(255, 180, 50, 0.15);
+  background: rgb(var(--accent-primary) / 0.15);
   align-self: center;
   flex-shrink: 0;
 }
@@ -371,15 +514,15 @@
   font-weight: 900;
   font-size: 28px;
   letter-spacing: 2px;
-  color: #ffb432;
-  text-shadow: 0 0 12px rgba(255, 180, 50, 0.3);
+  color: rgb(var(--accent-primary));
+  text-shadow: var(--text-glow-primary);
   line-height: 1;
 }
 
 .header-plugin__version {
   font-family: 'JetBrains Mono', monospace;
   font-size: 11px;
-  color: #5a7090;
+  color: rgb(var(--surface-300));
   align-self: flex-end;
   margin-bottom: 2px;
 }
@@ -390,23 +533,23 @@
   font-weight: 600;
   letter-spacing: 1.5px;
   text-transform: uppercase;
-  color: #00ff88;
+  color: rgb(var(--accent-success));
 }
 
 .header-plugin__time {
   font-family: 'Orbitron', system-ui, sans-serif;
   font-size: 28px;
   font-weight: 700;
-  color: #ffb432;
+  color: rgb(var(--accent-primary));
   letter-spacing: 2px;
   line-height: 1;
-  text-shadow: 0 0 10px rgba(255, 180, 50, 0.2);
+  text-shadow: var(--text-glow-secondary);
 }
 
 .header-plugin__date {
   font-family: 'JetBrains Mono', monospace;
   font-size: 13px;
-  color: #5a7090;
+  color: rgb(var(--surface-300));
   align-self: flex-end;
   margin-bottom: 2px;
 }
@@ -420,7 +563,7 @@
   font-family: 'JetBrains Mono', monospace;
   font-size: 16px;
   font-weight: 600;
-  color: #00ddff;
+  color: rgb(var(--accent-secondary));
 }
 
 .header-plugin__indices {
@@ -431,15 +574,18 @@
   font-family: 'Orbitron', system-ui, sans-serif;
   font-size: 16px;
   font-weight: 700;
-  color: #ffb432;
+  color: rgb(var(--accent-primary));
 }
 
 .header-plugin__value--danger {
-  color: #ff4466;
-  text-shadow: 0 0 8px rgba(255, 68, 102, 0.4);
+  color: rgb(var(--accent-danger));
+  text-shadow: var(--text-glow-primary);
 }
 
-/* Custom animations */
+/* ============================================================
+   ANIMATIONS
+   ============================================================ */
+
 @keyframes fadeIn {
   from { opacity: 0; transform: translateY(10px); }
   to { opacity: 1; transform: translateY(0); }
@@ -459,8 +605,8 @@
   animation: radio-wave 2s ease-out infinite;
 }
 
-/* CRT scanline effect — very subtle atmosphere */
-.crt-scanlines::after {
+/* CRT scanline effect — only in dark mode */
+.dark .crt-scanlines::after {
   content: '';
   position: absolute;
   inset: 0;
@@ -479,4 +625,14 @@
 @keyframes dxnews-scroll {
   0% { transform: translateX(0); }
   100% { transform: translateX(-50%); }
+}
+
+/* Subtle pulse animation for MongoDB warning */
+@keyframes pulse-subtle {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.7; }
+}
+
+.animate-pulse-subtle {
+  animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
 }

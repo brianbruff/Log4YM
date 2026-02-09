@@ -28,8 +28,10 @@ interface AppState {
   isConnected: boolean;
   connectionState: ConnectionState;
   reconnectAttempt: number;
+  mongoDbConnected: boolean;
   setConnected: (connected: boolean) => void;
   setConnectionState: (state: ConnectionState, attempt?: number) => void;
+  setMongoDbConnected: (connected: boolean) => void;
 
   // Current focused callsign
   focusedCallsign: string | null;
@@ -111,6 +113,34 @@ interface AppState {
   showPotaMapMarkers: boolean;
   setPotaSpots: (spots: PotaSpot[]) => void;
   setShowPotaMapMarkers: (show: boolean) => void;
+
+  // DX Cluster map overlay
+  dxClusterMapEnabled: boolean;
+  hoveredSpotId: string | null;
+  setDxClusterMapEnabled: (enabled: boolean) => void;
+  setHoveredSpotId: (id: string | null) => void;
+
+  // DX Cluster spots (ephemeral, in-memory only)
+  dxClusterSpots: Spot[];
+  addDxClusterSpot: (spot: Spot) => void;
+}
+
+export interface Spot {
+  id: string;
+  dxCall: string;
+  spotter: string;
+  frequency: number;
+  mode?: string;
+  comment?: string;
+  source?: string;
+  timestamp: string;
+  country?: string;
+  dxStation?: {
+    country?: string;
+    dxcc?: number;
+    grid?: string;
+    continent?: string;
+  };
 }
 
 export interface ClusterStatus {
@@ -135,6 +165,7 @@ export const useAppStore = create<AppState>((set) => ({
   isConnected: false,
   connectionState: 'disconnected' as ConnectionState,
   reconnectAttempt: 0,
+  mongoDbConnected: false,
   setConnected: (connected) => set({
     isConnected: connected,
     connectionState: connected ? 'connected' : 'disconnected',
@@ -145,6 +176,7 @@ export const useAppStore = create<AppState>((set) => ({
     isConnected: state === 'connected',
     reconnectAttempt: attempt ?? 0,
   }),
+  setMongoDbConnected: (connected) => set({ mongoDbConnected: connected }),
 
   // Focused callsign
   focusedCallsign: null,
@@ -340,4 +372,18 @@ export const useAppStore = create<AppState>((set) => ({
   showPotaMapMarkers: false,
   setPotaSpots: (spots) => set({ potaSpots: spots }),
   setShowPotaMapMarkers: (show) => set({ showPotaMapMarkers: show }),
+
+  // DX Cluster map overlay
+  dxClusterMapEnabled: false,
+  hoveredSpotId: null,
+  setDxClusterMapEnabled: (enabled) => set({ dxClusterMapEnabled: enabled }),
+  setHoveredSpotId: (id) => set({ hoveredSpotId: id }),
+
+  // DX Cluster spots (ephemeral, in-memory only)
+  dxClusterSpots: [],
+  addDxClusterSpot: (spot) => set((state) => {
+    // Keep only the most recent 200 spots to prevent memory bloat
+    const updatedSpots = [spot, ...state.dxClusterSpots].slice(0, 200);
+    return { dxClusterSpots: updatedSpots };
+  }),
 }));

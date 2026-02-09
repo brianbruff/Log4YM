@@ -21,7 +21,21 @@ public class SettingsService : ISettingsService
     public async Task<UserSettings> GetSettingsAsync(string id = "default")
     {
         var settings = await _repository.GetAsync(id);
-        return settings ?? new UserSettings { Id = id };
+        if (settings == null)
+            return new UserSettings { Id = id };
+
+        // Ensure nested settings objects are never null (handles documents
+        // created before new settings sections were added to the schema)
+        settings.Station ??= new();
+        settings.Qrz ??= new();
+        settings.Appearance ??= new();
+        settings.Rotator ??= new();
+        settings.Radio ??= new();
+        settings.Map ??= new();
+        settings.Cluster ??= new();
+        settings.Ai ??= new();
+
+        return settings;
     }
 
     public async Task<UserSettings> SaveSettingsAsync(UserSettings settings)

@@ -89,6 +89,21 @@ export interface Spot {
   };
 }
 
+export interface RbnSpot {
+  callsign: string;      // Skimmer callsign
+  dx: string;            // Spotted station
+  frequency: number;     // kHz
+  band: string;
+  mode: string;
+  snr?: number;          // Signal-to-noise ratio in dB
+  speed?: number;        // CW speed in WPM
+  timestamp: string;
+  grid?: string;
+  skimmerLat?: number;
+  skimmerLon?: number;
+  skimmerCountry?: string;
+}
+
 export interface QsoQuery {
   callsign?: string;
   name?: string;
@@ -180,6 +195,21 @@ class ApiClient {
     if (query?.limit) params.append('limit', query.limit.toString());
     const qs = params.toString();
     return this.fetch<Spot[]>(`/spots${qs ? `?${qs}` : ''}`);
+  }
+
+  // RBN
+  async getRbnSpots(minutes: number = 5): Promise<{ count: number; spots: RbnSpot[] }> {
+    return this.fetch(`/rbn/spots?minutes=${minutes}`);
+  }
+
+  async getRbnSkimmerLocation(callsign: string): Promise<{
+    callsign: string;
+    grid: string;
+    lat: number;
+    lon: number;
+    country?: string;
+  }> {
+    return this.fetch(`/rbn/location/${encodeURIComponent(callsign)}`);
   }
 
   // Health
@@ -309,6 +339,28 @@ class ApiClient {
     }
 
     return response.blob();
+  }
+
+  // AI
+  async generateTalkPoints(request: GenerateTalkPointsRequest): Promise<GenerateTalkPointsResponse> {
+    return this.fetch<GenerateTalkPointsResponse>('/ai/talk-points', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  async chat(request: ChatRequest): Promise<ChatResponse> {
+    return this.fetch<ChatResponse>('/ai/chat', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  async testApiKey(request: TestApiKeyRequest): Promise<TestApiKeyResponse> {
+    return this.fetch<TestApiKeyResponse>('/ai/test-key', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
   }
 
   // Contests
@@ -456,6 +508,64 @@ export interface DXpeditionData {
   upcoming: number;
   source: string;
   timestamp: string;
+}
+
+// AI Types
+export interface GenerateTalkPointsRequest {
+  callsign: string;
+  currentBand?: string;
+  currentMode?: string;
+}
+
+export interface GenerateTalkPointsResponse {
+  callsign: string;
+  previousQsos: PreviousQsoSummary[];
+  qrzProfile?: QrzProfileSummary;
+  talkPoints: string[];
+  generatedText: string;
+}
+
+export interface PreviousQsoSummary {
+  qsoDate: string;
+  band: string;
+  mode: string;
+  rstSent?: string;
+  rstRcvd?: string;
+  comment?: string;
+}
+
+export interface QrzProfileSummary {
+  name?: string;
+  location?: string;
+  grid?: string;
+  bio?: string;
+  interests?: string;
+}
+
+export interface ChatRequest {
+  callsign: string;
+  question: string;
+  conversationHistory?: ChatMessage[];
+}
+
+export interface ChatResponse {
+  answer: string;
+}
+
+export interface ChatMessage {
+  role: string; // "user" or "assistant"
+  content: string;
+}
+
+export interface TestApiKeyRequest {
+  provider: string; // "anthropic" or "openai"
+  apiKey: string;
+  model: string;
+}
+
+export interface TestApiKeyResponse {
+  isValid: boolean;
+  errorMessage?: string;
 }
 
 // DX News Types

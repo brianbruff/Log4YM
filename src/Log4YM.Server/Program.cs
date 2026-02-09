@@ -57,20 +57,25 @@ builder.Services.AddSingleton<MongoDbContext>();
 
 // Register repositories
 builder.Services.AddScoped<IQsoRepository, QsoRepository>();
-builder.Services.AddScoped<ISpotRepository, SpotRepository>();
 builder.Services.AddScoped<ISettingsRepository, SettingsRepository>();
 
 // Register services
 builder.Services.AddScoped<IQsoService, QsoService>();
-builder.Services.AddScoped<ISpotService, SpotService>();
 builder.Services.AddScoped<ISettingsService, SettingsService>();
 builder.Services.AddScoped<IQrzService, QrzService>();
 builder.Services.AddScoped<IAdifService, AdifService>();
+builder.Services.AddScoped<IAiService, AiService>();
 
 // Register HTTP client for external APIs
 builder.Services.AddHttpClient("QRZ", client =>
 {
     client.Timeout = TimeSpan.FromSeconds(30);
+    client.DefaultRequestHeaders.Add("User-Agent", "Log4YM/1.0");
+});
+
+builder.Services.AddHttpClient("AI", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(60);
     client.DefaultRequestHeaders.Add("User-Agent", "Log4YM/1.0");
 });
 
@@ -118,6 +123,11 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<RotatorService>())
 builder.Services.AddSingleton<DxClusterService>();
 builder.Services.AddSingleton<IDxClusterService>(sp => sp.GetRequiredService<DxClusterService>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<DxClusterService>());
+
+// Register RBN service
+builder.Services.AddSingleton<RbnService>();
+builder.Services.AddSingleton<IRbnService>(sp => sp.GetRequiredService<RbnService>());
+builder.Services.AddHostedService(sp => sp.GetRequiredService<RbnService>());
 
 var app = builder.Build();
 

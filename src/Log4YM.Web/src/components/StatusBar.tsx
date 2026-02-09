@@ -1,10 +1,10 @@
-import { Radio, Wifi, WifiOff, MapPin, Clock, Loader2, Settings } from 'lucide-react';
+import { Radio, Wifi, WifiOff, MapPin, Clock, Loader2, Settings, AlertTriangle } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { useEffect, useState } from 'react';
 
 export function StatusBar() {
-  const { connectionState, reconnectAttempt, stationCallsign, stationGrid, rigStatus } = useAppStore();
+  const { connectionState, reconnectAttempt, stationCallsign, stationGrid, rigStatus, mongoDbConnected } = useAppStore();
   const { openSettings } = useSettingsStore();
   const [currentTime, setCurrentTime] = useState(new Date());
 
@@ -22,9 +22,15 @@ export function StatusBar() {
   };
 
   return (
-    <div className="h-8 bg-dark-800/90 backdrop-blur-sm border-t border-glass-100 flex items-center justify-between px-4 text-sm font-ui">
+    <div className={`h-8 bg-dark-800/90 backdrop-blur-sm border-t ${!mongoDbConnected ? 'border-accent-danger shadow-[0_-2px_12px_rgba(239,68,68,0.4)] animate-pulse-subtle' : 'border-glass-100'} flex items-center justify-between px-4 text-sm font-ui`}>
       {/* Left side - Station info */}
       <div className="flex items-center gap-6">
+        {!mongoDbConnected && (
+          <div className="flex items-center gap-2 text-accent-danger font-bold animate-pulse-subtle">
+            <AlertTriangle className="w-4 h-4" />
+            <span className="text-xs">MongoDB Not Connected - Configure in Settings</span>
+          </div>
+        )}
         <div className="flex items-center gap-2">
           <Radio className="w-4 h-4 text-accent-primary" />
           <span className="font-mono font-bold text-accent-primary">{stationCallsign}</span>

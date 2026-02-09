@@ -1,4 +1,5 @@
 using Microsoft.AspNetCore.Mvc;
+using Log4YM.Server.Core.Database;
 
 namespace Log4YM.Server.Controllers;
 
@@ -7,6 +8,13 @@ namespace Log4YM.Server.Controllers;
 [Produces("application/json")]
 public class SystemController : ControllerBase
 {
+    private readonly MongoDbContext _dbContext;
+
+    public SystemController(MongoDbContext dbContext)
+    {
+        _dbContext = dbContext;
+    }
+
     /// <summary>
     /// Health check endpoint
     /// </summary>
@@ -14,7 +22,7 @@ public class SystemController : ControllerBase
     [ProducesResponseType(typeof(HealthResponse), StatusCodes.Status200OK)]
     public ActionResult<HealthResponse> GetHealth()
     {
-        return Ok(new HealthResponse("Healthy", DateTime.UtcNow));
+        return Ok(new HealthResponse("Healthy", DateTime.UtcNow, _dbContext.IsConnected));
     }
 
     /// <summary>
@@ -37,5 +45,5 @@ public class SystemController : ControllerBase
     }
 }
 
-public record HealthResponse(string Status, DateTime Timestamp);
+public record HealthResponse(string Status, DateTime Timestamp, bool MongoDbConnected);
 public record PluginInfo(string Id, string Name, string Version, bool Enabled);

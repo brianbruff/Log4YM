@@ -277,7 +277,8 @@ public class DxClusterService : IDxClusterService, IHostedService, IDisposable
             parsedSpot.Timestamp,
             source,
             parsedSpot.Country,
-            parsedSpot.Dxcc
+            parsedSpot.Dxcc,
+            parsedSpot.Grid
         );
 
         await _hubContext.Clients.All.OnSpotReceived(evt);

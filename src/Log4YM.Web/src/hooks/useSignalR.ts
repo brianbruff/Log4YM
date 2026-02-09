@@ -126,9 +126,10 @@ export function useSignalRConnection() {
               source: evt.source,
               timestamp: evt.timestamp,
               country: evt.country,
-              dxStation: evt.country || evt.dxcc ? {
+              dxStation: (evt.country || evt.dxcc || evt.grid) ? {
                 country: evt.country,
                 dxcc: evt.dxcc,
+                grid: evt.grid,
               } : undefined,
             };
             useAppStore.getState().addDxClusterSpot(spot);

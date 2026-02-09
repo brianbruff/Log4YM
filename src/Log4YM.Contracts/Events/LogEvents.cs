@@ -69,7 +69,8 @@ public record SpotReceivedEvent(
     DateTime Timestamp,
     string Source,
     string? Country,
-    int? Dxcc
+    int? Dxcc,
+    string? Grid
 );
 
 /// <summary>

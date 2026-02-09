@@ -2,8 +2,7 @@ import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import { Map as MapIcon, MapPin, Target, Maximize2, ZoomIn, ZoomOut, Layers, Sun } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, Circle, Polyline, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
-import { useQuery } from '@tanstack/react-query';
-import { useAppStore } from '../store/appStore';
+import { useAppStore, Spot } from '../store/appStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { useSignalR } from '../hooks/useSignalR';
 import { GlassPanel } from '../components/GlassPanel';
@@ -11,7 +10,6 @@ import { DXNewsTicker } from '../components/DXNewsTicker';
 import { DayNightOverlay } from '../components/DayNightOverlay';
 import { GrayLineOverlay } from '../components/GrayLineOverlay';
 import { gridToLatLon, calculateDistance, getAnimationDuration } from '../utils/maidenhead';
-import { api, Spot } from '../api/client';
 
 import 'leaflet/dist/leaflet.css';
 
@@ -278,13 +276,8 @@ export function MapPlugin() {
   const { settings, updateMapSettings, saveSettings } = useSettingsStore();
   const { commandRotator } = useSignalR();
 
-  // Fetch spots for map overlay
-  const { data: spots } = useQuery({
-    queryKey: ['spots'],
-    queryFn: () => api.getSpots({ limit: 100 }),
-    refetchInterval: 30000,
-    enabled: dxClusterMapEnabled,
-  });
+  // DX cluster spots from ephemeral in-memory store (populated via SignalR)
+  const spots = useAppStore((state) => state.dxClusterSpots);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [currentAzimuth, setCurrentAzimuth] = useState(0);
   const [showLayerPicker, setShowLayerPicker] = useState(false);

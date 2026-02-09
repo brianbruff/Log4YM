@@ -183,7 +183,10 @@ export function RigPlugin() {
     await connectRadio(radioId);
   };
 
-  // Auto-connect to saved rig if autoReconnect is enabled and we have a discovered radio
+  // Auto-connect to saved rig if autoReconnect is enabled and we have a discovered radio.
+  // IMPORTANT: We must wait for connection state to arrive before deciding whether to connect.
+  // The OnRadioDiscovered event arrives before OnRadioConnectionStateChanged from RequestRadioStatus,
+  // so if we connect when connState is undefined, we'd tear down an already-working backend connection.
   useEffect(() => {
     if (!autoReconnect || radios.length === 0 || selectedRadioId || isConnectingHamlib || isConnectingTci) return;
 
@@ -194,15 +197,19 @@ export function RigPlugin() {
 
     if (!targetRadio) return;
 
-    // If the backend already has this rig connected, just select it without re-connecting
     const connState = radioConnectionStates.get(targetRadio.id);
+
     if (connState === "Connected" || connState === "Monitoring") {
+      // Backend already has this rig connected — just select it, no reconnect needed
       console.log("Auto-selecting already-connected rig:", targetRadio.id);
       setSelectedRadio(targetRadio.id);
-    } else {
+    } else if (connState === "Disconnected" || connState === "Error") {
+      // Rig is explicitly not connected — initiate connection
       console.log("Auto-connecting to saved rig:", targetRadio.id);
       handleConnect(targetRadio.id);
     }
+    // If connState is undefined, the connection state event hasn't arrived yet — wait for it.
+    // The useEffect will re-fire when radioConnectionStates updates.
   }, [autoReconnect, autoConnectRigId, radios.length, selectedRadioId, isConnectingHamlib, isConnectingTci, radioConnectionStates]);
 
   const handleDisconnect = async () => {

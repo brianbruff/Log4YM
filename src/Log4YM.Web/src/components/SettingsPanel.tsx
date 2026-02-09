@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import {
   X,
   Settings,
@@ -27,7 +27,8 @@ import {
   Moon,
   Monitor,
 } from 'lucide-react';
-import { useSettingsStore, SettingsSection } from '../store/settingsStore';
+import { useSettingsStore, SettingsSection, StationSettings } from '../store/settingsStore';
+import { gridToLatLon } from '../utils/maidenhead';
 import { useSetupStore } from '../store/setupStore';
 
 // Settings navigation items
@@ -86,6 +87,7 @@ const SETTINGS_SECTIONS: { id: SettingsSection; name: string; icon: React.ReactN
 function StationSettingsSection() {
   const { settings, updateStationSettings } = useSettingsStore();
   const station = settings.station;
+  const lastAutoFilledCoords = useRef<{ lat: number; lon: number } | null>(null);
 
   // Station info sync to app store is now handled in App.tsx
   // to ensure it runs even when settings panel is not open
@@ -137,7 +139,29 @@ function StationSettingsSection() {
           <input
             type="text"
             value={station.gridSquare}
-            onChange={(e) => updateStationSettings({ gridSquare: e.target.value.toUpperCase() })}
+            onChange={(e) => {
+              const grid = e.target.value.toUpperCase();
+              const updates: Partial<StationSettings> = { gridSquare: grid };
+
+              // Auto-fill coordinates if not manually set, and refine as grid gets more precise
+              const bothNull = station.latitude === null && station.longitude === null;
+              const wasAutoFilled = lastAutoFilledCoords.current &&
+                station.latitude === lastAutoFilledCoords.current.lat &&
+                station.longitude === lastAutoFilledCoords.current.lon;
+
+              if (bothNull || wasAutoFilled) {
+                const coords = gridToLatLon(grid);
+                if (coords) {
+                  const lat = Math.round(coords.lat * 10000) / 10000;
+                  const lon = Math.round(coords.lon * 10000) / 10000;
+                  updates.latitude = lat;
+                  updates.longitude = lon;
+                  lastAutoFilledCoords.current = { lat, lon };
+                }
+              }
+
+              updateStationSettings(updates);
+            }}
             placeholder="e.g. IO63"
             maxLength={8}
             className="glass-input w-full font-mono uppercase"

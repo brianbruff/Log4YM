@@ -1,150 +1,114 @@
 import { useEffect, useRef } from 'react';
 import { useMap } from 'react-leaflet';
 import L from 'leaflet';
-import { getSolarElevation } from '../utils/solarCalculations';
+import { computeTerminatorLine } from '../utils/solarCalculations';
 
 interface GrayLineOverlayProps {
   opacity?: number;
-  color?: string;
 }
 
+/**
+ * Gray Line overlay using Leaflet vector layers, matching OpenHamClock's gray line plugin.
+ * Renders the solar terminator line, enhanced DX propagation zone, and twilight boundaries.
+ */
 export function GrayLineOverlay({
-  opacity = 0.6,
-  color = '#ff6b35'
+  opacity = 0.7
 }: GrayLineOverlayProps) {
   const map = useMap();
-  const canvasLayerRef = useRef<L.Layer | null>(null);
+  const layerGroupRef = useRef<L.LayerGroup | null>(null);
 
   useEffect(() => {
-    // Custom canvas layer for gray line visualization
-    const CanvasLayer = L.Layer.extend({
-      onAdd: function (map: L.Map) {
-        this._map = map;
-        this._canvas = L.DomUtil.create('canvas', 'leaflet-layer');
-        this._context = this._canvas.getContext('2d');
+    const layerGroup = L.layerGroup().addTo(map);
+    layerGroupRef.current = layerGroup;
 
-        const size = map.getSize();
-        this._canvas.width = size.x;
-        this._canvas.height = size.y;
+    function updateOverlay() {
+      layerGroup.clearLayers();
 
-        const animated = map.options.zoomAnimation && L.Browser.any3d;
-        L.DomUtil.addClass(this._canvas, `leaflet-zoom-${animated ? 'animated' : 'hide'}`);
+      const now = new Date();
 
-        map.getPanes().overlayPane?.appendChild(this._canvas);
+      // Compute lines at different solar altitudes
+      const terminatorLine = computeTerminatorLine(now, 0, 2);
+      const dxZoneUpper = computeTerminatorLine(now, 5, 2);
+      const dxZoneLower = computeTerminatorLine(now, -5, 2);
+      const civilLine = computeTerminatorLine(now, -6, 2);
+      const nauticalLine = computeTerminatorLine(now, -12, 2);
+      const astronomicalLine = computeTerminatorLine(now, -18, 2);
 
-        map.on('moveend', this._reset, this);
-        map.on('zoom', this._reset, this);
-        map.on('resize', this._resize, this);
-
-        this._reset();
-      },
-
-      onRemove: function (map: L.Map) {
-        L.DomUtil.remove(this._canvas);
-        map.off('moveend', this._reset, this);
-        map.off('zoom', this._reset, this);
-        map.off('resize', this._resize, this);
-      },
-
-      _resize: function () {
-        const size = this._map.getSize();
-        this._canvas.width = size.x;
-        this._canvas.height = size.y;
-        this._reset();
-      },
-
-      _reset: function () {
-        this._draw();
-      },
-
-      _draw: function () {
-        const canvas = this._canvas;
-        const ctx = this._context;
-        const map = this._map;
-
-        // Clear canvas
-        ctx.clearRect(0, 0, canvas.width, canvas.height);
-
-        // Draw gray line (civil twilight zone where sun is between 0° and -6°)
-        const now = new Date();
-        const imageData = ctx.createImageData(canvas.width, canvas.height);
-        const data = imageData.data;
-
-        // Sample resolution for performance
-        const step = 2;
-
-        // Parse color
-        const hexColor = color.replace('#', '');
-        const r = parseInt(hexColor.substring(0, 2), 16);
-        const g = parseInt(hexColor.substring(2, 4), 16);
-        const b = parseInt(hexColor.substring(4, 6), 16);
-
-        for (let x = 0; x < canvas.width; x += step) {
-          for (let y = 0; y < canvas.height; y += step) {
-            const point = map.containerPointToLatLng([x, y]);
-            const lat = point.lat;
-            const lon = point.lng;
-
-            // Calculate solar elevation
-            const elevation = getSolarElevation(lat, lon, now);
-
-            // Gray line is the zone where sun is between -6° and 0° (civil twilight)
-            // We'll also show a gradient extending a bit beyond for visual effect
-            let alpha = 0;
-
-            if (elevation >= -6 && elevation <= 0) {
-              // Core gray line - full intensity with gradient
-              // At -3° (middle of twilight), full intensity
-              const twilightCenter = -3;
-              const distance = Math.abs(elevation - twilightCenter);
-              alpha = Math.round(180 * (1 - distance / 3));
-            } else if (elevation > 0 && elevation < 2) {
-              // Gradient on day side
-              alpha = Math.round(120 * (1 - elevation / 2));
-            } else if (elevation < -6 && elevation > -8) {
-              // Gradient on night side
-              alpha = Math.round(120 * (1 - Math.abs(elevation + 6) / 2));
-            }
-
-            // Fill the pixel block
-            if (alpha > 0) {
-              for (let dx = 0; dx < step && x + dx < canvas.width; dx++) {
-                for (let dy = 0; dy < step && y + dy < canvas.height; dy++) {
-                  const idx = ((y + dy) * canvas.width + (x + dx)) * 4;
-                  data[idx] = r;
-                  data[idx + 1] = g;
-                  data[idx + 2] = b;
-                  data[idx + 3] = alpha;
-                }
-              }
-            }
+      // Enhanced DX zone polygon (between +5° and -5° solar altitude)
+      if (dxZoneUpper.length > 0 && dxZoneLower.length > 0) {
+        for (const offset of [-360, 0, 360]) {
+          const polygonPoints: L.LatLngExpression[] = [];
+          // Forward through upper boundary (day side)
+          for (const [lat, lon] of dxZoneUpper) {
+            polygonPoints.push([lat, lon + offset]);
           }
+          // Backward through lower boundary (night side) to close the band
+          for (let i = dxZoneLower.length - 1; i >= 0; i--) {
+            polygonPoints.push([dxZoneLower[i][0], dxZoneLower[i][1] + offset]);
+          }
+          L.polygon(polygonPoints, {
+            color: '#ffaa00',
+            fillColor: '#ffaa00',
+            fillOpacity: opacity * 0.15,
+            weight: 1,
+            opacity: opacity * 0.3,
+            interactive: false,
+          }).addTo(layerGroup);
         }
-
-        ctx.putImageData(imageData, 0, 0);
-
-        // Apply overall opacity
-        canvas.style.opacity = opacity.toString();
       }
-    });
 
-    const canvasLayer = new CanvasLayer();
-    canvasLayer.addTo(map);
-    canvasLayerRef.current = canvasLayer;
+      // Main solar terminator line (most prominent)
+      addPolyline(terminatorLine, {
+        color: '#ff6600',
+        weight: 3,
+        opacity: opacity * 0.8,
+        dashArray: '10, 5',
+      });
 
-    // Update every 60 seconds
-    const interval = setInterval(() => {
-      canvasLayer._reset();
-    }, 60000);
+      // Civil twilight line (-6°)
+      addPolyline(civilLine, {
+        color: '#4488ff',
+        weight: 2,
+        opacity: opacity * 0.6,
+        dashArray: '5, 5',
+      });
 
-    // Cleanup
+      // Nautical twilight line (-12°)
+      addPolyline(nauticalLine, {
+        color: '#6666ff',
+        weight: 1.5,
+        opacity: opacity * 0.4,
+        dashArray: '3, 3',
+      });
+
+      // Astronomical twilight line (-18°)
+      addPolyline(astronomicalLine, {
+        color: '#8888ff',
+        weight: 1,
+        opacity: opacity * 0.3,
+        dashArray: '2, 2',
+      });
+    }
+
+    function addPolyline(points: [number, number][], style: L.PolylineOptions) {
+      for (const offset of [-360, 0, 360]) {
+        const offsetPoints: L.LatLngExpression[] = points.map(
+          ([lat, lon]) => [lat, lon + offset]
+        );
+        L.polyline(offsetPoints, { ...style, interactive: false }).addTo(layerGroup);
+      }
+    }
+
+    updateOverlay();
+    const interval = setInterval(updateOverlay, 60000);
+
     return () => {
       clearInterval(interval);
-      if (canvasLayerRef.current) {
-        map.removeLayer(canvasLayerRef.current);
+      if (layerGroupRef.current) {
+        map.removeLayer(layerGroupRef.current);
       }
     };
-  }, [map, opacity, color]);
+  }, [map, opacity]);
 
   return null;
 }

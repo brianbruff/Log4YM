@@ -141,32 +141,57 @@ export function getSolarElevation(lat: number, lon: number, date: Date = new Dat
 }
 
 /**
- * Generate day/night terminator line coordinates
- * Returns an array of [lon, lat] points marking the boundary between day and night
+ * Compute terminator line at a given solar altitude.
+ * Uses spherical trigonometry: sin(alt) = sin(lat)*sin(dec) + cos(lat)*cos(dec)*cos(HA)
+ * Rearranged to: R*sin(lat + phi) = sin(alt) where R = sqrt(A²+B²), phi = atan2(B,A)
+ * Returns array of [lat, lon] points tracing the line where solar altitude equals the target.
  */
-export function getDayNightTerminator(date: Date = new Date()): [number, number][] {
+export function computeTerminatorLine(
+  date: Date = new Date(),
+  altitude: number = 0,
+  resolution: number = 2
+): [number, number][] {
+  const sunPos = getSunPosition(date);
+  const decRad = sunPos.lat * Math.PI / 180;
+  const altRad = altitude * Math.PI / 180;
+
+  // Normalize angle to [-PI, PI]
+  function normalize(rad: number): number {
+    while (rad > Math.PI) rad -= 2 * Math.PI;
+    while (rad < -Math.PI) rad += 2 * Math.PI;
+    return rad;
+  }
+
   const points: [number, number][] = [];
 
-  // Generate points along the terminator (where solar elevation = 0)
-  for (let lon = -180; lon <= 180; lon += 2) {
-    // For each longitude, find the latitude where solar elevation is approximately 0
-    // This is a simplified approach - we calculate for a grid and interpolate
+  for (let lon = -180; lon <= 180; lon += resolution) {
+    const HA = (lon - sunPos.lon) * Math.PI / 180;
 
-    let bestLat = 0;
-    let minDiff = Infinity;
+    const A = Math.sin(decRad);
+    const B = Math.cos(decRad) * Math.cos(HA);
+    const R = Math.sqrt(A * A + B * B);
 
-    // Search for latitude where elevation is closest to 0
-    for (let lat = -90; lat <= 90; lat += 0.5) {
-      const elevation = getSolarElevation(lat, lon, date);
-      const diff = Math.abs(elevation);
+    if (R < 0.001) continue;
 
-      if (diff < minDiff) {
-        minDiff = diff;
-        bestLat = lat;
-      }
+    const sinRatio = Math.sin(altRad) / R;
+    if (Math.abs(sinRatio) > 1) continue;
+
+    const phi = Math.atan2(B, A);
+    const asinVal = Math.asin(sinRatio);
+
+    // asin has two solutions: asinVal and (PI - asinVal)
+    // Normalize both to [-PI, PI] before checking valid latitude range
+    const latRad1 = normalize(asinVal - phi);
+    const latDeg1 = latRad1 * 180 / Math.PI;
+
+    const latRad2 = normalize((Math.PI - asinVal) - phi);
+    const latDeg2 = latRad2 * 180 / Math.PI;
+
+    if (latDeg1 >= -90 && latDeg1 <= 90) {
+      points.push([latDeg1, lon]);
+    } else if (latDeg2 >= -90 && latDeg2 <= 90) {
+      points.push([latDeg2, lon]);
     }
-
-    points.push([lon, bestLat]);
   }
 
   return points;
@@ -178,45 +203,6 @@ export function getDayNightTerminator(date: Date = new Date()): [number, number]
 export function isInDaylight(lat: number, lon: number, date: Date = new Date()): boolean {
   const elevation = getSolarElevation(lat, lon, date);
   return elevation > 0;
-}
-
-/**
- * Calculate gray line boundaries (civil twilight)
- * Returns two lines: dawn terminator (sun at -6°) and dusk terminator (sun at -6°)
- */
-export function getGrayLineBoundaries(date: Date = new Date()): {
-  civilDawn: [number, number][];
-  civilDusk: [number, number][];
-} {
-  const civilDawn: [number, number][] = [];
-
-  // Civil twilight occurs when the sun is between 0° and -6° below the horizon
-  const civilTwilightAngle = -6;
-
-  for (let lon = -180; lon <= 180; lon += 2) {
-    let bestLatDawn = 0;
-    let minDiffDawn = Infinity;
-
-    // Search for latitude where elevation is closest to -6° (civil twilight)
-    for (let lat = -90; lat <= 90; lat += 0.5) {
-      const elevation = getSolarElevation(lat, lon, date);
-      const diff = Math.abs(elevation - civilTwilightAngle);
-
-      if (diff < minDiffDawn) {
-        minDiffDawn = diff;
-        bestLatDawn = lat;
-      }
-    }
-
-    civilDawn.push([lon, bestLatDawn]);
-  }
-
-  // For this simplified implementation, civil dusk is the same line
-  // In a more sophisticated version, you'd calculate the opposite side
-  return {
-    civilDawn,
-    civilDusk: civilDawn
-  };
 }
 
 /**

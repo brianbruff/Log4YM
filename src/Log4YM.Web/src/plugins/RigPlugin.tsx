@@ -183,16 +183,27 @@ export function RigPlugin() {
     await connectRadio(radioId);
   };
 
-  // Auto-connect to saved Hamlib rig if autoReconnect is enabled and we have a discovered radio
+  // Auto-connect to saved rig if autoReconnect is enabled and we have a discovered radio
   useEffect(() => {
-    if (autoReconnect && radios.length > 0 && !selectedRadioId && !isConnectingHamlib && !isConnectingTci) {
-      const hamlibRadio = radios.find(r => r.type === "Hamlib");
-      if (hamlibRadio) {
-        console.log("Auto-connecting to saved Hamlib rig:", hamlibRadio.id);
-        handleConnect(hamlibRadio.id);
-      }
+    if (!autoReconnect || radios.length === 0 || selectedRadioId || isConnectingHamlib || isConnectingTci) return;
+
+    // Find the specific rig targeted for auto-connect, or fall back to first radio
+    const targetRadio = autoConnectRigId
+      ? radios.find(r => r.id === autoConnectRigId)
+      : radios[0];
+
+    if (!targetRadio) return;
+
+    // If the backend already has this rig connected, just select it without re-connecting
+    const connState = radioConnectionStates.get(targetRadio.id);
+    if (connState === "Connected" || connState === "Monitoring") {
+      console.log("Auto-selecting already-connected rig:", targetRadio.id);
+      setSelectedRadio(targetRadio.id);
+    } else {
+      console.log("Auto-connecting to saved rig:", targetRadio.id);
+      handleConnect(targetRadio.id);
     }
-  }, [autoReconnect, radios.length, selectedRadioId, isConnectingHamlib, isConnectingTci]);
+  }, [autoReconnect, autoConnectRigId, radios.length, selectedRadioId, isConnectingHamlib, isConnectingTci, radioConnectionStates]);
 
   const handleDisconnect = async () => {
     if (selectedRadioId) {

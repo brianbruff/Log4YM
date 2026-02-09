@@ -10,10 +10,9 @@
     <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
     <link href="https://fonts.googleapis.com/css2?family=JetBrains+Mono:wght@400;500;600;700&family=Orbitron:wght@400;500;600;700;800;900&family=Space+Grotesk:wght@300;400;500;600;700&display=swap" rel="stylesheet" />
     <style>
-      /* Prevent flash of unstyled content */
-      html {
-        background-color: #0a0e14;
-      }
+      /* Prevent flash of unstyled content — matches dark theme default */
+      html.dark { background-color: #0a0e14; }
+      html:not(.dark) { background-color: #f6f7f9; }
     </style>
   </head>
   <body class="bg-dark-900">

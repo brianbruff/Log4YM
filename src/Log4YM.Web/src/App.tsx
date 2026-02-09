@@ -11,6 +11,7 @@ import { useLayoutStore, defaultLayout } from './store/layoutStore';
 import { useSettingsStore } from './store/settingsStore';
 import { useSetupStore } from './store/setupStore';
 import { useAppStore } from './store/appStore';
+import { useTheme } from './hooks/useTheme';
 
 import 'flexlayout-react/style/dark.css';
 
@@ -118,6 +119,9 @@ export function App() {
   const [model, setModel] = useState<Model>(() => Model.fromJson(layout));
   const [showPanelPicker, setShowPanelPicker] = useState(false);
   const [targetTabSetId, setTargetTabSetId] = useState<string | null>(null);
+
+  // Apply theme from settings (dark/light/system)
+  useTheme();
 
   // Check setup status on mount (for status display, not blocking)
   useEffect(() => {

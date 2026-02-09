@@ -13,48 +13,64 @@ export default {
         ui: ['Space Grotesk', 'system-ui', 'sans-serif'],
       },
       colors: {
-        // OpenHamClock instrument panel palette
-        glass: {
-          50: 'rgba(255, 180, 50, 0.04)',
-          100: 'rgba(255, 180, 50, 0.08)',
-          200: 'rgba(255, 180, 50, 0.12)',
-          300: 'rgba(255, 180, 50, 0.18)',
-        },
+        // Surface/background colors — themed via CSS custom properties
         dark: {
-          900: '#0a0e14',        // Deepest background
-          850: '#0e1319',        // Between 900 and 800
-          800: '#111820',        // Panel/sidebar background
-          700: '#1a2332',        // Elevated surface
-          600: '#243044',        // Borders, dividers
-          500: '#2e3d55',        // Lighter elements
-          400: '#3d5070',        // Muted interactive
-          300: '#5a7090',        // Muted text
-          200: '#8899aa',        // Secondary text
+          900: 'rgb(var(--surface-900) / <alpha-value>)',
+          850: 'rgb(var(--surface-850) / <alpha-value>)',
+          800: 'rgb(var(--surface-800) / <alpha-value>)',
+          700: 'rgb(var(--surface-700) / <alpha-value>)',
+          600: 'rgb(var(--surface-600) / <alpha-value>)',
+          500: 'rgb(var(--surface-500) / <alpha-value>)',
+          400: 'rgb(var(--surface-400) / <alpha-value>)',
+          300: 'rgb(var(--surface-300) / <alpha-value>)',
+          200: 'rgb(var(--surface-200) / <alpha-value>)',
         },
+        // Glass/overlay tints — derived from accent-primary
+        glass: {
+          50: 'rgb(var(--accent-primary) / 0.04)',
+          100: 'rgb(var(--accent-primary) / 0.08)',
+          200: 'rgb(var(--accent-primary) / 0.12)',
+          300: 'rgb(var(--accent-primary) / 0.18)',
+        },
+        // Accent colors — themed
         accent: {
-          primary: '#ffb432',    // Amber — signature accent
-          secondary: '#00ddff',  // Cyan — secondary accent
-          success: '#00ff88',    // Green — section headers, good status
-          warning: '#ffb432',    // Amber — warnings
-          danger: '#ff4466',     // Red — alerts, errors
-          info: '#00ddff',       // Cyan — informational
+          primary: 'rgb(var(--accent-primary) / <alpha-value>)',
+          secondary: 'rgb(var(--accent-secondary) / <alpha-value>)',
+          success: 'rgb(var(--accent-success) / <alpha-value>)',
+          warning: 'rgb(var(--accent-warning) / <alpha-value>)',
+          danger: 'rgb(var(--accent-danger) / <alpha-value>)',
+          info: 'rgb(var(--accent-info) / <alpha-value>)',
         },
+        // Ham radio mode colors — themed
         ham: {
-          cw: '#ffb432',         // Amber for CW
-          ssb: '#00ff88',        // Green for SSB
-          ft8: '#00ddff',        // Cyan for FT8
-          rtty: '#aa66ff',       // Purple for RTTY
-        }
+          cw: 'rgb(var(--ham-cw) / <alpha-value>)',
+          ssb: 'rgb(var(--ham-ssb) / <alpha-value>)',
+          ft8: 'rgb(var(--ham-ft8) / <alpha-value>)',
+          rtty: 'rgb(var(--ham-rtty) / <alpha-value>)',
+        },
+        // Gray scale — semantically inverted for light/dark themes
+        gray: {
+          50: 'rgb(var(--gray-50) / <alpha-value>)',
+          100: 'rgb(var(--gray-100) / <alpha-value>)',
+          200: 'rgb(var(--gray-200) / <alpha-value>)',
+          300: 'rgb(var(--gray-300) / <alpha-value>)',
+          400: 'rgb(var(--gray-400) / <alpha-value>)',
+          500: 'rgb(var(--gray-500) / <alpha-value>)',
+          600: 'rgb(var(--gray-600) / <alpha-value>)',
+          700: 'rgb(var(--gray-700) / <alpha-value>)',
+          800: 'rgb(var(--gray-800) / <alpha-value>)',
+          900: 'rgb(var(--gray-900) / <alpha-value>)',
+        },
       },
       backdropBlur: {
         xs: '2px',
       },
       boxShadow: {
-        'glass': '0 8px 32px 0 rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 180, 50, 0.05)',
-        'glass-sm': '0 4px 16px 0 rgba(0, 0, 0, 0.4)',
-        'glow': '0 0 20px rgba(255, 180, 50, 0.25)',
-        'glow-success': '0 0 20px rgba(0, 255, 136, 0.25)',
-        'glow-cyan': '0 0 20px rgba(0, 221, 255, 0.25)',
+        'glass': 'var(--shadow-glass)',
+        'glass-sm': 'var(--shadow-glass-sm)',
+        'glow': 'var(--shadow-glow)',
+        'glow-success': 'var(--shadow-glow-success)',
+        'glow-cyan': 'var(--shadow-glow-cyan)',
       },
       backgroundImage: {
         'gradient-radial': 'radial-gradient(var(--tw-gradient-stops))',
@@ -66,8 +82,8 @@ export default {
       },
       keyframes: {
         glow: {
-          '0%': { boxShadow: '0 0 5px rgba(255, 180, 50, 0.15)' },
-          '100%': { boxShadow: '0 0 20px rgba(255, 180, 50, 0.35)' },
+          '0%': { boxShadow: '0 0 5px rgb(var(--accent-primary) / 0.15)' },
+          '100%': { boxShadow: '0 0 20px rgb(var(--accent-primary) / 0.35)' },
         }
       }
     },

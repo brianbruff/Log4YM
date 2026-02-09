@@ -79,7 +79,6 @@ export function useSignalRConnection() {
         console.log('Invalidating query caches...');
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ['qsos'] }),
-          queryClient.invalidateQueries({ queryKey: ['spots'] }),
           queryClient.invalidateQueries({ queryKey: ['statistics'] }),
         ]);
 
@@ -115,9 +114,24 @@ export function useSignalRConnection() {
             queryClient.invalidateQueries({ queryKey: ['qsos'] });
             queryClient.invalidateQueries({ queryKey: ['statistics'] });
           },
-          onSpotReceived: () => {
-            // Invalidate spots query
-            queryClient.invalidateQueries({ queryKey: ['spots'] });
+          onSpotReceived: (evt) => {
+            // Add spot to ephemeral in-memory store
+            const spot = {
+              id: evt.id,
+              dxCall: evt.dxCall,
+              spotter: evt.spotter,
+              frequency: evt.frequency,
+              mode: evt.mode,
+              comment: evt.comment,
+              source: evt.source,
+              timestamp: evt.timestamp,
+              country: evt.country,
+              dxStation: evt.country || evt.dxcc ? {
+                country: evt.country,
+                dxcc: evt.dxcc,
+              } : undefined,
+            };
+            useAppStore.getState().addDxClusterSpot(spot);
           },
           onSpotSelected: (evt) => {
             console.log('Spot selected:', evt.dxCall, evt.frequency, evt.mode);

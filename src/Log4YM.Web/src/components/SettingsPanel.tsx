@@ -23,6 +23,9 @@ import {
   Server,
   ExternalLink,
   Bot,
+  Sun,
+  Moon,
+  Monitor,
 } from 'lucide-react';
 import { useSettingsStore, SettingsSection } from '../store/settingsStore';
 import { useSetupStore } from '../store/setupStore';
@@ -778,6 +781,30 @@ function AppearanceSettingsSection() {
   const { settings, updateAppearanceSettings } = useSettingsStore();
   const appearance = settings.appearance;
 
+  const themeOptions = [
+    {
+      id: 'dark' as const,
+      label: 'Dark',
+      icon: <Moon className="w-5 h-5" />,
+      description: 'Instrument panel aesthetic',
+      preview: { bg: '#0a0e14', panel: '#111820', accent: '#ffb432', text: '#a0b0c0' },
+    },
+    {
+      id: 'light' as const,
+      label: 'Light',
+      icon: <Sun className="w-5 h-5" />,
+      description: 'Clean, minimal design',
+      preview: { bg: '#f6f7f9', panel: '#ffffff', accent: '#4a3d8f', text: '#4b5563' },
+    },
+    {
+      id: 'system' as const,
+      label: 'System',
+      icon: <Monitor className="w-5 h-5" />,
+      description: 'Follow OS preference',
+      preview: null,
+    },
+  ];
+
   return (
     <div className="space-y-6">
       <div>
@@ -789,21 +816,47 @@ function AppearanceSettingsSection() {
       <div className="space-y-3">
         <label className="text-sm font-medium font-ui text-dark-200">Theme</label>
         <div className="grid grid-cols-3 gap-3">
-          {(['dark', 'light', 'system'] as const).map((theme) => (
+          {themeOptions.map((opt) => (
             <button
-              key={theme}
-              onClick={() => updateAppearanceSettings({ theme })}
-              className={`p-4 rounded-lg border transition-all ${
-                appearance.theme === theme
-                  ? 'border-accent-primary bg-accent-primary/10'
+              key={opt.id}
+              onClick={() => updateAppearanceSettings({ theme: opt.id })}
+              className={`relative flex flex-col items-center gap-3 p-4 rounded-lg border transition-all ${
+                appearance.theme === opt.id
+                  ? 'border-accent-primary bg-accent-primary/10 ring-1 ring-accent-primary/30'
                   : 'border-glass-100 hover:border-glass-200'
               }`}
             >
-              <span className="capitalize text-sm font-medium">{theme}</span>
+              {/* Mini preview */}
+              {opt.preview ? (
+                <div
+                  className="w-full h-14 rounded-md border border-dark-600/50 overflow-hidden flex items-end p-1.5 gap-1"
+                  style={{ background: opt.preview.bg }}
+                >
+                  <div
+                    className="flex-1 h-8 rounded"
+                    style={{ background: opt.preview.panel, border: `1px solid ${opt.preview.accent}22` }}
+                  />
+                  <div
+                    className="w-6 h-8 rounded"
+                    style={{ background: opt.preview.panel, border: `1px solid ${opt.preview.accent}22` }}
+                  />
+                </div>
+              ) : (
+                <div className="w-full h-14 rounded-md border border-dark-600/50 overflow-hidden flex">
+                  <div className="w-1/2 h-full bg-[#0a0e14]" />
+                  <div className="w-1/2 h-full bg-[#f6f7f9]" />
+                </div>
+              )}
+              <div className="flex items-center gap-2 text-sm font-medium">
+                <span className={appearance.theme === opt.id ? 'text-accent-primary' : 'text-dark-300'}>
+                  {opt.icon}
+                </span>
+                <span>{opt.label}</span>
+              </div>
+              <p className="text-xs text-dark-300">{opt.description}</p>
             </button>
           ))}
         </div>
-        <p className="text-xs text-dark-300">Currently only dark theme is available.</p>
       </div>
 
       {/* Compact mode toggle */}

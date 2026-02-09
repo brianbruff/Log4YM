@@ -1,17 +1,15 @@
 import { useState, useMemo } from 'react';
-import { useQuery } from '@tanstack/react-query';
-import { Radio, Zap, Map, Settings, ChevronUp, Plus, Trash2, X, Search } from 'lucide-react';
+import { Zap, Map, Settings, ChevronUp, Plus, Trash2, X, Search } from 'lucide-react';
 import { AgGridReact } from 'ag-grid-react';
 import { ColDef, ICellRendererParams, RowClickedEvent, CellMouseOverEvent, CellMouseOutEvent } from 'ag-grid-community';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-alpine.css';
-import { api, Spot } from '../api/client';
 import { useSignalR } from '../hooks/useSignalR';
 import { GlassPanel } from '../components/GlassPanel';
 import { MultiSelectDropdown, MultiSelectOption } from '../components/MultiSelectDropdown';
 import { getCountryFlag } from '../core/countryFlags';
 import { useSettingsStore, ClusterConnection } from '../store/settingsStore';
-import { useAppStore } from '../store/appStore';
+import { useAppStore, Spot } from '../store/appStore';
 
 const BAND_RANGES: Record<string, [number, number]> = {
   '160m': [1800, 2000],
@@ -399,6 +397,9 @@ export function ClusterPlugin() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSettings, setShowSettings] = useState(false);
 
+  // Get spots from app store (ephemeral, in-memory only)
+  const spots = useAppStore((state) => state.dxClusterSpots);
+
   // DX Cluster map overlay state from appStore
   const dxClusterMapEnabled = useAppStore((state) => state.dxClusterMapEnabled);
   const setDxClusterMapEnabled = useAppStore((state) => state.setDxClusterMapEnabled);
@@ -427,12 +428,6 @@ export function ClusterPlugin() {
     }
     return statuses;
   }, [clusterStatusesFromStore]);
-
-  const { data: spots, isLoading } = useQuery({
-    queryKey: ['spots'],
-    queryFn: () => api.getSpots({ limit: 100 }),
-    refetchInterval: 30000,
-  });
 
   // Filter spots based on selected bands, modes, and search query
   const filteredSpots = useMemo(() => {
@@ -730,12 +725,7 @@ export function ClusterPlugin() {
         {/* AG Grid Table */}
         <div className="flex-1 px-4 pb-4 min-h-0">
           <div className="ag-theme-alpine-dark h-full">
-            {isLoading ? (
-              <div className="flex items-center justify-center py-8 text-dark-300">
-                <Radio className="w-4 h-4 animate-spin mr-2" />
-                Loading spots...
-              </div>
-            ) : filteredSpots?.length === 0 ? (
+            {filteredSpots?.length === 0 ? (
               <div className="text-center py-8 text-dark-300">
                 {hasActiveFilters ? (
                   <>

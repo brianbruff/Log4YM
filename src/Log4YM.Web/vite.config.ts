@@ -6,6 +6,7 @@ import basicSsl from "@vitejs/plugin-basic-ssl";
 // Use HTTPS only when VITE_HTTPS=true (for remote access where WebGL requires secure context)
 // Usage: VITE_HTTPS=true npm run dev
 const useHttps = process.env.VITE_HTTPS === "true";
+const backendPort = process.env.BACKEND_PORT || "5050";
 
 export default defineConfig({
   plugins: [react(), ...(useHttps ? [basicSsl()] : [])],
@@ -16,11 +17,11 @@ export default defineConfig({
     allowedHosts: true,
     proxy: {
       "/api": {
-        target: "http://localhost:5050",
+        target: `http://localhost:${backendPort}`,
         changeOrigin: true,
       },
       "/hubs": {
-        target: "http://localhost:5050",
+        target: `http://localhost:${backendPort}`,
         changeOrigin: true,
         ws: true,
       },

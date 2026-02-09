@@ -1,5 +1,5 @@
 ---
-allowed-tools: Bash(lsof:*), Bash(kill:*), Bash(xargs:*), Bash(cd * && dotnet run*), Bash(cd * && npm run dev*), Bash(sleep:*)
+allowed-tools: Bash(lsof:*), Bash(kill:*), Bash(xargs:*), Bash(cd * && ASPNETCORE_URLS=* dotnet run*), Bash(cd * && BACKEND_PORT=* npm run dev*), Bash(cd * && npm run dev*), Bash(cd * && dotnet run*), Bash(sleep:*)
 description: Start the .NET backend and Vite frontend dev servers
 ---
 
@@ -22,7 +22,9 @@ lsof -ti :<backend_port> | xargs kill 2>/dev/null; lsof -ti :<frontend_port> | x
 Then start both servers in parallel as background bash tasks:
 
 1. .NET backend: `cd src/Log4YM.Server && ASPNETCORE_URLS=http://localhost:<backend_port> dotnet run`
-2. Vite frontend: `cd src/Log4YM.Web && npm run dev -- --port <frontend_port>`
+2. Vite frontend: `cd src/Log4YM.Web && BACKEND_PORT=<backend_port> npm run dev -- --port <frontend_port>`
+
+The `BACKEND_PORT` env var tells the Vite proxy which backend port to forward `/api` and `/hubs` requests to.
 
 Replace `<backend_port>` and `<frontend_port>` with the calculated values.
 

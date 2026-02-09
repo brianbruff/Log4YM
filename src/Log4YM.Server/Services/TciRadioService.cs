@@ -300,6 +300,9 @@ public class TciRadioService : BackgroundService
 
         _discoveredRadios[radioId] = device;
 
+        // Save TCI settings to database for auto-reconnect
+        await SaveTciSettingsAsync(host, port, name ?? string.Empty);
+
         await _hubContext.BroadcastRadioDiscovered(new RadioDiscoveredEvent(
             radioId,
             RadioType.Tci,
@@ -441,6 +444,30 @@ public class TciRadioService : BackgroundService
             kvp.Key,
             kvp.Value.IsConnected ? RadioConnectionState.Connected : RadioConnectionState.Disconnected
         ));
+    }
+
+    /// <summary>
+    /// Save TCI connection settings to MongoDB for auto-reconnect
+    /// </summary>
+    private async Task SaveTciSettingsAsync(string host, int port, string name)
+    {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var settingsRepository = scope.ServiceProvider.GetRequiredService<ISettingsRepository>();
+            var settings = await settingsRepository.GetAsync() ?? new Log4YM.Contracts.Models.UserSettings();
+
+            settings.Radio.Tci.Host = host;
+            settings.Radio.Tci.Port = port;
+            settings.Radio.Tci.Name = name;
+
+            await settingsRepository.UpsertAsync(settings);
+            _logger.LogInformation("Saved TCI settings to MongoDB: {Host}:{Port}", host, port);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to save TCI settings to MongoDB");
+        }
     }
 
     private static Dictionary<string, string> ParseKeyValuePairs(string text)

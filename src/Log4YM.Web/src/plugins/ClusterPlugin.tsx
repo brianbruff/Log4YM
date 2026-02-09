@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Radio, Zap, Map, Settings, ChevronUp, Plus, Trash2, X, Search } from 'lucide-react';
+import { Zap, Map, Settings, ChevronUp, Plus, Trash2, X, Search } from 'lucide-react';
 import { AgGridReact } from 'ag-grid-react';
 import { ColDef, ICellRendererParams, RowClickedEvent, CellMouseOverEvent, CellMouseOutEvent } from 'ag-grid-community';
 import 'ag-grid-community/styles/ag-grid.css';

@@ -28,8 +28,10 @@ interface AppState {
   isConnected: boolean;
   connectionState: ConnectionState;
   reconnectAttempt: number;
+  mongoDbConnected: boolean;
   setConnected: (connected: boolean) => void;
   setConnectionState: (state: ConnectionState, attempt?: number) => void;
+  setMongoDbConnected: (connected: boolean) => void;
 
   // Current focused callsign
   focusedCallsign: string | null;
@@ -141,6 +143,7 @@ export const useAppStore = create<AppState>((set) => ({
   isConnected: false,
   connectionState: 'disconnected' as ConnectionState,
   reconnectAttempt: 0,
+  mongoDbConnected: false,
   setConnected: (connected) => set({
     isConnected: connected,
     connectionState: connected ? 'connected' : 'disconnected',
@@ -151,6 +154,7 @@ export const useAppStore = create<AppState>((set) => ({
     isConnected: state === 'connected',
     reconnectAttempt: attempt ?? 0,
   }),
+  setMongoDbConnected: (connected) => set({ mongoDbConnected: connected }),
 
   // Focused callsign
   focusedCallsign: null,

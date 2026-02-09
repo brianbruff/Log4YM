@@ -115,7 +115,7 @@ export function App() {
   const { layout, setLayout, resetLayout: resetLayoutStore, loadFromMongo: loadLayout } = useLayoutStore();
   const { loadSettings, openSettings, settings } = useSettingsStore();
   const { fetchStatus } = useSetupStore();
-  const { setStationInfo } = useAppStore();
+  const { setStationInfo, setMongoDbConnected } = useAppStore();
   const [model, setModel] = useState<Model>(() => Model.fromJson(layout));
   const [showPanelPicker, setShowPanelPicker] = useState(false);
   const [targetTabSetId, setTargetTabSetId] = useState<string | null>(null);
@@ -127,6 +127,29 @@ export function App() {
   useEffect(() => {
     fetchStatus();
   }, [fetchStatus]);
+
+  // Poll MongoDB connection status periodically (every 10 seconds)
+  useEffect(() => {
+    const checkMongoHealth = async () => {
+      try {
+        const response = await fetch('/api/health');
+        if (response.ok) {
+          const data = await response.json();
+          setMongoDbConnected(data.mongoDbConnected);
+        }
+      } catch (error) {
+        console.error('Failed to check MongoDB health:', error);
+      }
+    };
+
+    // Initial check
+    checkMongoHealth();
+
+    // Poll every 10 seconds
+    const interval = setInterval(checkMongoHealth, 10000);
+
+    return () => clearInterval(interval);
+  }, [setMongoDbConnected]);
 
   // Initialize SignalR connection (only called here, not in plugins)
   useSignalRConnection();

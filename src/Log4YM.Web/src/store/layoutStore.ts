@@ -97,6 +97,7 @@ interface LayoutState {
   setLayout: (layout: IJsonModel) => void;
   resetLayout: () => void;
   syncToMongo: (layout: IJsonModel) => Promise<void>;
+  syncToMongoSync: (layout: IJsonModel) => void;
   loadFromMongo: () => Promise<void>;
 }
 
@@ -135,6 +136,34 @@ export const useLayoutStore = create<LayoutState>()((set, get) => ({
       }
     } catch (e) {
       console.error('[layoutStore] Failed to sync layout to MongoDB:', e);
+    }
+  },
+
+  // Sync layout to MongoDB synchronously (for beforeunload)
+  // Uses sendBeacon for reliable shutdown saves
+  syncToMongoSync: (layout) => {
+    try {
+      console.log('[layoutStore] Syncing layout to MongoDB (sync)');
+      const layoutJson = JSON.stringify(layout);
+      const blob = new Blob([JSON.stringify(layoutJson)], { type: 'application/json' });
+
+      // Try sendBeacon first (best for beforeunload)
+      if (navigator.sendBeacon) {
+        const sent = navigator.sendBeacon('/api/settings/layout', blob);
+        if (sent) {
+          console.log('[layoutStore] Layout sent via sendBeacon');
+          return;
+        }
+      }
+
+      // Fallback: synchronous XHR (not ideal, but works)
+      const xhr = new XMLHttpRequest();
+      xhr.open('PUT', '/api/settings/layout', false); // false = synchronous
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.send(JSON.stringify(layoutJson));
+      console.log('[layoutStore] Layout saved synchronously via XHR');
+    } catch (e) {
+      console.error('[layoutStore] Failed to sync layout synchronously:', e);
     }
   },
 

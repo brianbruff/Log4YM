@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Send, Search, User, MapPin, Radio, Link, Unlink, Clock, Lock, LockOpen, Loader2 } from 'lucide-react';
+import { Send, Search, User, MapPin, Radio, Link, Unlink, Clock, Lock, LockOpen, Loader2, X } from 'lucide-react';
 import { api, CreateQsoRequest } from '../api/client';
 import { useSignalR } from '../hooks/useSignalR';
 import { useAppStore } from '../store/appStore';
@@ -192,6 +192,26 @@ export function LogEntryPlugin() {
     }
   }, [focusCallsign, setFocusedCallsign, setFocusedCallsignInfo, setLogHistoryCallsignFilter]);
 
+  const handleClear = useCallback(() => {
+    setFormData({
+      callsign: '',
+      band: formData.band,
+      mode: formData.mode,
+      rstSent: '59',
+      rstSentPlus: '',
+      rstRcvd: '59',
+      rstRcvdPlus: '',
+      frequency: followRadio && currentRadioState ? formData.frequency : '',
+      name: '',
+      grid: '',
+      comment: '',
+      notes: '',
+    });
+    setTimeLocked(true);
+    setNameLocked(true);
+    clearCallsignFromAllControls();
+  }, [formData.band, formData.mode, formData.frequency, followRadio, currentRadioState, clearCallsignFromAllControls]);
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     if (!formData.callsign) return;
@@ -252,7 +272,7 @@ export function LogEntryPlugin() {
         </button>
       }
     >
-      <form onSubmit={handleSubmit} className="p-3 space-y-3">
+      <form onSubmit={handleSubmit} onKeyDown={(e) => { if (e.key === 'Escape') { e.preventDefault(); handleClear(); } }} className="p-3 space-y-3">
         {/* Callsign, Band, Mode on one line */}
         <div className="flex gap-2 items-end">
           <div className="flex-1">
@@ -572,15 +592,27 @@ export function LogEntryPlugin() {
           )}
         </div>
 
-        {/* Submit */}
-        <button
-          type="submit"
-          disabled={!formData.callsign || createQso.isPending}
-          className="glass-button-success w-full flex items-center justify-center gap-2 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
-        >
-          <Send className="w-4 h-4" />
-          {createQso.isPending ? 'Logging...' : 'Log QSO'}
-        </button>
+        {/* Submit / Clear */}
+        <div className="flex gap-2">
+          <button
+            type="submit"
+            disabled={!formData.callsign || createQso.isPending}
+            className="glass-button-success flex-1 flex items-center justify-center gap-2 py-2 disabled:opacity-50 disabled:cursor-not-allowed"
+          >
+            <Send className="w-4 h-4" />
+            {createQso.isPending ? 'Logging...' : 'Log QSO'}
+          </button>
+          <button
+            type="button"
+            onClick={handleClear}
+            disabled={createQso.isPending}
+            className="glass-button flex items-center justify-center gap-2 py-2 px-4 disabled:opacity-50 disabled:cursor-not-allowed"
+            title="Clear QSO details"
+          >
+            <X className="w-4 h-4" />
+            Clear
+          </button>
+        </div>
       </form>
     </GlassPanel>
   );

@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.SignalR;
 using Log4YM.Contracts.Events;
+using Log4YM.Contracts.Models;
 using Log4YM.Server.Services;
 using Log4YM.Server.Core.Database;
 using Log4YM.Server.Native.Hamlib;

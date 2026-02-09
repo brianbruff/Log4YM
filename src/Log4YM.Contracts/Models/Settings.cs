@@ -29,6 +29,9 @@ public class UserSettings
     [BsonElement("cluster")]
     public ClusterSettings Cluster { get; set; } = new();
 
+    [BsonElement("ai")]
+    public AiSettings Ai { get; set; } = new();
+
     [BsonElement("layoutJson")]
     public string? LayoutJson { get; set; }
 
@@ -145,6 +148,7 @@ public class RadioSettings
     public TciSettings Tci { get; set; } = new();
 }
 
+[BsonIgnoreExtraElements]
 public class TciSettings
 {
     [BsonElement("host")]
@@ -155,9 +159,6 @@ public class TciSettings
 
     [BsonElement("name")]
     public string Name { get; set; } = string.Empty;
-
-    [BsonElement("autoConnect")]
-    public bool AutoConnect { get; set; } = false;
 }
 
 public class MapSettings
@@ -221,6 +222,30 @@ public class ClusterConnection
 
     [BsonElement("autoReconnect")]
     public bool AutoReconnect { get; set; } = false;
+}
+
+public class AiSettings
+{
+    [BsonElement("provider")]
+    public string Provider { get; set; } = "anthropic"; // "anthropic" | "openai"
+
+    [BsonElement("apiKey")]
+    public string ApiKey { get; set; } = string.Empty; // Stored obfuscated
+
+    [BsonElement("model")]
+    public string Model { get; set; } = "claude-sonnet-4-5-20250929"; // Provider-specific model name
+
+    [BsonElement("autoGenerateTalkPoints")]
+    public bool AutoGenerateTalkPoints { get; set; } = true;
+
+    [BsonElement("includeQrzProfile")]
+    public bool IncludeQrzProfile { get; set; } = true;
+
+    [BsonElement("includeQsoHistory")]
+    public bool IncludeQsoHistory { get; set; } = true;
+
+    [BsonElement("includeSpotComments")]
+    public bool IncludeSpotComments { get; set; } = false;
 }
 
 public class PluginSettings

@@ -1,16 +1,17 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { Layout, Model, TabNode, TabSetNode, BorderNode, ITabSetRenderValues, Actions, DockLocation } from 'flexlayout-react';
-import { X, Radio, Book, Zap, LayoutGrid, Antenna, Plus, Map, Compass, Gauge, User, Sun, Clock } from 'lucide-react';
+import { X, Radio, Book, Zap, LayoutGrid, Antenna, Plus, Map, Compass, Gauge, User, Calendar, Sun, Clock, Bot, MapPin } from 'lucide-react';
 import { StatusBar } from './components/StatusBar';
 import { SettingsPanel } from './components/SettingsPanel';
 import { ConnectionOverlay } from './components/ConnectionOverlay';
 import { useSignalRConnection } from './hooks/useSignalR';
-import { LogEntryPlugin, LogHistoryPlugin, ClusterPlugin, MapPlugin, RotatorPlugin, GlobePlugin, AntennaGeniusPlugin, PgxlPlugin, SmartUnlinkPlugin, RigPlugin, QrzProfilePlugin, SolarPanelPlugin, AnalogClockPlugin, HeaderPlugin, DXpeditionsPlugin } from './plugins';
+import { LogEntryPlugin, LogHistoryPlugin, ClusterPlugin, MapPlugin, RotatorPlugin, GlobePlugin, AntennaGeniusPlugin, PgxlPlugin, SmartUnlinkPlugin, RigPlugin, QrzProfilePlugin, ContestsPlugin, SolarPanelPlugin, AnalogClockPlugin, HeaderPlugin, DXpeditionsPlugin, ChatAiPlugin, POTAPlugin } from './plugins';
 import { Globe as Globe3D } from 'lucide-react';
 import { useLayoutStore, defaultLayout } from './store/layoutStore';
 import { useSettingsStore } from './store/settingsStore';
 import { useSetupStore } from './store/setupStore';
 import { useAppStore } from './store/appStore';
+import { useTheme } from './hooks/useTheme';
 
 import 'flexlayout-react/style/dark.css';
 
@@ -71,6 +72,11 @@ const PLUGINS: Record<string, { name: string; icon: React.ReactNode; component: 
     icon: <User className="w-4 h-4" />,
     component: QrzProfilePlugin,
   },
+  'contests': {
+    name: 'Contests',
+    icon: <Calendar className="w-4 h-4" />,
+    component: ContestsPlugin,
+  },
   'solar-panel': {
     name: 'Solar Panel',
     icon: <Sun className="w-4 h-4" />,
@@ -91,6 +97,16 @@ const PLUGINS: Record<string, { name: string; icon: React.ReactNode; component: 
     icon: <Compass className="w-4 h-4" />,
     component: DXpeditionsPlugin,
   },
+  'chat-ai': {
+    name: 'Chat AI',
+    icon: <Bot className="w-4 h-4" />,
+    component: ChatAiPlugin,
+  },
+  'pota': {
+    name: 'POTA',
+    icon: <MapPin className="w-4 h-4" />,
+    component: POTAPlugin,
+  },
 };
 
 
@@ -99,15 +115,41 @@ export function App() {
   const { layout, setLayout, resetLayout: resetLayoutStore, loadFromMongo: loadLayout } = useLayoutStore();
   const { loadSettings, openSettings, settings } = useSettingsStore();
   const { fetchStatus } = useSetupStore();
-  const { setStationInfo } = useAppStore();
+  const { setStationInfo, setMongoDbConnected } = useAppStore();
   const [model, setModel] = useState<Model>(() => Model.fromJson(layout));
   const [showPanelPicker, setShowPanelPicker] = useState(false);
   const [targetTabSetId, setTargetTabSetId] = useState<string | null>(null);
+
+  // Apply theme from settings (dark/light/system)
+  useTheme();
 
   // Check setup status on mount (for status display, not blocking)
   useEffect(() => {
     fetchStatus();
   }, [fetchStatus]);
+
+  // Poll MongoDB connection status periodically (every 10 seconds)
+  useEffect(() => {
+    const checkMongoHealth = async () => {
+      try {
+        const response = await fetch('/api/health');
+        if (response.ok) {
+          const data = await response.json();
+          setMongoDbConnected(data.mongoDbConnected);
+        }
+      } catch (error) {
+        console.error('Failed to check MongoDB health:', error);
+      }
+    };
+
+    // Initial check
+    checkMongoHealth();
+
+    // Poll every 10 seconds
+    const interval = setInterval(checkMongoHealth, 10000);
+
+    return () => clearInterval(interval);
+  }, [setMongoDbConnected]);
 
   // Initialize SignalR connection (only called here, not in plugins)
   useSignalRConnection();

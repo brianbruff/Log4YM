@@ -98,4 +98,31 @@ public class SettingsController : ControllerBase
         var saved = await _settingsService.SaveSettingsAsync(settings);
         return Ok(saved);
     }
+
+    /// <summary>
+    /// Update AI settings only
+    /// </summary>
+    [HttpPut("ai")]
+    [ProducesResponseType(typeof(UserSettings), StatusCodes.Status200OK)]
+    public async Task<ActionResult<UserSettings>> UpdateAiSettings([FromBody] AiSettings aiSettings)
+    {
+        var settings = await _settingsService.GetSettingsAsync();
+        settings.Ai = aiSettings;
+        var saved = await _settingsService.SaveSettingsAsync(settings);
+        return Ok(saved);
+    }
+
+    /// <summary>
+    /// Update layout JSON only
+    /// </summary>
+    [HttpPut("layout")]
+    [ProducesResponseType(typeof(UserSettings), StatusCodes.Status200OK)]
+    public async Task<ActionResult<UserSettings>> UpdateLayout([FromBody] string layoutJson)
+    {
+        _logger.LogInformation("Updating layout configuration");
+        var settings = await _settingsService.GetSettingsAsync();
+        settings.LayoutJson = layoutJson;
+        var saved = await _settingsService.SaveSettingsAsync(settings);
+        return Ok(saved);
+    }
 }

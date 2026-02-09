@@ -267,6 +267,11 @@ class ApiClient {
     return this.fetch(`/qrz/lookup/${encodeURIComponent(callsign)}`);
   }
 
+  // POTA
+  async getPotaSpots(): Promise<PotaSpot[]> {
+    return this.fetch<PotaSpot[]>('/pota/spots');
+  }
+
   // ADIF
   async importAdif(
     file: File,
@@ -335,6 +340,42 @@ class ApiClient {
 
     return response.blob();
   }
+
+  // AI
+  async generateTalkPoints(request: GenerateTalkPointsRequest): Promise<GenerateTalkPointsResponse> {
+    return this.fetch<GenerateTalkPointsResponse>('/ai/talk-points', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  async chat(request: ChatRequest): Promise<ChatResponse> {
+    return this.fetch<ChatResponse>('/ai/chat', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  async testApiKey(request: TestApiKeyRequest): Promise<TestApiKeyResponse> {
+    return this.fetch<TestApiKeyResponse>('/ai/test-key', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  // Contests
+  async getContests(days: number = 7): Promise<Contest[]> {
+    return this.fetch<Contest[]>(`/contests?days=${days}`);
+  }
+
+  async getLiveContests(): Promise<Contest[]> {
+    return this.fetch<Contest[]>('/contests/live');
+  }
+
+  // DX News
+  async getDXNews(): Promise<DXNewsItem[]> {
+    return this.fetch<DXNewsItem[]>('/dxnews');
+  }
 }
 
 // QRZ Types
@@ -387,6 +428,27 @@ export interface QrzCallsignResponse {
   licenseExpiration?: string;
 }
 
+// POTA Types
+export interface PotaSpot {
+  spotId: number;
+  activator: string;
+  frequency: string;
+  mode: string;
+  reference: string;
+  parkName: string;
+  spotTime: string;
+  spotter: string;
+  comments: string;
+  source: string;
+  invalid?: boolean;
+  name?: string;
+  locationDesc?: string;
+  grid4?: string;
+  grid6?: string;
+  latitude?: number;
+  longitude?: number;
+}
+
 // ADIF Types
 export interface AdifImportResponse {
   totalRecords: number;
@@ -403,6 +465,18 @@ export interface AdifExportRequest {
   fromDate?: string;
   toDate?: string;
   qsoIds?: string[];
+}
+
+// Contest Types
+export interface Contest {
+  name: string;
+  mode: string;
+  startTime: string;
+  endTime: string;
+  url: string;
+  isLive: boolean;
+  isStartingSoon: boolean;
+  timeRemaining?: string;
 }
 
 // Space Weather Types
@@ -434,6 +508,72 @@ export interface DXpeditionData {
   upcoming: number;
   source: string;
   timestamp: string;
+}
+
+// AI Types
+export interface GenerateTalkPointsRequest {
+  callsign: string;
+  currentBand?: string;
+  currentMode?: string;
+}
+
+export interface GenerateTalkPointsResponse {
+  callsign: string;
+  previousQsos: PreviousQsoSummary[];
+  qrzProfile?: QrzProfileSummary;
+  talkPoints: string[];
+  generatedText: string;
+}
+
+export interface PreviousQsoSummary {
+  qsoDate: string;
+  band: string;
+  mode: string;
+  rstSent?: string;
+  rstRcvd?: string;
+  comment?: string;
+}
+
+export interface QrzProfileSummary {
+  name?: string;
+  location?: string;
+  grid?: string;
+  bio?: string;
+  interests?: string;
+}
+
+export interface ChatRequest {
+  callsign: string;
+  question: string;
+  conversationHistory?: ChatMessage[];
+}
+
+export interface ChatResponse {
+  answer: string;
+}
+
+export interface ChatMessage {
+  role: string; // "user" or "assistant"
+  content: string;
+}
+
+export interface TestApiKeyRequest {
+  provider: string; // "anthropic" or "openai"
+  apiKey: string;
+  model: string;
+}
+
+export interface TestApiKeyResponse {
+  isValid: boolean;
+  errorMessage?: string;
+}
+
+// DX News Types
+export interface DXNewsItem {
+  title: string;
+  description: string;
+  link: string;
+  publishedDate: string;
 }
 
 export const api = new ApiClient();

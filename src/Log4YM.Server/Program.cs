@@ -57,15 +57,14 @@ builder.Services.AddSingleton<MongoDbContext>();
 
 // Register repositories
 builder.Services.AddScoped<IQsoRepository, QsoRepository>();
-builder.Services.AddScoped<ISpotRepository, SpotRepository>();
 builder.Services.AddScoped<ISettingsRepository, SettingsRepository>();
 
 // Register services
 builder.Services.AddScoped<IQsoService, QsoService>();
-builder.Services.AddScoped<ISpotService, SpotService>();
 builder.Services.AddScoped<ISettingsService, SettingsService>();
 builder.Services.AddScoped<IQrzService, QrzService>();
 builder.Services.AddScoped<IAdifService, AdifService>();
+builder.Services.AddScoped<IAiService, AiService>();
 
 // Register HTTP client for external APIs
 builder.Services.AddHttpClient("QRZ", client =>
@@ -74,8 +73,20 @@ builder.Services.AddHttpClient("QRZ", client =>
     client.DefaultRequestHeaders.Add("User-Agent", "Log4YM/1.0");
 });
 
+builder.Services.AddHttpClient("AI", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(60);
+    client.DefaultRequestHeaders.Add("User-Agent", "Log4YM/1.0");
+});
+
 // Register default HTTP client factory for space weather and other APIs
 builder.Services.AddHttpClient();
+
+// Register Contests service
+builder.Services.AddSingleton<ContestsService>();
+
+// Register DX News service
+builder.Services.AddScoped<IDXNewsService, DXNewsService>();
 
 // Register event bus
 builder.Services.AddSingleton<IEventBus, EventBus>();

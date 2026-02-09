@@ -1,10 +1,9 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo } from 'react';
 import { Radio, Zap, Map, Settings, ChevronUp, Plus, Trash2, X, Search } from 'lucide-react';
 import { AgGridReact } from 'ag-grid-react';
 import { ColDef, ICellRendererParams, RowClickedEvent, CellMouseOverEvent, CellMouseOutEvent } from 'ag-grid-community';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-alpine.css';
-import { api } from '../api/client';
 import { useSignalR } from '../hooks/useSignalR';
 import { GlassPanel } from '../components/GlassPanel';
 import { MultiSelectDropdown, MultiSelectOption } from '../components/MultiSelectDropdown';
@@ -430,37 +429,6 @@ export function ClusterPlugin() {
     return statuses;
   }, [clusterStatusesFromStore]);
 
-  // Subscribe to spot received events from SignalR
-  useEffect(() => {
-    const unsubscribe = subscribeToSpotReceived((event: SpotReceivedEvent) => {
-      // Convert SpotReceivedEvent to Spot format
-      const newSpot: Spot = {
-        id: event.id,
-        dxCall: event.dxCall,
-        spotter: event.spotter,
-        frequency: event.frequency,
-        mode: event.mode,
-        comment: event.comment,
-        source: event.source,
-        timestamp: event.timestamp.toString(),
-        country: event.country,
-        dxStation: event.country || event.dxcc ? {
-          country: event.country,
-          dxcc: event.dxcc,
-        } : undefined,
-      };
-
-      // Add the new spot to the beginning of the list
-      setSpots((prevSpots) => {
-        // Keep only the most recent 200 spots to prevent memory bloat
-        const updatedSpots = [newSpot, ...prevSpots].slice(0, 200);
-        return updatedSpots;
-      });
-    });
-
-    return () => unsubscribe();
-  }, [subscribeToSpotReceived]);
-
   // Filter spots based on selected bands, modes, and search query
   const filteredSpots = useMemo(() => {
     if (!spots) return [];
@@ -757,12 +725,7 @@ export function ClusterPlugin() {
         {/* AG Grid Table */}
         <div className="flex-1 px-4 pb-4 min-h-0">
           <div className="ag-theme-alpine-dark h-full">
-            {isLoading ? (
-              <div className="flex items-center justify-center py-8 text-dark-300">
-                <Radio className="w-4 h-4 animate-spin mr-2" />
-                Loading spots...
-              </div>
-            ) : filteredSpots?.length === 0 ? (
+            {filteredSpots?.length === 0 ? (
               <div className="text-center py-8 text-dark-300">
                 {hasActiveFilters ? (
                   <>

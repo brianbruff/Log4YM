@@ -260,44 +260,24 @@ public class DxClusterService : IDxClusterService, IHostedService, IDisposable
 
     private async Task SaveAndBroadcastSpotAsync(ParsedSpot parsedSpot, string source)
     {
-        var spot = new Spot
-        {
-            DxCall = parsedSpot.DxCall,
-            Spotter = parsedSpot.Spotter,
-            Frequency = parsedSpot.Frequency,
-            Mode = parsedSpot.Mode,
-            Comment = parsedSpot.Comment,
-            Source = source,
-            Timestamp = parsedSpot.Timestamp,
-            DxStation = new SpotStationInfo
-            {
-                Country = parsedSpot.Country,
-                Continent = parsedSpot.Continent,
-                Dxcc = parsedSpot.Dxcc,
-                Grid = parsedSpot.Grid
-            }
-        };
-
-        // Save to database using scoped service
-        using var scope = _serviceProvider.CreateScope();
-        var repository = scope.ServiceProvider.GetRequiredService<ISpotRepository>();
-        var savedSpot = await repository.CreateAsync(spot);
+        // Generate a unique ephemeral ID for this spot
+        var spotId = Guid.NewGuid().ToString();
 
         _logger.LogDebug("Spot: {DxCall} on {Freq} by {Spotter} - {Country} (from {Source})",
             parsedSpot.DxCall, parsedSpot.Frequency, parsedSpot.Spotter, parsedSpot.Country ?? "Unknown", source);
 
-        // Broadcast to clients
+        // Broadcast to clients (spots are kept in memory on frontend only, not persisted)
         var evt = new SpotReceivedEvent(
-            savedSpot.Id,
-            savedSpot.DxCall,
-            savedSpot.Spotter,
-            savedSpot.Frequency,
-            savedSpot.Mode,
-            savedSpot.Comment,
-            savedSpot.Timestamp,
+            spotId,
+            parsedSpot.DxCall,
+            parsedSpot.Spotter,
+            parsedSpot.Frequency,
+            parsedSpot.Mode,
+            parsedSpot.Comment,
+            parsedSpot.Timestamp,
             source,
-            savedSpot.DxStation?.Country,
-            savedSpot.DxStation?.Dxcc
+            parsedSpot.Country,
+            parsedSpot.Dxcc
         );
 
         await _hubContext.Clients.All.OnSpotReceived(evt);

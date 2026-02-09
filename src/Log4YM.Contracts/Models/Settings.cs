@@ -158,9 +158,6 @@ public class TciSettings
 
     [BsonElement("name")]
     public string Name { get; set; } = string.Empty;
-
-    [BsonElement("autoConnect")]
-    public bool AutoConnect { get; set; } = false;
 }
 
 public class MapSettings

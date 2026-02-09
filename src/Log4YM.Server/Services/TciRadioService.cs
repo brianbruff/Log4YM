@@ -45,6 +45,10 @@ public class TciRadioService : BackgroundService
     {
         _logger.LogInformation("TCI Radio service starting...");
 
+        // Clear any stale connections and discoveries from previous session
+        _connections.Clear();
+        _discoveredRadios.Clear();
+
         // Auto-connect to TCI if configured
         await TryAutoConnectAsync();
 
@@ -281,10 +285,11 @@ public class TciRadioService : BackgroundService
     {
         var radioId = $"tci-{host}:{port}";
 
-        if (_connections.ContainsKey(radioId))
+        // If already connected or connecting, disconnect first to allow reconnection
+        if (_connections.TryRemove(radioId, out var existingConnection))
         {
-            _logger.LogDebug("Already connected to TCI at {Host}:{Port}", host, port);
-            return;
+            _logger.LogInformation("TCI radio {RadioId} already exists, disconnecting before reconnect", radioId);
+            await existingConnection.DisconnectAsync();
         }
 
         // Create a device entry for direct connection
@@ -328,10 +333,11 @@ public class TciRadioService : BackgroundService
             return;
         }
 
-        if (_connections.ContainsKey(radioId))
+        // If already connected or connecting, disconnect first to allow reconnection
+        if (_connections.TryRemove(radioId, out var existingConnection))
         {
-            _logger.LogDebug("Already connected to TCI radio {RadioId}", radioId);
-            return;
+            _logger.LogInformation("TCI radio {RadioId} already exists, disconnecting before reconnect", radioId);
+            await existingConnection.DisconnectAsync();
         }
 
         await _hubContext.BroadcastRadioConnectionStateChanged(

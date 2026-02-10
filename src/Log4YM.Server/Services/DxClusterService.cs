@@ -54,6 +54,10 @@ public class DxClusterService : IDxClusterService, IHostedService, IDisposable
         _logger.LogInformation("DX Cluster service starting...");
         _cts = CancellationTokenSource.CreateLinkedTokenSource(cancellationToken);
 
+        // Clear any stale connections from previous session
+        _connections.Clear();
+        _statuses.Clear();
+
         // Start cleanup timer for deduplication cache
         _cleanupTimer = new Timer(CleanupRecentSpots, null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
 
@@ -160,14 +164,23 @@ public class DxClusterService : IDxClusterService, IHostedService, IDisposable
             return;
         }
 
+        // If already connected or connecting, disconnect first to allow reconnection
+        if (_connections.TryGetValue(clusterId, out var existingHandler))
+        {
+            _logger.LogInformation("Cluster {ClusterId} already exists, disconnecting before reconnect", clusterId);
+            await existingHandler.DisconnectAsync();
+            _connections.TryRemove(clusterId, out _);
+        }
+
         await ConnectClusterInternalAsync(cluster, settings?.Station?.Callsign);
     }
 
     private async Task ConnectClusterInternalAsync(ClusterConnection config, string? stationCallsign)
     {
+        // Check if already connected - this shouldn't happen after fix in ConnectClusterAsync, but keep as safety
         if (_connections.ContainsKey(config.Id))
         {
-            _logger.LogWarning("Cluster {Id} is already connected or connecting", config.Id);
+            _logger.LogWarning("Cluster {Id} is already in connections map, skipping", config.Id);
             return;
         }
 
@@ -260,44 +273,25 @@ public class DxClusterService : IDxClusterService, IHostedService, IDisposable
 
     private async Task SaveAndBroadcastSpotAsync(ParsedSpot parsedSpot, string source)
     {
-        var spot = new Spot
-        {
-            DxCall = parsedSpot.DxCall,
-            Spotter = parsedSpot.Spotter,
-            Frequency = parsedSpot.Frequency,
-            Mode = parsedSpot.Mode,
-            Comment = parsedSpot.Comment,
-            Source = source,
-            Timestamp = parsedSpot.Timestamp,
-            DxStation = new SpotStationInfo
-            {
-                Country = parsedSpot.Country,
-                Continent = parsedSpot.Continent,
-                Dxcc = parsedSpot.Dxcc,
-                Grid = parsedSpot.Grid
-            }
-        };
-
-        // Save to database using scoped service
-        using var scope = _serviceProvider.CreateScope();
-        var repository = scope.ServiceProvider.GetRequiredService<ISpotRepository>();
-        var savedSpot = await repository.CreateAsync(spot);
+        // Generate a unique ephemeral ID for this spot
+        var spotId = Guid.NewGuid().ToString();
 
         _logger.LogDebug("Spot: {DxCall} on {Freq} by {Spotter} - {Country} (from {Source})",
             parsedSpot.DxCall, parsedSpot.Frequency, parsedSpot.Spotter, parsedSpot.Country ?? "Unknown", source);
 
-        // Broadcast to clients
+        // Broadcast to clients (spots are kept in memory on frontend only, not persisted)
         var evt = new SpotReceivedEvent(
-            savedSpot.Id,
-            savedSpot.DxCall,
-            savedSpot.Spotter,
-            savedSpot.Frequency,
-            savedSpot.Mode,
-            savedSpot.Comment,
-            savedSpot.Timestamp,
+            spotId,
+            parsedSpot.DxCall,
+            parsedSpot.Spotter,
+            parsedSpot.Frequency,
+            parsedSpot.Mode,
+            parsedSpot.Comment,
+            parsedSpot.Timestamp,
             source,
-            savedSpot.DxStation?.Country,
-            savedSpot.DxStation?.Dxcc
+            parsedSpot.Country,
+            parsedSpot.Dxcc,
+            parsedSpot.Grid
         );
 
         await _hubContext.Clients.All.OnSpotReceived(evt);

@@ -63,7 +63,7 @@ function getBackendPath() {
 
   let runtimeId;
   if (platform === 'win32') {
-    runtimeId = 'win-x64';
+    runtimeId = arch === 'ia32' ? 'win-x86' : 'win-x64';
   } else if (platform === 'darwin') {
     runtimeId = arch === 'arm64' ? 'osx-arm64' : 'osx-x64';
   } else {

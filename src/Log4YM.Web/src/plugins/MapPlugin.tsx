@@ -1,12 +1,16 @@
-import { useEffect, useRef, useCallback, useState } from 'react';
-import { Map as MapIcon, MapPin, Target, Maximize2, ZoomIn, ZoomOut, Layers } from 'lucide-react';
-import { MapContainer, TileLayer, Marker, Popup, useMapEvents, Circle, Polyline } from 'react-leaflet';
+import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
+import { Map as MapIcon, MapPin, Target, Maximize2, ZoomIn, ZoomOut, Layers, Radio, Sun } from 'lucide-react';
+import { MapContainer, TileLayer, Marker, Popup, useMapEvents, Circle, Polyline, CircleMarker, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
-import { useAppStore } from '../store/appStore';
+import { useAppStore, Spot } from '../store/appStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { useSignalR } from '../hooks/useSignalR';
 import { GlassPanel } from '../components/GlassPanel';
+import { DXNewsTicker } from '../components/DXNewsTicker';
+import { DayNightOverlay } from '../components/DayNightOverlay';
+import { GrayLineOverlay } from '../components/GrayLineOverlay';
 import { gridToLatLon, calculateDistance, getAnimationDuration } from '../utils/maidenhead';
+import { api, type RbnSpot } from '../api/client';
 
 import 'leaflet/dist/leaflet.css';
 
@@ -54,6 +58,23 @@ const targetIcon = new L.DivIcon({
   `,
   iconSize: [20, 20],
   iconAnchor: [10, 10],
+});
+
+// Custom POTA marker (green triangle)
+const potaIcon = new L.DivIcon({
+  className: 'custom-pota-marker',
+  html: `
+    <div style="
+      width: 0;
+      height: 0;
+      border-left: 8px solid transparent;
+      border-right: 8px solid transparent;
+      border-bottom: 14px solid #10b981;
+      filter: drop-shadow(0 0 4px rgba(16, 185, 129, 0.6));
+    "></div>
+  `,
+  iconSize: [16, 14],
+  iconAnchor: [8, 14],
 });
 
 // Tile layer options for different map styles
@@ -146,19 +167,128 @@ function getDestinationPoint(lat: number, lon: number, azimuth: number, distance
 }
 
 
+// Band colors for DX cluster spot paths (matching typical ham radio conventions)
+const BAND_COLORS: Record<string, string> = {
+  '160m': '#8B0000', // dark red
+  '80m': '#DC143C',  // crimson
+  '60m': '#FF6347',  // tomato
+  '40m': '#FF8C00',  // dark orange
+  '30m': '#FFD700',  // gold
+  '20m': '#32CD32',  // lime green
+  '17m': '#00CED1',  // dark turquoise
+  '15m': '#00BFFF',  // deep sky blue
+  '12m': '#4169E1',  // royal blue
+  '10m': '#8A2BE2',  // blue violet
+  '6m': '#FF00FF',   // magenta
+};
+
+const BAND_RANGES: Record<string, [number, number]> = {
+  '160m': [1800, 2000],
+  '80m': [3500, 4000],
+  '60m': [5330, 5410],
+  '40m': [7000, 7300],
+  '30m': [10100, 10150],
+  '20m': [14000, 14350],
+  '17m': [18068, 18168],
+  '15m': [21000, 21450],
+  '12m': [24890, 24990],
+  '10m': [28000, 29700],
+  '6m': [50000, 54000],
+};
+
+function getBandFromFrequency(freq: number): string {
+  for (const [band, [min, max]] of Object.entries(BAND_RANGES)) {
+    if (freq >= min && freq <= max) return band;
+  }
+  return '?';
+}
+
+// Generate intermediate great-circle path points between two coordinates
+function generateGreatCirclePoints(
+  lat1: number, lon1: number, lat2: number, lon2: number, numPoints = 50
+): [number, number][] {
+  const points: [number, number][] = [];
+  const toRad = Math.PI / 180;
+  const toDeg = 180 / Math.PI;
+
+  const lat1Rad = lat1 * toRad;
+  const lon1Rad = lon1 * toRad;
+  const lat2Rad = lat2 * toRad;
+  const lon2Rad = lon2 * toRad;
+
+  // Angular distance between the two points
+  const d = 2 * Math.asin(Math.sqrt(
+    Math.pow(Math.sin((lat1Rad - lat2Rad) / 2), 2) +
+    Math.cos(lat1Rad) * Math.cos(lat2Rad) * Math.pow(Math.sin((lon1Rad - lon2Rad) / 2), 2)
+  ));
+
+  if (d === 0) return [[lat1, lon1]];
+
+  for (let i = 0; i <= numPoints; i++) {
+    const f = i / numPoints;
+    const A = Math.sin((1 - f) * d) / Math.sin(d);
+    const B = Math.sin(f * d) / Math.sin(d);
+
+    const x = A * Math.cos(lat1Rad) * Math.cos(lon1Rad) + B * Math.cos(lat2Rad) * Math.cos(lon2Rad);
+    const y = A * Math.cos(lat1Rad) * Math.sin(lon1Rad) + B * Math.cos(lat2Rad) * Math.sin(lon2Rad);
+    const z = A * Math.sin(lat1Rad) + B * Math.sin(lat2Rad);
+
+    const lat = Math.atan2(z, Math.sqrt(x * x + y * y)) * toDeg;
+    const lon = Math.atan2(y, x) * toDeg;
+    points.push([lat, lon]);
+  }
+
+  return points;
+}
+
+// Custom DX spot marker (small diamond)
+function createSpotIcon(color: string, isHighlighted: boolean) {
+  const size = isHighlighted ? 10 : 6;
+  return new L.DivIcon({
+    className: 'custom-spot-marker',
+    html: `<div style="
+      width: ${size}px;
+      height: ${size}px;
+      background: ${color};
+      border: 1px solid rgba(255,255,255,${isHighlighted ? '0.9' : '0.5'});
+      border-radius: 50%;
+      box-shadow: 0 0 ${isHighlighted ? '8' : '3'}px ${color};
+    "></div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
+}
+
+// Compute spot path data (memoizable)
+interface SpotPathData {
+  spot: Spot;
+  band: string;
+  color: string;
+  targetLat: number;
+  targetLon: number;
+  pathPoints: [number, number][];
+}
+
 export function MapPlugin() {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const lastTargetCoordsRef = useRef<{ lat: number; lon: number } | null>(null);
-  const { stationGrid, rotatorPosition, focusedCallsignInfo } = useAppStore();
+  const { stationGrid, rotatorPosition, focusedCallsignInfo, potaSpots, showPotaMapMarkers, dxClusterMapEnabled, hoveredSpotId } = useAppStore();
   const { settings, updateMapSettings, saveSettings } = useSettingsStore();
   const { commandRotator } = useSignalR();
+
+  // DX cluster spots from ephemeral in-memory store (populated via SignalR)
+  const spots = useAppStore((state) => state.dxClusterSpots);
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [currentAzimuth, setCurrentAzimuth] = useState(0);
   const [showLayerPicker, setShowLayerPicker] = useState(false);
+  const [rbnSpots, setRbnSpots] = useState<RbnSpot[]>([]);
+  const [showRbnPanel, setShowRbnPanel] = useState(false);
+  const [showOverlayPanel, setShowOverlayPanel] = useState(false);
 
-  // Get tile layer from persisted settings
+  // Get tile layer and RBN settings from persisted settings
   const tileLayer = settings.map.tileLayer;
+  const rbnSettings = settings.map.rbn;
 
   // Rotator is enabled in settings
   const rotatorEnabled = settings.rotator.enabled;
@@ -188,6 +318,31 @@ export function MapPlugin() {
       stationLon = coords.lon;
     }
   }
+
+  // Compute DX cluster spot paths for map overlay
+  const spotPaths = useMemo<SpotPathData[]>(() => {
+    if (!dxClusterMapEnabled || !spots?.length) return [];
+
+    return spots
+      .filter(spot => spot.dxStation?.grid) // Only spots with grid data
+      .map(spot => {
+        const coords = gridToLatLon(spot.dxStation!.grid!);
+        if (!coords) return null;
+        const band = getBandFromFrequency(spot.frequency);
+        const color = BAND_COLORS[band] || '#888888';
+        const pathPoints = generateGreatCirclePoints(
+          stationLat, stationLon, coords.lat, coords.lon
+        );
+        return { spot, band, color, targetLat: coords.lat, targetLon: coords.lon, pathPoints };
+      })
+      .filter((p): p is SpotPathData => p !== null);
+  }, [dxClusterMapEnabled, spots, stationLat, stationLon]);
+
+  // Active bands for the legend (only bands that have spots visible)
+  const activeBands = useMemo(() => {
+    const bands = new Set(spotPaths.map(sp => sp.band));
+    return Object.entries(BAND_COLORS).filter(([band]) => bands.has(band));
+  }, [spotPaths]);
 
   // Update azimuth from rotator position only
   useEffect(() => {
@@ -291,6 +446,49 @@ export function MapPlugin() {
   const targetLat = focusedCallsignInfo?.latitude;
   const targetLon = focusedCallsignInfo?.longitude;
 
+  // Fetch RBN spots periodically when enabled
+  useEffect(() => {
+    if (!rbnSettings.enabled) {
+      setRbnSpots([]);
+      return;
+    }
+
+    const fetchRbnSpots = async () => {
+      try {
+        const data = await api.getRbnSpots(rbnSettings.timeWindowMinutes);
+        if (data && data.spots) {
+          // Filter for my callsign
+          const myCallsign = settings.station.callsign;
+          if (myCallsign) {
+            const mySpots = data.spots.filter(s =>
+              s.dx.toUpperCase() === myCallsign.toUpperCase()
+            );
+            setRbnSpots(mySpots);
+          } else {
+            setRbnSpots([]);
+          }
+        }
+      } catch (error) {
+        console.error('Failed to fetch RBN spots:', error);
+      }
+    };
+
+    fetchRbnSpots();
+    const interval = setInterval(fetchRbnSpots, 60000); // Update every minute
+
+    return () => clearInterval(interval);
+  }, [rbnSettings.enabled, rbnSettings.timeWindowMinutes, settings.station.callsign]);
+
+  // Helper function to get SNR color
+  const getSNRColor = (snr: number | undefined): string => {
+    if (snr === null || snr === undefined) return '#888888';
+    if (snr < 0) return '#ef4444';      // Red: Weak
+    if (snr < 10) return '#f97316';     // Orange: Fair
+    if (snr < 20) return '#fbbf24';     // Yellow: Good
+    if (snr < 30) return '#84cc16';     // Light green: Very good
+    return '#22c55e';                   // Bright green: Excellent
+  };
+
   return (
     <GlassPanel
       title="2D Map"
@@ -325,6 +523,22 @@ export function MapPlugin() {
             url={TILE_LAYERS[tileLayer].url}
             attribution={TILE_LAYERS[tileLayer].attribution}
           />
+
+          {/* Day/Night Overlay */}
+          {settings.map.showDayNightOverlay && (
+            <DayNightOverlay
+              opacity={settings.map.dayNightOpacity}
+              showSunMarker={settings.map.showSunMarker}
+              showMoonMarker={settings.map.showMoonMarker}
+            />
+          )}
+
+          {/* Gray Line Overlay */}
+          {settings.map.showGrayLine && (
+            <GrayLineOverlay
+              opacity={settings.map.grayLineOpacity}
+            />
+          )}
 
           {/* Click handler */}
           <MapClickHandler
@@ -405,6 +619,147 @@ export function MapPlugin() {
               </Popup>
             </Marker>
           )}
+
+          {/* RBN Spots Overlay */}
+          {rbnSettings.enabled && rbnSpots.map((spot, idx) => {
+            if (!spot.skimmerLat || !spot.skimmerLon) return null;
+
+            // Apply band filter
+            if (rbnSettings.bands.length > 0 && !rbnSettings.bands.includes('all') && !rbnSettings.bands.includes(spot.band)) {
+              return null;
+            }
+
+            // Apply mode filter
+            if (rbnSettings.modes.length > 0 && !rbnSettings.modes.includes(spot.mode)) {
+              return null;
+            }
+
+            // Apply SNR filter
+            if (spot.snr !== undefined && spot.snr < rbnSettings.minSnr) {
+              return null;
+            }
+
+            const color = getSNRColor(spot.snr);
+            const size = spot.snr !== undefined && spot.snr >= 20 ? 8 : 6;
+
+            return (
+              <div key={`rbn-${idx}`}>
+                {/* Path line from station to skimmer */}
+                {rbnSettings.showPaths && (
+                  <Polyline
+                    positions={[
+                      [stationLat, stationLon],
+                      [spot.skimmerLat, spot.skimmerLon]
+                    ]}
+                    pathOptions={{
+                      color: color,
+                      weight: 2,
+                      opacity: rbnSettings.opacity * 0.6,
+                      dashArray: '5, 5',
+                    }}
+                  />
+                )}
+
+                {/* Skimmer marker */}
+                <CircleMarker
+                  center={[spot.skimmerLat, spot.skimmerLon]}
+                  radius={size}
+                  pathOptions={{
+                    fillColor: color,
+                    color: '#ffffff',
+                    weight: 2,
+                    opacity: rbnSettings.opacity,
+                    fillOpacity: rbnSettings.opacity * 0.8,
+                  }}
+                >
+                  <Popup>
+                    <div style={{ fontFamily: 'monospace' }}>
+                      <strong>{spot.callsign}</strong><br />
+                      Heard: <strong>{spot.dx}</strong><br />
+                      SNR: <strong>{spot.snr ?? '?'} dB</strong><br />
+                      Band: <strong>{spot.band}</strong><br />
+                      Freq: <strong>{(spot.frequency/1000).toFixed(1)} kHz</strong><br />
+                      {spot.grid && <>Grid: {spot.grid}<br /></>}
+                      {spot.speed && <>Speed: {spot.speed} WPM<br /></>}
+                      Time: {new Date(spot.timestamp).toLocaleTimeString()}
+                    </div>
+                  </Popup>
+                </CircleMarker>
+              </div>
+            );
+          })}
+
+          {/* POTA markers - show when enabled and we have spot data with coordinates */}
+          {showPotaMapMarkers && potaSpots.map((spot) => {
+            if (!spot.latitude || !spot.longitude) return null;
+            return (
+              <Marker
+                key={spot.spotId}
+                position={[spot.latitude, spot.longitude]}
+                icon={potaIcon}
+              >
+                <Popup>
+                  <div className="text-center">
+                    <strong className="text-accent-success font-mono">{spot.activator}</strong>
+                    <br />
+                    <span className="text-xs font-mono text-accent-info">{spot.reference}</span>
+                    <br />
+                    <span className="text-xs text-gray-400">
+                      {(parseFloat(spot.frequency) / 1000).toFixed(3)} MHz • {spot.mode}
+                    </span>
+                    {spot.locationDesc && (
+                      <>
+                        <br />
+                        <span className="text-xs text-gray-500">{spot.locationDesc}</span>
+                      </>
+                    )}
+                  </div>
+                </Popup>
+              </Marker>
+            );
+          })}
+
+          {/* DX Cluster spot paths overlay */}
+          {dxClusterMapEnabled && spotPaths.map((sp) => {
+            const isHovered = hoveredSpotId === sp.spot.id;
+            return (
+              <Polyline
+                key={`path-${sp.spot.id}`}
+                positions={sp.pathPoints}
+                pathOptions={{
+                  color: sp.color,
+                  weight: isHovered ? 3 : 1.5,
+                  opacity: isHovered ? 1 : 0.5,
+                }}
+              />
+            );
+          })}
+
+          {/* DX Cluster spot endpoint markers */}
+          {dxClusterMapEnabled && spotPaths.map((sp) => {
+            const isHovered = hoveredSpotId === sp.spot.id;
+            return (
+              <Marker
+                key={`spot-${sp.spot.id}`}
+                position={[sp.targetLat, sp.targetLon]}
+                icon={createSpotIcon(sp.color, isHovered)}
+              >
+                <Tooltip
+                  direction="top"
+                  offset={[0, -6]}
+                  permanent={isHovered}
+                  className="dx-spot-tooltip"
+                >
+                  <span style={{ color: sp.color, fontFamily: 'monospace', fontWeight: 'bold', fontSize: '11px' }}>
+                    {sp.spot.dxCall}
+                  </span>
+                  <span style={{ color: '#999', fontSize: '10px', marginLeft: '4px' }}>
+                    {(sp.spot.frequency / 1000).toFixed(1)}
+                  </span>
+                </Tooltip>
+              </Marker>
+            );
+          })}
         </MapContainer>
 
         {/* Map controls overlay - positioned outside MapContainer to avoid event conflicts */}
@@ -434,6 +789,7 @@ export function MapPlugin() {
               onClick={(e) => {
                 e.stopPropagation();
                 setShowLayerPicker(!showLayerPicker);
+                setShowOverlayPanel(false);
               }}
               className="glass-button p-2"
               title="Map Layers"
@@ -441,7 +797,8 @@ export function MapPlugin() {
               <Layers className="w-4 h-4" />
             </button>
             {showLayerPicker && (
-              <div className="absolute right-full mr-2 top-0 glass-panel p-2 min-w-[120px]">
+              <div className="absolute right-full mr-2 top-0 glass-panel p-2 min-w-[180px]">
+                <div className="text-xs text-gray-400 mb-2 px-2">Base Layers</div>
                 {Object.entries(TILE_LAYERS).map(([key, layer]) => (
                   <button
                     key={key}
@@ -449,7 +806,6 @@ export function MapPlugin() {
                       e.stopPropagation();
                       updateMapSettings({ tileLayer: key as TileLayerKey });
                       saveSettings();
-                      setShowLayerPicker(false);
                     }}
                     className={`w-full text-left px-2 py-1 text-sm font-ui rounded hover:bg-dark-600 ${
                       tileLayer === key ? 'text-accent-primary' : 'text-dark-200'
@@ -458,6 +814,165 @@ export function MapPlugin() {
                     {layer.name}
                   </button>
                 ))}
+                <div className="border-t border-gray-600 my-2"></div>
+                <div className="text-xs text-gray-400 mb-2 px-2">Overlays</div>
+                <button
+                  onClick={(e) => {
+                    e.stopPropagation();
+                    updateMapSettings({
+                      rbn: { ...rbnSettings, enabled: !rbnSettings.enabled }
+                    });
+                    saveSettings();
+                  }}
+                  className="w-full text-left px-2 py-1 text-sm rounded hover:bg-dark-600 flex items-center justify-between"
+                >
+                  <span className={rbnSettings.enabled ? 'text-accent-primary' : 'text-gray-300'}>
+                    RBN Layer
+                  </span>
+                  {rbnSettings.enabled && <Radio className="w-3 h-3" />}
+                </button>
+                {rbnSettings.enabled && (
+                  <button
+                    onClick={(e) => {
+                      e.stopPropagation();
+                      setShowRbnPanel(!showRbnPanel);
+                      setShowLayerPicker(false);
+                    }}
+                    className="w-full text-left px-2 py-1 text-xs text-gray-400 hover:text-gray-300"
+                  >
+                    ⚙️ RBN Settings
+                  </button>
+                )}
+              </div>
+            )}
+          </div>
+          <div className="relative">
+            <button
+              onClick={(e) => {
+                e.stopPropagation();
+                setShowOverlayPanel(!showOverlayPanel);
+                setShowLayerPicker(false);
+              }}
+              className={`glass-button p-2 ${(settings.map.showDayNightOverlay || settings.map.showGrayLine) ? 'text-accent-primary' : ''}`}
+              title="Day/Night & Gray Line"
+            >
+              <Sun className="w-4 h-4" />
+            </button>
+            {showOverlayPanel && (
+              <div className="absolute right-full mr-2 top-0 glass-panel p-3 min-w-[220px]">
+                <div className="text-xs font-ui text-dark-200 mb-2 font-semibold">Solar Overlays</div>
+
+                {/* Day/Night Overlay Toggle */}
+                <label className="flex items-center gap-2 mb-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={settings.map.showDayNightOverlay}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      updateMapSettings({ showDayNightOverlay: e.target.checked });
+                      saveSettings();
+                    }}
+                    className="w-4 h-4"
+                  />
+                  <span className="text-sm font-ui text-dark-200">Day/Night</span>
+                </label>
+
+                {/* Day/Night Opacity */}
+                {settings.map.showDayNightOverlay && (
+                  <div className="ml-6 mb-2">
+                    <label className="flex items-center gap-2 text-xs text-dark-300">
+                      <span>Opacity:</span>
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.1"
+                        value={settings.map.dayNightOpacity}
+                        onChange={(e) => {
+                          updateMapSettings({ dayNightOpacity: parseFloat(e.target.value) });
+                        }}
+                        onMouseUp={() => saveSettings()}
+                        className="flex-1"
+                      />
+                      <span>{Math.round(settings.map.dayNightOpacity * 100)}%</span>
+                    </label>
+                  </div>
+                )}
+
+                {/* Sun Marker Toggle */}
+                {settings.map.showDayNightOverlay && (
+                  <label className="flex items-center gap-2 mb-2 ml-6 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={settings.map.showSunMarker}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        updateMapSettings({ showSunMarker: e.target.checked });
+                        saveSettings();
+                      }}
+                      className="w-3 h-3"
+                    />
+                    <span className="text-xs font-ui text-dark-300">☀️ Sun</span>
+                  </label>
+                )}
+
+                {/* Moon Marker Toggle */}
+                {settings.map.showDayNightOverlay && (
+                  <label className="flex items-center gap-2 mb-3 ml-6 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={settings.map.showMoonMarker}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        updateMapSettings({ showMoonMarker: e.target.checked });
+                        saveSettings();
+                      }}
+                      className="w-3 h-3"
+                    />
+                    <span className="text-xs font-ui text-dark-300">🌙 Moon</span>
+                  </label>
+                )}
+
+                {/* Gray Line Toggle */}
+                <label className="flex items-center gap-2 mb-2 cursor-pointer">
+                  <input
+                    type="checkbox"
+                    checked={settings.map.showGrayLine}
+                    onChange={(e) => {
+                      e.stopPropagation();
+                      updateMapSettings({ showGrayLine: e.target.checked });
+                      saveSettings();
+                    }}
+                    className="w-4 h-4"
+                  />
+                  <span className="text-sm font-ui text-dark-200">Gray Line</span>
+                </label>
+
+                {/* Gray Line Opacity */}
+                {settings.map.showGrayLine && (
+                  <div className="ml-6">
+                    <label className="flex items-center gap-2 text-xs text-dark-300">
+                      <span>Opacity:</span>
+                      <input
+                        type="range"
+                        min="0"
+                        max="1"
+                        step="0.1"
+                        value={settings.map.grayLineOpacity}
+                        onChange={(e) => {
+                          updateMapSettings({ grayLineOpacity: parseFloat(e.target.value) });
+                        }}
+                        onMouseUp={() => saveSettings()}
+                        className="flex-1"
+                      />
+                      <span>{Math.round(settings.map.grayLineOpacity * 100)}%</span>
+                    </label>
+                  </div>
+                )}
+
+                <div className="mt-3 pt-2 border-t border-dark-600 text-xs text-dark-400">
+                  Updates every 60 seconds
+                </div>
               </div>
             )}
           </div>
@@ -465,7 +980,7 @@ export function MapPlugin() {
 
         {/* Station info overlay */}
         {stationGrid && (
-          <div className="absolute bottom-4 left-4 glass-panel px-3 py-2 z-[1000]">
+          <div className="absolute bottom-12 left-4 glass-panel px-3 py-2 z-[1000]">
             <div className="flex items-center gap-2 text-accent-primary">
               <MapPin className="w-4 h-4" />
               <span className="font-mono text-sm">{stationGrid}</span>
@@ -497,9 +1012,137 @@ export function MapPlugin() {
         )}
 
         {/* Instructions overlay */}
-        <div className="absolute bottom-4 right-4 glass-panel px-3 py-2 z-[1000] text-xs font-ui text-dark-300">
+        <div className="absolute bottom-12 right-4 glass-panel px-3 py-2 z-[1000] text-xs font-ui text-dark-300">
           {rotatorEnabled ? 'Click on map to set bearing' : 'Rotator disabled'}
         </div>
+
+        {/* RBN Settings Panel */}
+        {showRbnPanel && (
+          <div className="absolute top-20 right-4 glass-panel p-4 z-[1001] min-w-[300px]">
+            <div className="flex items-center justify-between mb-4">
+              <h3 className="text-sm font-bold text-accent-primary flex items-center gap-2">
+                <Radio className="w-4 h-4" />
+                RBN Settings
+              </h3>
+              <button
+                onClick={() => setShowRbnPanel(false)}
+                className="text-gray-400 hover:text-white"
+              >
+                ✕
+              </button>
+            </div>
+
+            <div className="space-y-3 text-sm">
+              {/* Spots count */}
+              <div className="text-xs text-gray-400">
+                Showing {rbnSpots.length} spot{rbnSpots.length !== 1 ? 's' : ''} for {settings.station.callsign || 'your callsign'}
+              </div>
+
+              {/* Opacity */}
+              <div>
+                <label className="block mb-1 text-gray-300">
+                  Opacity: {Math.round(rbnSettings.opacity * 100)}%
+                </label>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.1"
+                  value={rbnSettings.opacity}
+                  onChange={(e) => {
+                    updateMapSettings({
+                      rbn: { ...rbnSettings, opacity: parseFloat(e.target.value) }
+                    });
+                  }}
+                  onMouseUp={() => saveSettings()}
+                  className="w-full"
+                />
+              </div>
+
+              {/* Show Paths */}
+              <label className="flex items-center gap-2 cursor-pointer">
+                <input
+                  type="checkbox"
+                  checked={rbnSettings.showPaths}
+                  onChange={(e) => {
+                    updateMapSettings({
+                      rbn: { ...rbnSettings, showPaths: e.target.checked }
+                    });
+                    saveSettings();
+                  }}
+                  className="rounded"
+                />
+                <span className="text-gray-300">Show signal paths</span>
+              </label>
+
+              {/* Time Window */}
+              <div>
+                <label className="block mb-1 text-gray-300">
+                  Time Window: {rbnSettings.timeWindowMinutes} min
+                </label>
+                <input
+                  type="range"
+                  min="1"
+                  max="15"
+                  step="1"
+                  value={rbnSettings.timeWindowMinutes}
+                  onChange={(e) => {
+                    updateMapSettings({
+                      rbn: { ...rbnSettings, timeWindowMinutes: parseInt(e.target.value) }
+                    });
+                  }}
+                  onMouseUp={() => saveSettings()}
+                  className="w-full"
+                />
+              </div>
+
+              {/* Min SNR */}
+              <div>
+                <label className="block mb-1 text-gray-300">
+                  Min SNR: {rbnSettings.minSnr} dB
+                </label>
+                <input
+                  type="range"
+                  min="-30"
+                  max="30"
+                  step="5"
+                  value={rbnSettings.minSnr}
+                  onChange={(e) => {
+                    updateMapSettings({
+                      rbn: { ...rbnSettings, minSnr: parseInt(e.target.value) }
+                    });
+                  }}
+                  onMouseUp={() => saveSettings()}
+                  className="w-full"
+                />
+              </div>
+
+              <div className="pt-2 border-t border-gray-600 text-xs text-gray-500">
+                Data from reversebeacon.net
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* Band color legend - shown when DX cluster map overlay is active */}
+        {dxClusterMapEnabled && activeBands.length > 0 && (
+          <div className="absolute top-4 right-14 glass-panel px-2 py-1.5 z-[1000]">
+            <div className="flex flex-wrap gap-x-3 gap-y-0.5">
+              {activeBands.map(([band, color]) => (
+                <div key={band} className="flex items-center gap-1">
+                  <div
+                    className="w-3 h-1 rounded-sm"
+                    style={{ backgroundColor: color }}
+                  />
+                  <span className="text-[10px] font-mono text-dark-300">{band}</span>
+                </div>
+              ))}
+            </div>
+          </div>
+        )}
+
+        {/* DX News Ticker */}
+        <DXNewsTicker />
       </div>
     </GlassPanel>
   );

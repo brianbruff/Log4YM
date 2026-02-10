@@ -147,11 +147,6 @@ public class MongoDbContext
         get { EnsureConnected(); return _database!.GetCollection<Qso>("qsos"); }
     }
 
-    public IMongoCollection<Spot> Spots
-    {
-        get { EnsureConnected(); return _database!.GetCollection<Spot>("spots"); }
-    }
-
     public IMongoCollection<UserSettings> Settings
     {
         get { EnsureConnected(); return _database!.GetCollection<UserSettings>("settings"); }
@@ -184,18 +179,6 @@ public class MongoDbContext
             new CreateIndexModel<Qso>(Builders<Qso>.IndexKeys.Ascending("station.grid")),
             // Index for efficient sync status queries (like QLog's upload status columns)
             new CreateIndexModel<Qso>(Builders<Qso>.IndexKeys.Ascending(q => q.QrzSyncStatus))
-        });
-
-        // Spot indexes with TTL (24 hour expiry)
-        Spots.Indexes.CreateMany(new[]
-        {
-            new CreateIndexModel<Spot>(
-                Builders<Spot>.IndexKeys.Ascending(s => s.CreatedAt),
-                new CreateIndexOptions { ExpireAfter = TimeSpan.FromHours(24) }
-            ),
-            new CreateIndexModel<Spot>(Builders<Spot>.IndexKeys.Ascending(s => s.Frequency)),
-            new CreateIndexModel<Spot>(Builders<Spot>.IndexKeys.Ascending(s => s.DxCall)),
-            new CreateIndexModel<Spot>(Builders<Spot>.IndexKeys.Descending(s => s.Timestamp))
         });
     }
 }

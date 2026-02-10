@@ -183,16 +183,34 @@ export function RigPlugin() {
     await connectRadio(radioId);
   };
 
-  // Auto-connect to saved Hamlib rig if autoReconnect is enabled and we have a discovered radio
+  // Auto-connect to saved rig if autoReconnect is enabled and we have a discovered radio.
+  // IMPORTANT: We must wait for connection state to arrive before deciding whether to connect.
+  // The OnRadioDiscovered event arrives before OnRadioConnectionStateChanged from RequestRadioStatus,
+  // so if we connect when connState is undefined, we'd tear down an already-working backend connection.
   useEffect(() => {
-    if (autoReconnect && radios.length > 0 && !selectedRadioId && !isConnectingHamlib && !isConnectingTci) {
-      const hamlibRadio = radios.find(r => r.type === "Hamlib");
-      if (hamlibRadio) {
-        console.log("Auto-connecting to saved Hamlib rig:", hamlibRadio.id);
-        handleConnect(hamlibRadio.id);
-      }
+    if (!autoReconnect || radios.length === 0 || selectedRadioId || isConnectingHamlib || isConnectingTci) return;
+
+    // Find the specific rig targeted for auto-connect, or fall back to first radio
+    const targetRadio = autoConnectRigId
+      ? radios.find(r => r.id === autoConnectRigId)
+      : radios[0];
+
+    if (!targetRadio) return;
+
+    const connState = radioConnectionStates.get(targetRadio.id);
+
+    if (connState === "Connected" || connState === "Monitoring") {
+      // Backend already has this rig connected — just select it, no reconnect needed
+      console.log("Auto-selecting already-connected rig:", targetRadio.id);
+      setSelectedRadio(targetRadio.id);
+    } else if (connState === "Disconnected" || connState === "Error") {
+      // Rig is explicitly not connected — initiate connection
+      console.log("Auto-connecting to saved rig:", targetRadio.id);
+      handleConnect(targetRadio.id);
     }
-  }, [autoReconnect, radios.length, selectedRadioId, isConnectingHamlib, isConnectingTci]);
+    // If connState is undefined, the connection state event hasn't arrived yet — wait for it.
+    // The useEffect will re-fire when radioConnectionStates updates.
+  }, [autoReconnect, autoConnectRigId, radios.length, selectedRadioId, isConnectingHamlib, isConnectingTci, radioConnectionStates]);
 
   const handleDisconnect = async () => {
     if (selectedRadioId) {
@@ -221,6 +239,7 @@ export function RigPlugin() {
     updateRadioSettings({
       autoReconnect: false,
       autoConnectRigId: null,
+      activeRigType: null,
     });
     await saveSettings();
   };
@@ -231,6 +250,7 @@ export function RigPlugin() {
       updateRadioSettings({
         autoReconnect: false,
         autoConnectRigId: null,
+        activeRigType: null,
       });
     } else {
       // Enable and target this specific rig
@@ -274,7 +294,7 @@ export function RigPlugin() {
         setRigSearch("");
       } else if (isTci) {
         await deleteTciConfig();
-        updateTciSettings({ host: "localhost", port: 50001, name: "", autoConnect: false });
+        updateTciSettings({ host: "localhost", port: 50001, name: "" });
       }
 
       // Remove from UI immediately
@@ -921,18 +941,6 @@ export function RigPlugin() {
                 className="w-full px-3 py-2 bg-dark-800 border border-glass-100 rounded-lg text-sm text-dark-200 font-mono focus:outline-none focus:border-accent-secondary/50"
               />
             </div>
-            <label className="flex items-center gap-2 text-sm text-dark-200 cursor-pointer font-ui">
-              <input
-                type="checkbox"
-                checked={tciSettings.autoConnect}
-                onChange={(e) => {
-                  updateTciSettings({ autoConnect: e.target.checked });
-                  saveSettings();
-                }}
-                className="w-4 h-4 rounded border-glass-100 bg-dark-800 text-accent-secondary focus:ring-accent-secondary/50"
-              />
-              Auto-connect on startup
-            </label>
             <div className="flex gap-2 pt-2">
               <button
                 onClick={handleConnectTci}

@@ -38,6 +38,11 @@ public interface IQrzService
     /// Lookup callsign information from QRZ
     /// </summary>
     Task<QrzCallsignInfo?> LookupCallsignAsync(string callsign);
+
+    /// <summary>
+    /// Fetch the biography HTML for a callsign from QRZ and return as plain text
+    /// </summary>
+    Task<string?> GetBiographyAsync(string callsign);
 }
 
 public record QrzSubscriptionStatus(

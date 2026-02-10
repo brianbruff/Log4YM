@@ -97,6 +97,7 @@ interface LayoutState {
   setLayout: (layout: IJsonModel) => void;
   resetLayout: () => void;
   syncToMongo: (layout: IJsonModel) => Promise<void>;
+  syncToMongoSync: (layout: IJsonModel) => void;
   loadFromMongo: () => Promise<void>;
 }
 
@@ -120,38 +121,73 @@ export const useLayoutStore = create<LayoutState>()((set, get) => ({
   // Sync layout to MongoDB (background, non-blocking)
   syncToMongo: async (layout) => {
     try {
-      const response = await fetch('/api/settings');
+      console.log('[layoutStore] Syncing layout to MongoDB');
+      const layoutJson = JSON.stringify(layout);
+      const response = await fetch('/api/settings/layout', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(layoutJson),
+      });
+
       if (response.ok) {
-        const settings = await response.json();
-        settings.layoutJson = JSON.stringify(layout);
-        await fetch('/api/settings', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify(settings),
-        });
+        console.log('[layoutStore] Layout saved successfully');
+      } else {
+        console.error('[layoutStore] Failed to save layout, status:', response.status);
       }
     } catch (e) {
-      console.error('Failed to sync layout to MongoDB:', e);
+      console.error('[layoutStore] Failed to sync layout to MongoDB:', e);
+    }
+  },
+
+  // Sync layout to MongoDB synchronously (for beforeunload)
+  // Uses sendBeacon for reliable shutdown saves
+  syncToMongoSync: (layout) => {
+    try {
+      console.log('[layoutStore] Syncing layout to MongoDB (sync)');
+      const layoutJson = JSON.stringify(layout);
+      const blob = new Blob([JSON.stringify(layoutJson)], { type: 'application/json' });
+
+      // Try sendBeacon first (best for beforeunload)
+      if (navigator.sendBeacon) {
+        const sent = navigator.sendBeacon('/api/settings/layout', blob);
+        if (sent) {
+          console.log('[layoutStore] Layout sent via sendBeacon');
+          return;
+        }
+      }
+
+      // Fallback: synchronous XHR (not ideal, but works)
+      const xhr = new XMLHttpRequest();
+      xhr.open('PUT', '/api/settings/layout', false); // false = synchronous
+      xhr.setRequestHeader('Content-Type', 'application/json');
+      xhr.send(JSON.stringify(layoutJson));
+      console.log('[layoutStore] Layout saved synchronously via XHR');
+    } catch (e) {
+      console.error('[layoutStore] Failed to sync layout synchronously:', e);
     }
   },
 
   // Load layout from MongoDB on app startup
   loadFromMongo: async () => {
     try {
+      console.log('[layoutStore] Loading layout from MongoDB');
       const response = await fetch('/api/settings');
       if (response.ok) {
         const settings = await response.json();
         if (settings.layoutJson) {
           const layout = JSON.parse(settings.layoutJson);
+          console.log('[layoutStore] Layout loaded successfully');
           set({ layout, isLoaded: true });
         } else {
+          console.log('[layoutStore] No saved layout found, using default');
           set({ isLoaded: true });
         }
       } else {
+        console.error('[layoutStore] Failed to load layout, status:', response.status);
         set({ isLoaded: true });
       }
     } catch (e) {
-      console.error('Failed to load layout from MongoDB:', e);
+      console.error('[layoutStore] Failed to load layout from MongoDB:', e);
       set({ isLoaded: true });
     }
   },

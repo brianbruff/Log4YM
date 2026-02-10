@@ -70,7 +70,51 @@ npm run package:all
 - .NET Backend: http://localhost:5050 (API and SignalR hubs)
 - Vite proxies `/api` and `/hubs` requests to the backend automatically
 
+## Testing
+
+### Backend Tests (.NET)
+
+```bash
+# Run all unit tests
+dotnet test src/Log4YM.Server.Tests --filter "Category=Unit"
+
+# Run integration tests
+dotnet test src/Log4YM.Server.Tests --filter "Category=Integration"
+
+# Run AI live tests (requires API keys, costs money)
+AI_LIVE_TESTS=true OPENAI_API_KEY=xxx dotnet test src/Log4YM.Server.Tests --filter "Category=LiveAI"
+
+# Run QRZ rate-limited tests (requires QRZ credentials)
+QRZ_LIVE_TESTS=true QRZ_USERNAME=xxx QRZ_PASSWORD=xxx dotnet test src/Log4YM.Server.Tests --filter "Category=RateLimited"
+```
+
+### Frontend Tests (React)
+
+```bash
+cd src/Log4YM.Web
+
+npm run test           # Run all tests once
+npm run test:watch     # Run in watch mode
+npm run test:coverage  # Run with coverage report
+```
+
+### Test Categories
+
+| Category | Trigger | Cost | Description |
+|----------|---------|------|-------------|
+| Unit | Always runs | Free | Pure logic, mocked dependencies |
+| Integration | Always runs | Free | Component interactions, mocked external services |
+| LiveAI | `AI_LIVE_TESTS=true` | ~$0.01/test | Real OpenAI/Anthropic API calls |
+| RateLimited | `QRZ_LIVE_TESTS=true` | Free but rate-limited | Real QRZ API calls (shared fixture, single call) |
+
+### CI/CD
+
+Tests run automatically on PRs targeting `main` via GitHub Actions. Expensive tests (AI, QRZ) are disabled by default and can be enabled via GitHub Secrets or manual workflow dispatch.
+
+Required GitHub Secrets for live tests:
+- `AI_LIVE_TESTS` / `OPENAI_API_KEY` / `ANTHROPIC_API_KEY`
+- `QRZ_LIVE_TESTS` / `QRZ_USERNAME` / `QRZ_PASSWORD` / `QRZ_API_KEY`
+
 ## Git Commit Instructions
 
 - Never push unless instructed
-s

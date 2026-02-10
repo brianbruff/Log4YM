@@ -36,6 +36,9 @@ public interface ILogHubClient
     Task OnRadioStateChanged(RadioStateChangedEvent evt);
     Task OnRadioSlicesUpdated(RadioSlicesUpdatedEvent evt);
 
+    // CW Keyer events
+    Task OnCwKeyerStatus(CwKeyerStatusEvent evt);
+
     // Hamlib configuration events
     Task OnHamlibRigList(HamlibRigListEvent evt);
     Task OnHamlibRigCaps(HamlibRigCapsEvent evt);
@@ -71,6 +74,7 @@ public class LogHub : Hub<ILogHubClient>
     private readonly RotatorService _rotatorService;
     private readonly IQrzService _qrzService;
     private readonly ISettingsRepository _settingsRepository;
+    private readonly CwKeyerService _cwKeyerService;
 
     public LogHub(
         ILogger<LogHub> logger,
@@ -82,7 +86,8 @@ public class LogHub : Hub<ILogHubClient>
         SmartUnlinkService smartUnlinkService,
         RotatorService rotatorService,
         IQrzService qrzService,
-        ISettingsRepository settingsRepository)
+        ISettingsRepository settingsRepository,
+        CwKeyerService cwKeyerService)
     {
         _logger = logger;
         _antennaGeniusService = antennaGeniusService;
@@ -94,6 +99,7 @@ public class LogHub : Hub<ILogHubClient>
         _rotatorService = rotatorService;
         _qrzService = qrzService;
         _settingsRepository = settingsRepository;
+        _cwKeyerService = cwKeyerService;
     }
 
     public override async Task OnConnectedAsync()
@@ -759,6 +765,36 @@ public class LogHub : Hub<ILogHubClient>
         foreach (var connState in _tciRadioService.GetConnectionStates())
         {
             await Clients.Caller.OnRadioConnectionStateChanged(connState);
+        }
+    }
+
+    // CW Keyer methods
+
+    public async Task SendCwKey(SendCwKeyCommand cmd)
+    {
+        _logger.LogInformation("Sending CW message for radio {RadioId}: {Message}", cmd.RadioId, cmd.Message);
+        await _cwKeyerService.SendCwAsync(cmd.RadioId, cmd.Message, cmd.SpeedWpm);
+    }
+
+    public async Task StopCwKey(StopCwKeyCommand cmd)
+    {
+        _logger.LogInformation("Stopping CW keying for radio {RadioId}", cmd.RadioId);
+        await _cwKeyerService.StopCwAsync(cmd.RadioId);
+    }
+
+    public async Task SetCwSpeed(SetCwSpeedCommand cmd)
+    {
+        _logger.LogInformation("Setting CW speed for radio {RadioId}: {Wpm} WPM", cmd.RadioId, cmd.SpeedWpm);
+        await _cwKeyerService.SetSpeedAsync(cmd.RadioId, cmd.SpeedWpm);
+    }
+
+    public async Task RequestCwKeyerStatus(string radioId)
+    {
+        _logger.LogDebug("Client requested CW keyer status for radio {RadioId}", radioId);
+        var status = _cwKeyerService.GetStatus(radioId);
+        if (status != null)
+        {
+            await Clients.Caller.OnCwKeyerStatus(status);
         }
     }
 

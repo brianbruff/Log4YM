@@ -380,6 +380,28 @@ public class TciRadioService : BackgroundService
         return await connection.SetFrequencyAsync(frequencyHz);
     }
 
+    public async Task<bool> SendCwAsync(string radioId, string message, int speedWpm)
+    {
+        if (!_connections.TryGetValue(radioId, out var connection))
+        {
+            _logger.LogWarning("Cannot send CW: TCI radio {RadioId} not connected", radioId);
+            return false;
+        }
+
+        return await connection.SendCwAsync(message, speedWpm);
+    }
+
+    public async Task<bool> SetCwSpeedAsync(string radioId, int speedWpm)
+    {
+        if (!_connections.TryGetValue(radioId, out var connection))
+        {
+            _logger.LogWarning("Cannot set CW speed: TCI radio {RadioId} not connected", radioId);
+            return false;
+        }
+
+        return await connection.SetCwSpeedAsync(speedWpm);
+    }
+
     public IEnumerable<RadioDiscoveredEvent> GetDiscoveredRadios()
     {
         return _discoveredRadios.Values.Select(d => new RadioDiscoveredEvent(
@@ -591,6 +613,32 @@ internal class TciRadioConnection
         // TCI protocol: vfo:rx,channel,frequency; (rx=0/1, channel=0 for VFO-A)
         var command = $"vfo:{_selectedInstance},0,{frequencyHz};";
         _logger.LogDebug("Sending TCI command: {Command}", command);
+        await SendCommandAsync(command);
+        return true;
+    }
+
+    public async Task<bool> SendCwAsync(string message, int speedWpm)
+    {
+        if (!IsConnected) return false;
+
+        // Set speed first
+        await SetCwSpeedAsync(speedWpm);
+
+        // TCI protocol: cw_text:channel,text;
+        // Note: Some implementations may use different channel numbers
+        var command = $"cw_text:{_selectedInstance},{message};";
+        _logger.LogInformation("Sending CW via TCI: {Message} at {Wpm} WPM", message, speedWpm);
+        await SendCommandAsync(command);
+        return true;
+    }
+
+    public async Task<bool> SetCwSpeedAsync(int speedWpm)
+    {
+        if (!IsConnected) return false;
+
+        // TCI protocol: cw_speed:channel,speed;
+        var command = $"cw_speed:{_selectedInstance},{speedWpm};";
+        _logger.LogDebug("Setting CW speed via TCI: {Wpm} WPM", speedWpm);
         await SendCommandAsync(command);
         return true;
     }

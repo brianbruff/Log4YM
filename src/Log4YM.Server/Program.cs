@@ -135,6 +135,9 @@ builder.Services.AddSingleton<RbnService>();
 builder.Services.AddSingleton<IRbnService>(sp => sp.GetRequiredService<RbnService>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<RbnService>());
 
+// Register CW Keyer service
+builder.Services.AddSingleton<CwKeyerService>();
+
 var app = builder.Build();
 
 // Configure middleware

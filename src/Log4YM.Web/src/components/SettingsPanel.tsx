@@ -846,7 +846,7 @@ function RotatorSettingsSection() {
                 });
               }}
               disabled={!rotator.enabled || loadingModels}
-              className="glass-input flex-1 font-mono text-sm"
+              className="glass-input flex-1 min-w-0 font-mono text-sm"
             >
               <option value="">Select rotator model...</option>
               {rotatorModels.map((model) => (
@@ -908,79 +908,83 @@ function RotatorSettingsSection() {
       </div>
 
       {/* Network Connection Settings */}
-      <div className={`space-y-4 ${!rotator.enabled || rotator.connectionType !== 'network' ? 'opacity-50 pointer-events-none' : ''}`}>
-        <div className="grid grid-cols-2 gap-4">
-          {/* IP Address */}
-          <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm font-medium font-ui text-dark-200">
-              <Globe className="w-4 h-4 text-accent-primary" />
-              IP Address
-            </label>
-            <input
-              type="text"
-              value={rotator.ipAddress}
-              onChange={(e) => updateRotatorSettings({ ipAddress: e.target.value })}
-              placeholder="127.0.0.1"
-              className="glass-input w-full font-mono"
-              disabled={!rotator.enabled}
-            />
-            <p className="text-xs text-gray-600">
-              Use 127.0.0.1 if rotctld runs locally, or your server's IP
-            </p>
+      {rotator.connectionType === 'network' && (
+        <div className={`space-y-4 ${!rotator.enabled ? 'opacity-50 pointer-events-none' : ''}`}>
+          <div className="grid grid-cols-2 gap-4">
+            {/* IP Address */}
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm font-medium font-ui text-dark-200">
+                <Globe className="w-4 h-4 text-accent-primary" />
+                IP Address
+              </label>
+              <input
+                type="text"
+                value={rotator.ipAddress}
+                onChange={(e) => updateRotatorSettings({ ipAddress: e.target.value })}
+                placeholder="127.0.0.1"
+                className="glass-input w-full font-mono"
+                disabled={!rotator.enabled}
+              />
+              <p className="text-xs text-dark-300">
+                Use 127.0.0.1 if rotctld runs locally, or your server's IP
+              </p>
+            </div>
+
+            {/* Port */}
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm font-medium font-ui text-dark-200">
+                <Compass className="w-4 h-4 text-accent-primary" />
+                Port
+              </label>
+              <input
+                type="number"
+                value={rotator.port}
+                onChange={(e) => updateRotatorSettings({ port: parseInt(e.target.value) || 4533 })}
+                placeholder="4533"
+                className="glass-input w-full font-mono"
+                disabled={!rotator.enabled}
+              />
+              <p className="text-xs text-dark-300">
+                Default rotctld port is 4533
+              </p>
+            </div>
           </div>
 
-          {/* Port */}
-          <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm font-medium font-ui text-dark-200">
-              <Compass className="w-4 h-4 text-accent-primary" />
-              Port
-            </label>
-            <input
-              type="number"
-              value={rotator.port}
-              onChange={(e) => updateRotatorSettings({ port: parseInt(e.target.value) || 4533 })}
-              placeholder="4533"
-              className="glass-input w-full font-mono"
-              disabled={!rotator.enabled}
-            />
-            <p className="text-xs text-gray-600">
-              Default rotctld port is 4533
-            </p>
-          </div>
-        </div>
-
-        {/* Test Connection Button */}
-        <div className="pt-2 flex items-center gap-4">
-          <button
-            onClick={handleTestConnection}
-            disabled={testStatus === 'testing'}
-            className="glass-button px-4 py-2 flex items-center gap-2 disabled:opacity-50"
-          >
-            {testStatus === 'testing' && (
-              <Loader2 className="w-4 h-4 animate-spin" />
+          {/* Test Connection Button */}
+          <div className="pt-2 flex items-center gap-4">
+            <button
+              onClick={handleTestConnection}
+              disabled={testStatus === 'testing'}
+              className="glass-button px-4 py-2 flex items-center gap-2 disabled:opacity-50"
+            >
+              {testStatus === 'testing' && (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              )}
+              {testStatus === 'success' && <CheckCircle className="w-4 h-4 text-accent-success" />}
+              {testStatus === 'error' && <AlertCircle className="w-4 h-4 text-accent-danger" />}
+              {testStatus === 'idle' && <Wifi className="w-4 h-4" />}
+              <span>
+                {testStatus === 'testing'
+                  ? 'Testing...'
+                  : testStatus === 'success'
+                    ? 'Connected!'
+                    : testStatus === 'error'
+                      ? 'Failed'
+                      : 'Test Connection'}
+              </span>
+            </button>
+            {testMessage && (
+              <span className={`text-sm ${testStatus === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+                {testMessage}
+              </span>
             )}
-            {testStatus === 'success' && <CheckCircle className="w-4 h-4 text-accent-success" />}
-            {testStatus === 'error' && <AlertCircle className="w-4 h-4 text-accent-danger" />}
-            {testStatus === 'idle' && <Wifi className="w-4 h-4" />}
-            <span>
-              {testStatus === 'testing'
-                ? 'Testing...'
-                : testStatus === 'success'
-                  ? 'Connected!'
-                  : testStatus === 'error'
-                    ? 'Failed'
-                    : 'Test Connection'}
-            </span>
-          </button>
-          {testMessage && (
-            <span className={`text-sm ${testStatus === 'success' ? 'text-green-400' : 'text-red-400'}`}>
-              {testMessage}
-            </span>
-          )}
+          </div>
         </div>
+      )}
 
-        {/* Serial Port Configuration */}
-        <div className={`space-y-4 ${rotator.connectionType !== 'serial' ? 'hidden' : ''}`}>
+      {/* Serial Port Configuration */}
+      {rotator.connectionType === 'serial' && (
+        <div className={`space-y-4 ${!rotator.enabled ? 'opacity-50 pointer-events-none' : ''}`}>
           <div className="grid grid-cols-2 gap-4">
             {/* Serial Port */}
             <div className="space-y-2">
@@ -996,7 +1000,7 @@ function RotatorSettingsSection() {
                 className="glass-input w-full font-mono"
                 disabled={!rotator.enabled}
               />
-              <p className="text-xs text-gray-600">
+              <p className="text-xs text-dark-300">
                 Windows: COM1, COM3, etc. | Linux/macOS: /dev/ttyUSB0, /dev/ttyS0
               </p>
             </div>
@@ -1019,7 +1023,7 @@ function RotatorSettingsSection() {
                 <option value={57600}>57600</option>
                 <option value={115200}>115200</option>
               </select>
-              <p className="text-xs text-gray-600">
+              <p className="text-xs text-dark-300">
                 Serial communication speed (check your rotator manual)
               </p>
             </div>
@@ -1032,44 +1036,49 @@ function RotatorSettingsSection() {
             </p>
           </div>
         </div>
+      )}
 
-        {/* Polling Interval */}
-        <div className="space-y-2">
-          <label className="flex items-center gap-2 text-sm font-medium font-ui text-dark-200">
-            Polling Interval (ms)
-          </label>
-          <input
-            type="number"
-            value={rotator.pollingIntervalMs}
-            onChange={(e) => updateRotatorSettings({ pollingIntervalMs: parseInt(e.target.value) || 500 })}
-            min={100}
-            max={5000}
-            step={100}
-            placeholder="500"
-            className="glass-input w-48 font-mono"
-            disabled={!rotator.enabled}
-          />
-          <p className="text-xs text-dark-300">
-            How often to poll the rotator for position updates (100-5000ms)
-          </p>
-        </div>
+      {/* Polling Interval & Rotator ID */}
+      <div className={`space-y-4 ${!rotator.enabled ? 'opacity-50 pointer-events-none' : ''}`}>
+        <div className="grid grid-cols-2 gap-4">
+          {/* Polling Interval */}
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-sm font-medium font-ui text-dark-200">
+              Polling Interval (ms)
+            </label>
+            <input
+              type="number"
+              value={rotator.pollingIntervalMs}
+              onChange={(e) => updateRotatorSettings({ pollingIntervalMs: parseInt(e.target.value) || 500 })}
+              min={100}
+              max={5000}
+              step={100}
+              placeholder="500"
+              className="glass-input w-full font-mono"
+              disabled={!rotator.enabled}
+            />
+            <p className="text-xs text-dark-300">
+              How often to poll for position updates (100-5000ms)
+            </p>
+          </div>
 
-        {/* Rotator ID */}
-        <div className="space-y-2">
-          <label className="flex items-center gap-2 text-sm font-medium font-ui text-dark-200">
-            Rotator ID
-          </label>
-          <input
-            type="text"
-            value={rotator.rotatorId}
-            onChange={(e) => updateRotatorSettings({ rotatorId: e.target.value })}
-            placeholder="default"
-            className="glass-input w-48 font-mono"
-            disabled={!rotator.enabled}
-          />
-          <p className="text-xs text-dark-300">
-            Identifier for this rotator (useful if you have multiple rotators)
-          </p>
+          {/* Rotator ID */}
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-sm font-medium font-ui text-dark-200">
+              Rotator ID
+            </label>
+            <input
+              type="text"
+              value={rotator.rotatorId}
+              onChange={(e) => updateRotatorSettings({ rotatorId: e.target.value })}
+              placeholder="default"
+              className="glass-input w-full font-mono"
+              disabled={!rotator.enabled}
+            />
+            <p className="text-xs text-dark-300">
+              Identifier for this rotator (useful with multiple rotators)
+            </p>
+          </div>
         </div>
       </div>
 
@@ -1735,9 +1744,9 @@ export function SettingsPanel() {
       <div className="absolute inset-0 bg-dark-900/80 backdrop-blur-sm" onClick={closeSettings} />
 
       {/* Panel */}
-      <div className="relative w-full max-w-4xl h-[600px] mx-4 bg-dark-800 border border-glass-200 rounded-xl shadow-2xl flex overflow-hidden animate-fade-in">
+      <div className="relative w-full max-w-4xl max-h-[85vh] mx-4 bg-dark-800 border border-glass-200 rounded-xl shadow-2xl flex overflow-hidden animate-fade-in">
         {/* Master - Navigation sidebar */}
-        <div className="w-64 bg-dark-850 border-r border-glass-100 flex flex-col">
+        <div className="w-64 flex-shrink-0 bg-dark-850 border-r border-glass-100 flex flex-col">
           {/* Header */}
           <div className="p-4 border-b border-glass-100">
             <div className="flex items-center gap-3">
@@ -1794,7 +1803,7 @@ export function SettingsPanel() {
         </div>
 
         {/* Detail - Content area */}
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 min-w-0 flex flex-col">
           {/* Header with close button */}
           <div className="flex items-center justify-between p-4 border-b border-glass-100">
             <h3 className="text-lg font-semibold font-display text-dark-200">

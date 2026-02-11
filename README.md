@@ -4,7 +4,8 @@
 
 > **Alpha Software** - Log4YM is under active development. Features may change and bugs are expected. Use at your own risk and always keep backups of your log data.
 
-![Log4YM 3D Globe](docs/images/log4ym-globe2.png)
+<img width="2045" height="1211" alt="image" src="https://github.com/user-attachments/assets/c2ff987e-e7bd-456f-bd77-7ae0376b6fdb" />
+
 
 ## What is Log4YM?
 

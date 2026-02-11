@@ -27,10 +27,10 @@ export default {
         },
         // Glass/overlay tints — derived from accent-primary
         glass: {
-          50: 'rgb(var(--accent-primary) / 0.04)',
-          100: 'rgb(var(--accent-primary) / 0.08)',
-          200: 'rgb(var(--accent-primary) / 0.12)',
-          300: 'rgb(var(--accent-primary) / 0.18)',
+          50: 'rgb(var(--accent-primary) / 0.05)',
+          100: 'rgb(var(--accent-primary) / 0.12)',
+          200: 'rgb(var(--accent-primary) / 0.18)',
+          300: 'rgb(var(--accent-primary) / 0.25)',
         },
         // Accent colors — themed
         accent: {

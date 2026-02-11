@@ -1,5 +1,5 @@
 import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
-import { Map as MapIcon, MapPin, Target, Maximize2, ZoomIn, ZoomOut, Layers, Radio, Sun } from 'lucide-react';
+import { Map as MapIcon, MapPin, Target, Maximize2, ZoomIn, ZoomOut, Layers, Satellite, Radio, Sun } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, Circle, Polyline, CircleMarker, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
 import { useAppStore, Spot } from '../store/appStore';
@@ -10,6 +10,7 @@ import { DXNewsTicker } from '../components/DXNewsTicker';
 import { DayNightOverlay } from '../components/DayNightOverlay';
 import { GrayLineOverlay } from '../components/GrayLineOverlay';
 import { gridToLatLon, calculateDistance, getAnimationDuration } from '../utils/maidenhead';
+import { fetchTLEData, calculateSatellitePosition, calculateOrbitTrack, type SatellitePosition, type SatelliteTLE } from '../utils/satellite';
 import { api, type RbnSpot } from '../api/client';
 
 import 'leaflet/dist/leaflet.css';
@@ -75,6 +76,23 @@ const potaIcon = new L.DivIcon({
   `,
   iconSize: [16, 14],
   iconAnchor: [8, 14],
+});
+
+// Custom satellite marker (purple/magenta diamond)
+const satelliteIcon = new L.DivIcon({
+  className: 'custom-satellite-marker',
+  html: `
+    <div style="
+      width: 18px;
+      height: 18px;
+      background: linear-gradient(135deg, #a855f7, #ec4899);
+      border: 2px solid #fff;
+      transform: rotate(45deg);
+      box-shadow: 0 0 8px rgba(168, 85, 247, 0.6);
+    "></div>
+  `,
+  iconSize: [18, 18],
+  iconAnchor: [9, 9],
 });
 
 // Tile layer options for different map styles
@@ -282,6 +300,9 @@ export function MapPlugin() {
   const [isFullscreen, setIsFullscreen] = useState(false);
   const [currentAzimuth, setCurrentAzimuth] = useState(0);
   const [showLayerPicker, setShowLayerPicker] = useState(false);
+  const [satellitePositions, setSatellitePositions] = useState<Map<string, SatellitePosition>>(new Map());
+  const [satelliteTLEs, setSatelliteTLEs] = useState<Map<string, SatelliteTLE>>(new Map());
+  const [satelliteOrbits, setSatelliteOrbits] = useState<Map<string, Array<{ lat: number; lon: number }>>>(new Map());
   const [rbnSpots, setRbnSpots] = useState<RbnSpot[]>([]);
   const [showRbnPanel, setShowRbnPanel] = useState(false);
   const [showOverlayPanel, setShowOverlayPanel] = useState(false);
@@ -407,6 +428,60 @@ export function MapPlugin() {
     return () => observer.disconnect();
   }, []);
 
+  // Fetch TLE data and initialize satellite tracking
+  useEffect(() => {
+    if (!settings.map.showSatellites || settings.map.selectedSatellites.length === 0) {
+      setSatelliteTLEs(new Map());
+      setSatellitePositions(new Map());
+      setSatelliteOrbits(new Map());
+      return;
+    }
+
+    const loadTLEData = async () => {
+      try {
+        const tleData = await fetchTLEData(settings.map.selectedSatellites);
+        setSatelliteTLEs(tleData);
+      } catch (error) {
+        console.error('Failed to load TLE data:', error);
+      }
+    };
+
+    loadTLEData();
+  }, [settings.map.showSatellites, settings.map.selectedSatellites]);
+
+  // Update satellite positions every 5 seconds
+  useEffect(() => {
+    if (satelliteTLEs.size === 0) return;
+
+    const updateSatellitePositions = () => {
+      const now = new Date();
+      const newPositions = new Map<string, SatellitePosition>();
+      const newOrbits = new Map<string, Array<{ lat: number; lon: number }>>();
+
+      satelliteTLEs.forEach((tle, name) => {
+        // Calculate current position
+        const position = calculateSatellitePosition(tle, now, stationLat, stationLon, 0);
+        if (position) {
+          newPositions.set(name, position);
+        }
+
+        // Calculate orbital track (next 90 minutes)
+        const orbitTrack = calculateOrbitTrack(tle, now, 90, 2);
+        newOrbits.set(name, orbitTrack);
+      });
+
+      setSatellitePositions(newPositions);
+      setSatelliteOrbits(newOrbits);
+    };
+
+    // Initial update
+    updateSatellitePositions();
+
+    // Update every 5 seconds
+    const interval = setInterval(updateSatellitePositions, 5000);
+    return () => clearInterval(interval);
+  }, [satelliteTLEs, stationLat, stationLon]);
+
   // Handle click on map to set bearing (only when rotator enabled)
   const handleBearingClick = useCallback((azimuth: number) => {
     if (!rotatorEnabled) return; // Ignore clicks when rotator disabled
@@ -425,6 +500,12 @@ export function MapPlugin() {
     }
     setIsFullscreen(!isFullscreen);
   }, [isFullscreen]);
+
+  // Toggle satellite overlay
+  const toggleSatellites = useCallback(() => {
+    updateMapSettings({ showSatellites: !settings.map.showSatellites });
+    saveSettings();
+  }, [settings.map.showSatellites, updateMapSettings, saveSettings]);
 
   // Generate rotator beam visualization line (cyan)
   const beamLinePoints: [number, number][] = [];
@@ -719,6 +800,81 @@ export function MapPlugin() {
             );
           })}
 
+          {/* Satellite markers and orbital tracks */}
+          {settings.map.showSatellites && Array.from(satellitePositions.entries()).map(([name, position]) => {
+            const orbit = satelliteOrbits.get(name) || [];
+            const orbitPolyline: [number, number][] = orbit.map(p => [p.lat, p.lon]);
+
+            return (
+              <div key={name}>
+                {/* Orbital track line */}
+                {orbitPolyline.length > 0 && (
+                  <Polyline
+                    positions={orbitPolyline}
+                    pathOptions={{
+                      color: '#a855f7',
+                      weight: 2,
+                      opacity: 0.6,
+                      dashArray: '3, 6',
+                    }}
+                  />
+                )}
+
+                {/* Footprint circle */}
+                <Circle
+                  center={[position.latitude, position.longitude]}
+                  radius={position.footprintRadius * 1000}
+                  pathOptions={{
+                    color: '#ec4899',
+                    fillColor: '#ec4899',
+                    fillOpacity: 0.08,
+                    weight: 1,
+                    opacity: 0.5,
+                    dashArray: '5, 5',
+                  }}
+                />
+
+                {/* Satellite marker */}
+                <Marker
+                  position={[position.latitude, position.longitude]}
+                  icon={satelliteIcon}
+                >
+                  <Popup>
+                    <div className="text-center">
+                      <strong className="font-mono text-accent-secondary">{name}</strong>
+                      <br />
+                      <span className="text-xs font-mono text-dark-300">
+                        Alt: {Math.round(position.altitude)} km
+                      </span>
+                      <br />
+                      <span className="text-xs font-mono text-dark-300">
+                        Vel: {position.velocity.toFixed(1)} km/s
+                      </span>
+                      {position.elevation !== undefined && position.elevation > 0 && (
+                        <>
+                          <br />
+                          <span className="text-xs font-mono text-accent-primary">
+                            Az: {position.azimuth?.toFixed(0)}° El: {position.elevation.toFixed(0)}°
+                          </span>
+                          <br />
+                          <span className="text-xs font-mono text-accent-success">
+                            VISIBLE
+                          </span>
+                        </>
+                      )}
+                      {position.eclipsed && (
+                        <>
+                          <br />
+                          <span className="text-xs text-gray-500">Eclipsed</span>
+                        </>
+                      )}
+                    </div>
+                  </Popup>
+                </Marker>
+              </div>
+            );
+          })}
+
           {/* DX Cluster spot paths overlay */}
           {dxClusterMapEnabled && spotPaths.map((sp) => {
             const isHovered = hoveredSpotId === sp.spot.id;
@@ -783,6 +939,16 @@ export function MapPlugin() {
             title="Zoom Out"
           >
             <ZoomOut className="w-4 h-4" />
+          </button>
+          <button
+            onClick={(e) => {
+              e.stopPropagation();
+              toggleSatellites();
+            }}
+            className={`glass-button p-2 ${settings.map.showSatellites ? 'bg-accent-primary/20' : ''}`}
+            title={settings.map.showSatellites ? "Hide Satellites" : "Show Satellites"}
+          >
+            <Satellite className="w-4 h-4" />
           </button>
           <div className="relative">
             <button

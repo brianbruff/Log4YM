@@ -78,6 +78,8 @@ export interface RbnSettings {
 
 export interface MapSettings {
   tileLayer: 'osm' | 'dark' | 'satellite' | 'terrain';
+  showSatellites: boolean;
+  selectedSatellites: string[];
   rbn: RbnSettings;
   showDayNightOverlay: boolean;
   showGrayLine: boolean;
@@ -130,7 +132,7 @@ export interface Settings {
   ai: AiSettings;
 }
 
-export type SettingsSection = 'station' | 'qrz' | 'rotator' | 'database' | 'appearance' | 'header' | 'ai' | 'about';
+export type SettingsSection = 'station' | 'qrz' | 'rotator' | 'database' | 'appearance' | 'map' | 'header' | 'ai' | 'about';
 
 interface SettingsState {
   // Settings data
@@ -223,6 +225,8 @@ const defaultSettings: Settings = {
   },
   map: {
     tileLayer: 'dark',
+    showSatellites: false,
+    selectedSatellites: ['ISS', 'AO-91', 'SO-50'],
     rbn: {
       enabled: false,
       opacity: 0.7,

@@ -29,6 +29,7 @@ import {
   Terminal,
   Copy,
   Check,
+  Map,
   Bot,
   Sun,
   Moon,
@@ -69,6 +70,12 @@ const SETTINGS_SECTIONS: { id: SettingsSection; name: string; icon: React.ReactN
     name: 'Appearance',
     icon: <Palette className="w-5 h-5" />,
     description: 'Theme and display options',
+  },
+  {
+    id: 'map',
+    name: 'Map',
+    icon: <Map className="w-5 h-5" />,
+    description: 'Map overlay and satellite settings',
   },
   {
     id: 'header',
@@ -1429,6 +1436,101 @@ function AppearanceSettingsSection() {
   );
 }
 
+// Map Settings Section
+function MapSettingsSection() {
+  const { settings, updateMapSettings } = useSettingsStore();
+  const map = settings.map;
+  const [availableSatellites] = useState([
+    'ISS', 'AO-91', 'AO-92', 'SO-50', 'PO-101', 'RS-44', 'IO-117',
+    'TEVEL-1', 'TEVEL-2', 'TEVEL-3', 'TEVEL-4', 'TEVEL-5', 'TEVEL-6', 'TEVEL-7', 'TEVEL-8'
+  ]);
+
+  const toggleSatellite = (satellite: string) => {
+    const selected = map.selectedSatellites || [];
+    const newSelected = selected.includes(satellite)
+      ? selected.filter(s => s !== satellite)
+      : [...selected, satellite];
+    updateMapSettings({ selectedSatellites: newSelected });
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold font-ui text-dark-200 mb-1">Map Settings</h3>
+        <p className="text-sm text-dark-300">Configure map overlays and satellite tracking options.</p>
+      </div>
+
+      <div className="space-y-4">
+        {/* Show Satellites Toggle */}
+        <label className="flex items-center justify-between p-4 bg-dark-700/50 rounded-lg border border-glass-100 cursor-pointer hover:bg-dark-700 transition-colors">
+          <div className="flex items-center gap-3">
+            <Map className="w-5 h-5 text-accent-primary" />
+            <div>
+              <div className="font-medium font-ui text-dark-200">Show Satellites</div>
+              <div className="text-sm text-dark-300">Display satellite positions and orbital tracks on map</div>
+            </div>
+          </div>
+          <input
+            type="checkbox"
+            checked={map.showSatellites}
+            onChange={(e) => updateMapSettings({ showSatellites: e.target.checked })}
+            className="w-5 h-5 rounded bg-dark-700 border-glass-100 text-accent-primary focus:ring-2 focus:ring-accent-primary focus:ring-offset-0 focus:ring-offset-dark-800"
+          />
+        </label>
+
+        {/* Satellite Selection */}
+        {map.showSatellites && (
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-sm font-medium font-ui text-dark-200">
+              Selected Satellites
+            </label>
+            <div className="grid grid-cols-3 gap-2">
+              {availableSatellites.map((satellite) => {
+                const isSelected = (map.selectedSatellites || []).includes(satellite);
+                return (
+                  <button
+                    key={satellite}
+                    onClick={() => toggleSatellite(satellite)}
+                    className={`px-3 py-2 rounded-lg border transition-colors text-sm font-mono ${
+                      isSelected
+                        ? 'bg-accent-primary/10 border-accent-primary text-accent-primary'
+                        : 'bg-dark-700/50 border-glass-100 text-dark-300 hover:bg-dark-700'
+                    }`}
+                  >
+                    {satellite}
+                  </button>
+                );
+              })}
+            </div>
+            <p className="text-xs text-dark-300">
+              Select which amateur radio satellites to track on the map. TLE data is fetched from Celestrak.
+            </p>
+          </div>
+        )}
+
+        {/* Info about satellite tracking */}
+        <div className="p-4 bg-dark-700/30 rounded-lg border border-glass-100">
+          <div className="flex gap-3">
+            <Info className="w-5 h-5 text-accent-info flex-shrink-0 mt-0.5" />
+            <div className="space-y-2 text-sm text-dark-300">
+              <p>
+                <strong className="text-dark-200">Satellite Tracking Features:</strong>
+              </p>
+              <ul className="list-disc list-inside space-y-1 ml-2">
+                <li>Real-time satellite positions updated every 5 seconds</li>
+                <li>Orbital track lines showing 90-minute path</li>
+                <li>Footprint circles indicating coverage area</li>
+                <li>Azimuth/elevation angles when satellite is visible from your location</li>
+                <li>Eclipse status (satellite in Earth's shadow)</li>
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 // Header Settings Section
 function HeaderSettingsSection() {
   const { settings, updateHeaderSettings } = useSettingsStore();
@@ -1727,6 +1829,8 @@ export function SettingsPanel() {
         return <DatabaseSettingsSection />;
       case 'appearance':
         return <AppearanceSettingsSection />;
+      case 'map':
+        return <MapSettingsSection />;
       case 'header':
         return <HeaderSettingsSection />;
       case 'ai':

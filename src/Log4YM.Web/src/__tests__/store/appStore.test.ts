@@ -15,7 +15,6 @@ describe('appStore', () => {
       selectedSpot: null,
       clusterStatuses: {},
       potaSpots: [],
-      showPotaMapMarkers: false,
       dxClusterMapEnabled: false,
       hoveredSpotId: null,
     });
@@ -148,13 +147,6 @@ describe('appStore', () => {
       expect(useAppStore.getState().potaSpots).toHaveLength(1);
     });
 
-    it('toggles POTA map markers', () => {
-      useAppStore.getState().setShowPotaMapMarkers(true);
-      expect(useAppStore.getState().showPotaMapMarkers).toBe(true);
-
-      useAppStore.getState().setShowPotaMapMarkers(false);
-      expect(useAppStore.getState().showPotaMapMarkers).toBe(false);
-    });
   });
 
   describe('DX cluster map', () => {

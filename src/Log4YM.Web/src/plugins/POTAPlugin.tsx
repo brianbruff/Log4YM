@@ -9,6 +9,7 @@ import { api, PotaSpot } from '../api/client';
 import { useSignalR } from '../hooks/useSignalR';
 import { GlassPanel } from '../components/GlassPanel';
 import { useAppStore } from '../store/appStore';
+import { useSettingsStore } from '../store/settingsStore';
 
 const formatTime = (dateStr: string) => {
   if (!dateStr) return '--:--';
@@ -67,7 +68,8 @@ const TimeCellRenderer = (props: ICellRendererParams<PotaSpot>) => {
 
 export function POTAPlugin() {
   const { selectSpot } = useSignalR();
-  const { showPotaMapMarkers, setShowPotaMapMarkers, setPotaSpots } = useAppStore();
+  const { setPotaSpots } = useAppStore();
+  const { settings, updateMapSettings, saveSettings } = useSettingsStore();
 
   const { data: spots, isLoading } = useQuery({
     queryKey: ['pota-spots'],
@@ -189,9 +191,12 @@ export function POTAPlugin() {
             {filteredSpots?.length || 0} active
           </span>
           <button
-            onClick={() => setShowPotaMapMarkers(!showPotaMapMarkers)}
-            className={`glass-button p-1.5 ${showPotaMapMarkers ? 'text-accent-success' : 'text-gray-500'}`}
-            title={showPotaMapMarkers ? 'Hide map markers' : 'Show map markers'}
+            onClick={() => {
+              updateMapSettings({ showPotaOverlay: !settings.map.showPotaOverlay });
+              saveSettings();
+            }}
+            className={`glass-button p-1.5 ${settings.map.showPotaOverlay ? 'text-accent-info' : 'text-dark-300'}`}
+            title={settings.map.showPotaOverlay ? 'Hide map overlay' : 'Show map overlay'}
           >
             <Map className="w-4 h-4" />
           </button>

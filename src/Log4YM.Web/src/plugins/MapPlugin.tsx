@@ -61,21 +61,19 @@ const targetIcon = new L.DivIcon({
   iconAnchor: [10, 10],
 });
 
-// Custom POTA marker (green triangle)
+// Custom POTA marker (pine tree)
 const potaIcon = new L.DivIcon({
   className: 'custom-pota-marker',
   html: `
-    <div style="
-      width: 0;
-      height: 0;
-      border-left: 8px solid transparent;
-      border-right: 8px solid transparent;
-      border-bottom: 14px solid #10b981;
-      filter: drop-shadow(0 0 4px rgba(16, 185, 129, 0.6));
-    "></div>
+    <div style="filter: drop-shadow(0 0 4px rgba(16, 185, 129, 0.5));">
+      <svg width="20" height="24" viewBox="0 0 20 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <path d="M10 1L3 10h3L2 16h5v6h6v-6h5l-4-6h3L10 1z" fill="#10b981" stroke="#065f46" stroke-width="0.75"/>
+        <rect x="8" y="16" width="4" height="6" fill="#7c5e3c" stroke="#5c4033" stroke-width="0.5"/>
+      </svg>
+    </div>
   `,
-  iconSize: [16, 14],
-  iconAnchor: [8, 14],
+  iconSize: [20, 24],
+  iconAnchor: [10, 24],
 });
 
 // Custom satellite marker (purple/magenta diamond)
@@ -291,7 +289,7 @@ export function MapPlugin() {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const lastTargetCoordsRef = useRef<{ lat: number; lon: number } | null>(null);
-  const { stationGrid, rotatorPosition, focusedCallsignInfo, potaSpots, showPotaMapMarkers, dxClusterMapEnabled, hoveredSpotId } = useAppStore();
+  const { stationGrid, rotatorPosition, focusedCallsignInfo, potaSpots, dxClusterMapEnabled, hoveredSpotId } = useAppStore();
   const { settings, updateMapSettings, saveSettings } = useSettingsStore();
   const { commandRotator } = useSignalR();
 
@@ -771,7 +769,7 @@ export function MapPlugin() {
           })}
 
           {/* POTA markers - show when enabled and we have spot data with coordinates */}
-          {showPotaMapMarkers && potaSpots.map((spot) => {
+          {settings.map.showPotaOverlay && potaSpots.map((spot) => {
             if (!spot.latitude || !spot.longitude) return null;
             return (
               <Marker
@@ -784,6 +782,12 @@ export function MapPlugin() {
                     <strong className="text-accent-success font-mono">{spot.activator}</strong>
                     <br />
                     <span className="text-xs font-mono text-accent-info">{spot.reference}</span>
+                    {spot.parkName && (
+                      <>
+                        <br />
+                        <span className="text-xs text-gray-300">{spot.parkName}</span>
+                      </>
+                    )}
                     <br />
                     <span className="text-xs text-gray-400">
                       {(parseFloat(spot.frequency) / 1000).toFixed(3)} MHz • {spot.mode}

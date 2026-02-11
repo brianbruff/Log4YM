@@ -20,17 +20,20 @@
     "dev:vite": "electron . --dev --vite",
     "build:frontend": "cd ../Log4YM.Web && npm run build",
     "copy:frontend:win": "cp -r ../Log4YM.Web/dist ../Log4YM.Server/bin/Release/net10.0/win-x64/publish/wwwroot",
+    "copy:frontend:win-x86": "cp -r ../Log4YM.Web/dist ../Log4YM.Server/bin/Release/net10.0/win-x86/publish/wwwroot",
     "copy:frontend:mac-x64": "cp -r ../Log4YM.Web/dist ../Log4YM.Server/bin/Release/net10.0/osx-x64/publish/wwwroot",
     "copy:frontend:mac-arm64": "cp -r ../Log4YM.Web/dist ../Log4YM.Server/bin/Release/net10.0/osx-arm64/publish/wwwroot",
     "copy:frontend:linux": "cp -r ../Log4YM.Web/dist ../Log4YM.Server/bin/Release/net10.0/linux-x64/publish/wwwroot",
     "build:backend:win": "dotnet publish ../Log4YM.Server -c Release --self-contained -r win-x64 -o ../Log4YM.Server/bin/Release/net10.0/win-x64/publish && npm run copy:frontend:win",
+    "build:backend:win-x86": "dotnet publish ../Log4YM.Server -c Release --self-contained -r win-x86 -o ../Log4YM.Server/bin/Release/net10.0/win-x86/publish && npm run copy:frontend:win-x86",
     "build:backend:mac-x64": "dotnet publish ../Log4YM.Server -c Release --self-contained -r osx-x64 -o ../Log4YM.Server/bin/Release/net10.0/osx-x64/publish && npm run copy:frontend:mac-x64",
     "build:backend:mac-arm64": "dotnet publish ../Log4YM.Server -c Release --self-contained -r osx-arm64 -o ../Log4YM.Server/bin/Release/net10.0/osx-arm64/publish && npm run copy:frontend:mac-arm64",
     "build:backend:linux": "dotnet publish ../Log4YM.Server -c Release --self-contained -r linux-x64 -o ../Log4YM.Server/bin/Release/net10.0/linux-x64/publish && npm run copy:frontend:linux",
-    "package:win": "npm run build:frontend && npm run build:backend:win && electron-builder --win",
+    "package:win": "npm run build:frontend && npm run build:backend:win && electron-builder --win --x64",
+    "package:win-x86": "npm run build:frontend && npm run build:backend:win-x86 && electron-builder --win --ia32",
     "package:mac": "npm run build:frontend && npm run build:backend:mac-x64 && npm run build:backend:mac-arm64 && electron-builder --mac",
     "package:linux": "npm run build:frontend && npm run build:backend:linux && electron-builder --linux",
-    "package:all": "npm run build:frontend && npm run build:backend:win && npm run build:backend:mac-x64 && npm run build:backend:mac-arm64 && npm run build:backend:linux && electron-builder --win --mac --linux"
+    "package:all": "npm run build:frontend && npm run build:backend:win && npm run build:backend:win-x86 && npm run build:backend:mac-x64 && npm run build:backend:mac-arm64 && npm run build:backend:linux && electron-builder --win --mac --linux"
   },
   "dependencies": {
     "electron-log": "^5.1.7"

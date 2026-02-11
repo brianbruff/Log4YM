@@ -69,7 +69,8 @@ public record SpotReceivedEvent(
     DateTime Timestamp,
     string Source,
     string? Country,
-    int? Dxcc
+    int? Dxcc,
+    string? Grid
 );
 
 /// <summary>
@@ -421,6 +422,42 @@ public record SelectRadioSliceCommand(
 public record SelectRadioInstanceCommand(
     string RadioId,
     int Instance
+);
+
+// ===== CW Keyer Commands and Events =====
+
+/// <summary>
+/// Command to send CW/Morse code text
+/// </summary>
+public record SendCwKeyCommand(
+    string RadioId,
+    string Message,
+    int? SpeedWpm = null
+);
+
+/// <summary>
+/// Command to stop CW keying immediately
+/// </summary>
+public record StopCwKeyCommand(
+    string RadioId
+);
+
+/// <summary>
+/// Command to set CW keyer speed
+/// </summary>
+public record SetCwSpeedCommand(
+    string RadioId,
+    int SpeedWpm
+);
+
+/// <summary>
+/// CW keyer status event
+/// </summary>
+public record CwKeyerStatusEvent(
+    string RadioId,
+    bool IsKeying,
+    int SpeedWpm,
+    string? CurrentMessage = null
 );
 
 // ===== Hamlib Configuration Events =====

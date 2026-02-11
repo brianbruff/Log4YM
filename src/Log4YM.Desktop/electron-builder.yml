@@ -28,7 +28,7 @@ icon: assets/icon.png
 win:
   target:
     - target: nsis
-      arch: [x64]
+      arch: [x64, ia32]
   artifactName: "${productName}-${version}-${os}-${arch}.${ext}"
 
 nsis:

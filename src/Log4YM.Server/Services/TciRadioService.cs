@@ -45,6 +45,10 @@ public class TciRadioService : BackgroundService
     {
         _logger.LogInformation("TCI Radio service starting...");
 
+        // Clear any stale connections and discoveries from previous session
+        _connections.Clear();
+        _discoveredRadios.Clear();
+
         // Auto-connect to TCI if configured
         await TryAutoConnectAsync();
 
@@ -281,10 +285,11 @@ public class TciRadioService : BackgroundService
     {
         var radioId = $"tci-{host}:{port}";
 
-        if (_connections.ContainsKey(radioId))
+        // If already connected or connecting, disconnect first to allow reconnection
+        if (_connections.TryRemove(radioId, out var existingConnection))
         {
-            _logger.LogDebug("Already connected to TCI at {Host}:{Port}", host, port);
-            return;
+            _logger.LogInformation("TCI radio {RadioId} already exists, disconnecting before reconnect", radioId);
+            await existingConnection.DisconnectAsync();
         }
 
         // Create a device entry for direct connection
@@ -328,10 +333,11 @@ public class TciRadioService : BackgroundService
             return;
         }
 
-        if (_connections.ContainsKey(radioId))
+        // If already connected or connecting, disconnect first to allow reconnection
+        if (_connections.TryRemove(radioId, out var existingConnection))
         {
-            _logger.LogDebug("Already connected to TCI radio {RadioId}", radioId);
-            return;
+            _logger.LogInformation("TCI radio {RadioId} already exists, disconnecting before reconnect", radioId);
+            await existingConnection.DisconnectAsync();
         }
 
         await _hubContext.BroadcastRadioConnectionStateChanged(
@@ -372,6 +378,28 @@ public class TciRadioService : BackgroundService
         }
 
         return await connection.SetFrequencyAsync(frequencyHz);
+    }
+
+    public async Task<bool> SendCwAsync(string radioId, string message, int speedWpm)
+    {
+        if (!_connections.TryGetValue(radioId, out var connection))
+        {
+            _logger.LogWarning("Cannot send CW: TCI radio {RadioId} not connected", radioId);
+            return false;
+        }
+
+        return await connection.SendCwAsync(message, speedWpm);
+    }
+
+    public async Task<bool> SetCwSpeedAsync(string radioId, int speedWpm)
+    {
+        if (!_connections.TryGetValue(radioId, out var connection))
+        {
+            _logger.LogWarning("Cannot set CW speed: TCI radio {RadioId} not connected", radioId);
+            return false;
+        }
+
+        return await connection.SetCwSpeedAsync(speedWpm);
     }
 
     public IEnumerable<RadioDiscoveredEvent> GetDiscoveredRadios()
@@ -585,6 +613,32 @@ internal class TciRadioConnection
         // TCI protocol: vfo:rx,channel,frequency; (rx=0/1, channel=0 for VFO-A)
         var command = $"vfo:{_selectedInstance},0,{frequencyHz};";
         _logger.LogDebug("Sending TCI command: {Command}", command);
+        await SendCommandAsync(command);
+        return true;
+    }
+
+    public async Task<bool> SendCwAsync(string message, int speedWpm)
+    {
+        if (!IsConnected) return false;
+
+        // Set speed first
+        await SetCwSpeedAsync(speedWpm);
+
+        // TCI protocol: cw_text:channel,text;
+        // Note: Some implementations may use different channel numbers
+        var command = $"cw_text:{_selectedInstance},{message};";
+        _logger.LogInformation("Sending CW via TCI: {Message} at {Wpm} WPM", message, speedWpm);
+        await SendCommandAsync(command);
+        return true;
+    }
+
+    public async Task<bool> SetCwSpeedAsync(int speedWpm)
+    {
+        if (!IsConnected) return false;
+
+        // TCI protocol: cw_speed:channel,speed;
+        var command = $"cw_speed:{_selectedInstance},{speedWpm};";
+        _logger.LogDebug("Setting CW speed via TCI: {Wpm} WPM", speedWpm);
         await SendCommandAsync(command);
         return true;
     }

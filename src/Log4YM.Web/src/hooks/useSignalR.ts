@@ -38,6 +38,7 @@ export function useSignalRConnection() {
     setSelectedSpot,
     setLogHistoryCallsignFilter,
     setClusterStatus,
+    setCwKeyerStatus,
   } = useAppStore();
 
   useEffect(() => {
@@ -75,16 +76,36 @@ export function useSignalRConnection() {
           signalRService.requestRotatorStatus(),
         ]);
 
-        // 3. Invalidate and refetch React Query caches
+        // 3. Request cluster statuses to update connection states
+        console.log('Requesting cluster statuses...');
+        try {
+          const response = await fetch('/api/cluster/status');
+          if (response.ok) {
+            const statuses = await response.json();
+            // Update app store with current cluster statuses
+            for (const [clusterId, status] of Object.entries(statuses)) {
+              const clusterStatus = status as { clusterId: string; name: string; status: string; errorMessage: string | null };
+              setClusterStatus(clusterId, {
+                clusterId: clusterStatus.clusterId,
+                name: clusterStatus.name,
+                status: clusterStatus.status as 'connected' | 'connecting' | 'disconnected' | 'error',
+                errorMessage: clusterStatus.errorMessage,
+              });
+            }
+          }
+        } catch (err) {
+          console.error('Failed to fetch cluster statuses:', err);
+        }
+
+        // 4. Invalidate and refetch React Query caches
         console.log('Invalidating query caches...');
         await Promise.all([
           queryClient.invalidateQueries({ queryKey: ['qsos'] }),
-          queryClient.invalidateQueries({ queryKey: ['spots'] }),
           queryClient.invalidateQueries({ queryKey: ['statistics'] }),
         ]);
 
         console.log('Rehydration complete');
-        // 4. Now we can set state to fully connected
+        // 5. Now we can set state to fully connected
         setConnectionState('connected', 0);
       } catch (err) {
         console.error('Error during rehydration:', err);
@@ -115,9 +136,25 @@ export function useSignalRConnection() {
             queryClient.invalidateQueries({ queryKey: ['qsos'] });
             queryClient.invalidateQueries({ queryKey: ['statistics'] });
           },
-          onSpotReceived: () => {
-            // Invalidate spots query
-            queryClient.invalidateQueries({ queryKey: ['spots'] });
+          onSpotReceived: (evt) => {
+            // Add spot to ephemeral in-memory store
+            const spot = {
+              id: evt.id,
+              dxCall: evt.dxCall,
+              spotter: evt.spotter,
+              frequency: evt.frequency,
+              mode: evt.mode,
+              comment: evt.comment,
+              source: evt.source,
+              timestamp: evt.timestamp,
+              country: evt.country,
+              dxStation: (evt.country || evt.dxcc || evt.grid) ? {
+                country: evt.country,
+                dxcc: evt.dxcc,
+                grid: evt.grid,
+              } : undefined,
+            };
+            useAppStore.getState().addDxClusterSpot(spot);
           },
           onSpotSelected: (evt) => {
             console.log('Spot selected:', evt.dxCall, evt.frequency, evt.mode);
@@ -199,6 +236,11 @@ export function useSignalRConnection() {
           onRadioSlicesUpdated: (evt) => {
             console.log('Radio slices updated:', evt.radioId, evt.slices.length);
             setRadioSlices(evt.radioId, evt.slices);
+          },
+          // CW Keyer handlers
+          onCwKeyerStatus: (evt) => {
+            console.log('CW keyer status:', evt.radioId, 'isKeying:', evt.isKeying, 'speed:', evt.speedWpm);
+            setCwKeyerStatus(evt);
           },
           // SmartUnlink handlers
           onSmartUnlinkRadioAdded: (evt) => {
@@ -327,6 +369,19 @@ export function useSignalR() {
     await signalRService.selectRadioInstance(radioId, instance);
   }, []);
 
+  // CW Keyer methods
+  const sendCwKey = useCallback(async (radioId: string, message: string, speedWpm?: number) => {
+    await signalRService.sendCwKey(radioId, message, speedWpm);
+  }, []);
+
+  const stopCwKey = useCallback(async (radioId: string) => {
+    await signalRService.stopCwKey(radioId);
+  }, []);
+
+  const setCwSpeed = useCallback(async (radioId: string, speedWpm: number) => {
+    await signalRService.setCwSpeed(radioId, speedWpm);
+  }, []);
+
   // Hamlib methods (new native library integration)
   const getHamlibRigList = useCallback(async () => {
     await signalRService.getHamlibRigList();
@@ -444,6 +499,10 @@ export function useSignalR() {
     disconnectRadio,
     selectRadioSlice,
     selectRadioInstance,
+    // CW Keyer
+    sendCwKey,
+    stopCwKey,
+    setCwSpeed,
     // Hamlib (new native integration)
     getHamlibRigList,
     getHamlibRigCaps,

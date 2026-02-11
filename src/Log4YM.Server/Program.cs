@@ -57,15 +57,14 @@ builder.Services.AddSingleton<MongoDbContext>();
 
 // Register repositories
 builder.Services.AddScoped<IQsoRepository, QsoRepository>();
-builder.Services.AddScoped<ISpotRepository, SpotRepository>();
 builder.Services.AddScoped<ISettingsRepository, SettingsRepository>();
 
 // Register services
 builder.Services.AddScoped<IQsoService, QsoService>();
-builder.Services.AddScoped<ISpotService, SpotService>();
 builder.Services.AddScoped<ISettingsService, SettingsService>();
 builder.Services.AddScoped<IQrzService, QrzService>();
 builder.Services.AddScoped<IAdifService, AdifService>();
+builder.Services.AddScoped<IAiService, AiService>();
 
 // Register HTTP client for external APIs
 builder.Services.AddHttpClient("QRZ", client =>
@@ -74,8 +73,20 @@ builder.Services.AddHttpClient("QRZ", client =>
     client.DefaultRequestHeaders.Add("User-Agent", "Log4YM/1.0");
 });
 
+builder.Services.AddHttpClient("AI", client =>
+{
+    client.Timeout = TimeSpan.FromSeconds(60);
+    client.DefaultRequestHeaders.Add("User-Agent", "Log4YM/1.0");
+});
+
 // Register default HTTP client factory for space weather and other APIs
 builder.Services.AddHttpClient();
+
+// Register Space Weather service (shared data source for controllers and propagation)
+builder.Services.AddSingleton<ISpaceWeatherService, SpaceWeatherService>();
+
+// Register Propagation service
+builder.Services.AddSingleton<IPropagationService, PropagationService>();
 
 // Register Contests service
 builder.Services.AddSingleton<ContestsService>();
@@ -118,6 +129,14 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<RotatorService>())
 builder.Services.AddSingleton<DxClusterService>();
 builder.Services.AddSingleton<IDxClusterService>(sp => sp.GetRequiredService<DxClusterService>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<DxClusterService>());
+
+// Register RBN service
+builder.Services.AddSingleton<RbnService>();
+builder.Services.AddSingleton<IRbnService>(sp => sp.GetRequiredService<RbnService>());
+builder.Services.AddHostedService(sp => sp.GetRequiredService<RbnService>());
+
+// Register CW Keyer service
+builder.Services.AddSingleton<CwKeyerService>();
 
 var app = builder.Build();
 

@@ -54,10 +54,27 @@ export interface RadioSettings {
   tci: TciSettings;
 }
 
+export interface RbnSettings {
+  enabled: boolean;
+  opacity: number;
+  showPaths: boolean;
+  timeWindowMinutes: number;
+  minSnr: number;
+  bands: string[];
+  modes: string[];
+}
+
 export interface MapSettings {
   tileLayer: 'osm' | 'dark' | 'satellite' | 'terrain';
   showSatellites: boolean;
-  selectedSatellites: string[]; // Array of satellite names to track
+  selectedSatellites: string[];
+  rbn: RbnSettings;
+  showDayNightOverlay: boolean;
+  showGrayLine: boolean;
+  showSunMarker: boolean;
+  showMoonMarker: boolean;
+  dayNightOpacity: number;
+  grayLineOpacity: number;
 }
 
 export interface HeaderSettings {
@@ -81,6 +98,16 @@ export interface ClusterSettings {
   connections: ClusterConnection[];
 }
 
+export interface AiSettings {
+  provider: 'anthropic' | 'openai';
+  apiKey: string;
+  model: string;
+  autoGenerateTalkPoints: boolean;
+  includeQrzProfile: boolean;
+  includeQsoHistory: boolean;
+  includeSpotComments: boolean;
+}
+
 export interface Settings {
   station: StationSettings;
   qrz: QrzSettings;
@@ -90,9 +117,10 @@ export interface Settings {
   map: MapSettings;
   cluster: ClusterSettings;
   header: HeaderSettings;
+  ai: AiSettings;
 }
 
-export type SettingsSection = 'station' | 'qrz' | 'rotator' | 'database' | 'appearance' | 'map' | 'header' | 'about';
+export type SettingsSection = 'station' | 'qrz' | 'rotator' | 'database' | 'appearance' | 'map' | 'header' | 'ai' | 'about';
 
 interface SettingsState {
   // Settings data
@@ -121,6 +149,7 @@ interface SettingsState {
   updateClusterSettings: (cluster: Partial<ClusterSettings>) => void;
   updateClusterConnection: (connectionId: string, connection: Partial<ClusterConnection>) => void;
   updateHeaderSettings: (header: Partial<HeaderSettings>) => void;
+  updateAiSettings: (ai: Partial<AiSettings>) => void;
   addClusterConnection: () => void;
   removeClusterConnection: (connectionId: string) => void;
 
@@ -180,7 +209,22 @@ const defaultSettings: Settings = {
   map: {
     tileLayer: 'dark',
     showSatellites: false,
-    selectedSatellites: ['ISS', 'AO-91', 'SO-50'], // Default popular ham satellites
+    selectedSatellites: ['ISS', 'AO-91', 'SO-50'],
+    rbn: {
+      enabled: false,
+      opacity: 0.7,
+      showPaths: true,
+      timeWindowMinutes: 5,
+      minSnr: -10,
+      bands: ['all'],
+      modes: ['CW', 'RTTY'],
+    },
+    showDayNightOverlay: false,
+    showGrayLine: false,
+    showSunMarker: true,
+    showMoonMarker: true,
+    dayNightOpacity: 0.5,
+    grayLineOpacity: 0.6,
   },
   cluster: {
     connections: [],
@@ -190,6 +234,15 @@ const defaultSettings: Settings = {
     sizeMultiplier: 1.0,
     showWeather: true,
     weatherLocation: '',
+  },
+  ai: {
+    provider: 'anthropic',
+    apiKey: '',
+    model: 'claude-sonnet-4-5-20250929',
+    autoGenerateTalkPoints: true,
+    includeQrzProfile: true,
+    includeQsoHistory: true,
+    includeSpotComments: false,
   },
 };
 
@@ -288,6 +341,16 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
       settings: {
         ...state.settings,
         header: { ...state.settings.header, ...header },
+      },
+      isDirty: true,
+    })),
+
+  // AI settings
+  updateAiSettings: (ai) =>
+    set((state) => ({
+      settings: {
+        ...state.settings,
+        ai: { ...state.settings.ai, ...ai },
       },
       isDirty: true,
     })),
@@ -405,9 +468,14 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
             autoConnectRigId: settings.radio?.autoConnectRigId ?? null,
             tci: { ...defaultSettings.radio.tci, ...settings.radio?.tci },
           },
-          map: { ...defaultSettings.map, ...settings.map },
+          map: {
+            ...defaultSettings.map,
+            ...settings.map,
+            rbn: { ...defaultSettings.map.rbn, ...settings.map?.rbn },
+          },
           cluster: { ...defaultSettings.cluster, ...settings.cluster },
           header: { ...defaultSettings.header, ...settings.header },
+          ai: { ...defaultSettings.ai, ...settings.ai },
         };
         set({ settings: mergedSettings, isDirty: false, isLoaded: true });
       } else {

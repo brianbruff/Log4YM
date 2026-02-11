@@ -374,6 +374,28 @@ public class HamlibService : BackgroundService
     }
 
     /// <summary>
+    /// Send CW message via Hamlib
+    /// </summary>
+    public async Task<bool> SendCwAsync(string radioId, string message, int speedWpm)
+    {
+        // TODO: Implement Hamlib CW keying using rig_send_morse
+        // For now, return false to indicate not implemented
+        _logger.LogWarning("Hamlib CW keying not yet implemented");
+        return await Task.FromResult(false);
+    }
+
+    /// <summary>
+    /// Set CW speed via Hamlib
+    /// </summary>
+    public async Task<bool> SetCwSpeedAsync(string radioId, int speedWpm)
+    {
+        // TODO: Implement Hamlib CW speed setting
+        // For now, return false to indicate not implemented
+        _logger.LogWarning("Hamlib CW speed setting not yet implemented");
+        return await Task.FromResult(false);
+    }
+
+    /// <summary>
     /// Get current saved configuration
     /// </summary>
     public async Task<HamlibRigConfig?> LoadConfigAsync()

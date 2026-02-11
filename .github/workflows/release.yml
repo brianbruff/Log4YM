@@ -24,6 +24,10 @@ jobs:
             platform: win
             dotnet_rid: win-x64
             electron_arch: x64
+          - os: windows-latest
+            platform: win
+            dotnet_rid: win-x86
+            electron_arch: ia32
           - os: ubuntu-latest
             platform: linux
             dotnet_rid: linux-x64

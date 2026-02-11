@@ -89,6 +89,21 @@ export interface Spot {
   };
 }
 
+export interface RbnSpot {
+  callsign: string;      // Skimmer callsign
+  dx: string;            // Spotted station
+  frequency: number;     // kHz
+  band: string;
+  mode: string;
+  snr?: number;          // Signal-to-noise ratio in dB
+  speed?: number;        // CW speed in WPM
+  timestamp: string;
+  grid?: string;
+  skimmerLat?: number;
+  skimmerLon?: number;
+  skimmerCountry?: string;
+}
+
 export interface QsoQuery {
   callsign?: string;
   name?: string;
@@ -180,6 +195,21 @@ class ApiClient {
     if (query?.limit) params.append('limit', query.limit.toString());
     const qs = params.toString();
     return this.fetch<Spot[]>(`/spots${qs ? `?${qs}` : ''}`);
+  }
+
+  // RBN
+  async getRbnSpots(minutes: number = 5): Promise<{ count: number; spots: RbnSpot[] }> {
+    return this.fetch(`/rbn/spots?minutes=${minutes}`);
+  }
+
+  async getRbnSkimmerLocation(callsign: string): Promise<{
+    callsign: string;
+    grid: string;
+    lat: number;
+    lon: number;
+    country?: string;
+  }> {
+    return this.fetch(`/rbn/location/${encodeURIComponent(callsign)}`);
   }
 
   // Health
@@ -311,6 +341,28 @@ class ApiClient {
     return response.blob();
   }
 
+  // AI
+  async generateTalkPoints(request: GenerateTalkPointsRequest): Promise<GenerateTalkPointsResponse> {
+    return this.fetch<GenerateTalkPointsResponse>('/ai/talk-points', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  async chat(request: ChatRequest): Promise<ChatResponse> {
+    return this.fetch<ChatResponse>('/ai/chat', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
+  async testApiKey(request: TestApiKeyRequest): Promise<TestApiKeyResponse> {
+    return this.fetch<TestApiKeyResponse>('/ai/test-key', {
+      method: 'POST',
+      body: JSON.stringify(request),
+    });
+  }
+
   // Contests
   async getContests(days: number = 7): Promise<Contest[]> {
     return this.fetch<Contest[]>(`/contests?days=${days}`);
@@ -323,6 +375,15 @@ class ApiClient {
   // DX News
   async getDXNews(): Promise<DXNewsItem[]> {
     return this.fetch<DXNewsItem[]>('/dxnews');
+  }
+
+  // Propagation
+  async getPropagation(dxLat: number, dxLon: number): Promise<PropagationPrediction> {
+    return this.fetch<PropagationPrediction>(`/propagation?dxLat=${dxLat}&dxLon=${dxLon}`);
+  }
+
+  async getGenericConditions(): Promise<GenericBandConditions> {
+    return this.fetch<GenericBandConditions>('/propagation/conditions');
   }
 }
 
@@ -458,12 +519,110 @@ export interface DXpeditionData {
   timestamp: string;
 }
 
+// AI Types
+export interface GenerateTalkPointsRequest {
+  callsign: string;
+  currentBand?: string;
+  currentMode?: string;
+}
+
+export interface GenerateTalkPointsResponse {
+  callsign: string;
+  previousQsos: PreviousQsoSummary[];
+  qrzProfile?: QrzProfileSummary;
+  talkPoints: string[];
+  generatedText: string;
+}
+
+export interface PreviousQsoSummary {
+  qsoDate: string;
+  band: string;
+  mode: string;
+  rstSent?: string;
+  rstRcvd?: string;
+  comment?: string;
+}
+
+export interface QrzProfileSummary {
+  name?: string;
+  location?: string;
+  grid?: string;
+  bio?: string;
+  interests?: string;
+}
+
+export interface ChatRequest {
+  callsign: string;
+  question: string;
+  conversationHistory?: ChatMessage[];
+}
+
+export interface ChatResponse {
+  answer: string;
+}
+
+export interface ChatMessage {
+  role: string; // "user" or "assistant"
+  content: string;
+}
+
+export interface TestApiKeyRequest {
+  provider: string; // "anthropic" or "openai"
+  apiKey: string;
+  model: string;
+}
+
+export interface TestApiKeyResponse {
+  isValid: boolean;
+  errorMessage?: string;
+}
+
 // DX News Types
 export interface DXNewsItem {
   title: string;
   description: string;
   link: string;
   publishedDate: string;
+}
+
+// Propagation Types
+export interface BandPrediction {
+  band: string;
+  freqMHz: number;
+  reliability: number;
+  status: 'EXCELLENT' | 'GOOD' | 'FAIR' | 'POOR' | 'CLOSED';
+}
+
+export interface PropagationPrediction {
+  deLat: number;
+  deLon: number;
+  dxLat: number;
+  dxLon: number;
+  distanceKm: number;
+  bearingDeg: number;
+  mufMHz: number;
+  lufMHz: number;
+  sfi: number;
+  kIndex: number;
+  currentBands: BandPrediction[];
+  heatmapData: number[][];
+  bandNames: string[];
+  timestamp: string;
+}
+
+export interface BandConditionEntry {
+  band: string;
+  dayStatus: string;
+  nightStatus: string;
+}
+
+export interface GenericBandConditions {
+  bands: BandConditionEntry[];
+  sfi: number;
+  kIndex: number;
+  ssn: number;
+  source: string;
+  timestamp: string;
 }
 
 export const api = new ApiClient();

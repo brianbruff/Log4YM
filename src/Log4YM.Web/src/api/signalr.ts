@@ -48,6 +48,7 @@ export interface SpotReceivedEvent {
   source: string;
   country?: string;
   dxcc?: number;
+  grid?: string;
 }
 
 export interface SpotSelectedEvent {
@@ -261,6 +262,29 @@ export interface RadioSliceInfo {
 export interface RadioSlicesUpdatedEvent {
   radioId: string;
   slices: RadioSliceInfo[];
+}
+
+// CW Keyer types
+export interface CwKeyerStatusEvent {
+  radioId: string;
+  isKeying: boolean;
+  speedWpm: number;
+  currentMessage?: string;
+}
+
+export interface SendCwKeyCommand {
+  radioId: string;
+  message: string;
+  speedWpm?: number;
+}
+
+export interface StopCwKeyCommand {
+  radioId: string;
+}
+
+export interface SetCwSpeedCommand {
+  radioId: string;
+  speedWpm: number;
 }
 
 export interface StartRadioDiscoveryCommand {
@@ -477,6 +501,8 @@ type EventHandlers = {
   onRadioConnectionStateChanged?: (evt: RadioConnectionStateChangedEvent) => void;
   onRadioStateChanged?: (evt: RadioStateChangedEvent) => void;
   onRadioSlicesUpdated?: (evt: RadioSlicesUpdatedEvent) => void;
+  // CW Keyer handlers
+  onCwKeyerStatus?: (evt: CwKeyerStatusEvent) => void;
   // Hamlib configuration handlers
   onHamlibRigList?: (evt: HamlibRigListEvent) => void;
   onHamlibRigCaps?: (evt: HamlibRigCapsEvent) => void;
@@ -765,6 +791,11 @@ class SignalRService {
       this.handlers.onRadioSlicesUpdated?.(evt);
     });
 
+    // CW Keyer events
+    this.connection.on('OnCwKeyerStatus', (evt: CwKeyerStatusEvent) => {
+      this.handlers.onCwKeyerStatus?.(evt);
+    });
+
     // Hamlib configuration events
     this.connection.on('OnHamlibRigList', (evt: HamlibRigListEvent) => {
       this.handlers.onHamlibRigList?.(evt);
@@ -895,6 +926,26 @@ class SignalRService {
 
   async requestRadioStatus(): Promise<void> {
     await this.connection?.invoke('RequestRadioStatus');
+  }
+
+  // CW Keyer methods
+  async sendCwKey(radioId: string, message: string, speedWpm?: number): Promise<void> {
+    const cmd: SendCwKeyCommand = { radioId, message, speedWpm };
+    await this.connection?.invoke('SendCwKey', cmd);
+  }
+
+  async stopCwKey(radioId: string): Promise<void> {
+    const cmd: StopCwKeyCommand = { radioId };
+    await this.connection?.invoke('StopCwKey', cmd);
+  }
+
+  async setCwSpeed(radioId: string, speedWpm: number): Promise<void> {
+    const cmd: SetCwSpeedCommand = { radioId, speedWpm };
+    await this.connection?.invoke('SetCwSpeed', cmd);
+  }
+
+  async requestCwKeyerStatus(radioId: string): Promise<void> {
+    await this.connection?.invoke('RequestCwKeyerStatus', radioId);
   }
 
   // Hamlib configuration methods

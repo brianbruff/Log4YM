@@ -11,7 +11,7 @@ import { DayNightOverlay } from '../components/DayNightOverlay';
 import { GrayLineOverlay } from '../components/GrayLineOverlay';
 import { gridToLatLon, calculateDistance, getAnimationDuration } from '../utils/maidenhead';
 import { fetchTLEData, calculateSatellitePosition, calculateOrbitTrack, type SatellitePosition, type SatelliteTLE } from '../utils/satellite';
-import { api, type RbnSpot } from '../api/client';
+import { api, type RbnSpot, type WorkedStation } from '../api/client';
 
 import 'leaflet/dist/leaflet.css';
 
@@ -92,6 +92,54 @@ const satelliteIcon = new L.DivIcon({
   iconSize: [18, 18],
   iconAnchor: [9, 9],
 });
+
+// Function to create a worked station marker with optional QRZ image
+function createWorkedStationIcon(imageUrl?: string, band?: string): L.DivIcon {
+  const bandColor = band ? (BAND_COLORS[band] || '#888888') : '#32CD32';
+
+  if (imageUrl) {
+    // Marker with QRZ profile image
+    return new L.DivIcon({
+      className: 'custom-worked-station-marker',
+      html: `
+        <div style="
+          width: 36px;
+          height: 36px;
+          border-radius: 50%;
+          border: 3px solid ${bandColor};
+          background: white;
+          overflow: hidden;
+          box-shadow: 0 0 8px ${bandColor};
+        ">
+          <img
+            src="${imageUrl}"
+            style="width: 100%; height: 100%; object-fit: cover;"
+            onerror="this.style.display='none'"
+          />
+        </div>
+      `,
+      iconSize: [36, 36],
+      iconAnchor: [18, 18],
+    });
+  } else {
+    // Fallback marker without image
+    return new L.DivIcon({
+      className: 'custom-worked-station-marker',
+      html: `
+        <div style="
+          width: 20px;
+          height: 20px;
+          background: ${bandColor};
+          border: 2px solid #fff;
+          border-radius: 50%;
+          box-shadow: 0 0 6px ${bandColor};
+        "></div>
+      `,
+      iconSize: [20, 20],
+      iconAnchor: [10, 10],
+    });
+  }
+}
 
 // Tile layer options for different map styles
 const TILE_LAYERS = {
@@ -302,6 +350,7 @@ export function MapPlugin() {
   const [satelliteTLEs, setSatelliteTLEs] = useState<Map<string, SatelliteTLE>>(new Map());
   const [satelliteOrbits, setSatelliteOrbits] = useState<Map<string, Array<{ lat: number; lon: number }>>>(new Map());
   const [rbnSpots, setRbnSpots] = useState<RbnSpot[]>([]);
+  const [workedStations, setWorkedStations] = useState<WorkedStation[]>([]);
   const [showRbnPanel, setShowRbnPanel] = useState(false);
   const [showOverlayPanel, setShowOverlayPanel] = useState(false);
 
@@ -558,6 +607,25 @@ export function MapPlugin() {
     return () => clearInterval(interval);
   }, [rbnSettings.enabled, rbnSettings.timeWindowMinutes, settings.station.callsign]);
 
+  // Fetch worked stations when settings change
+  useEffect(() => {
+    if (!settings.map.showWorkedStations || settings.map.workedStationsLimit === 0) {
+      setWorkedStations([]);
+      return;
+    }
+
+    const fetchWorkedStations = async () => {
+      try {
+        const data = await api.getWorkedStations(settings.map.workedStationsLimit);
+        setWorkedStations(data);
+      } catch (error) {
+        console.error('Failed to fetch worked stations:', error);
+      }
+    };
+
+    fetchWorkedStations();
+  }, [settings.map.showWorkedStations, settings.map.workedStationsLimit]);
+
   // Helper function to get SNR color
   const getSNRColor = (snr: number | undefined): string => {
     if (snr === null || snr === undefined) return '#888888';
@@ -798,6 +866,45 @@ export function MapPlugin() {
                         <span className="text-xs text-gray-500">{spot.locationDesc}</span>
                       </>
                     )}
+                  </div>
+                </Popup>
+              </Marker>
+            );
+          })}
+
+          {/* Worked stations markers - show QRZ images with band-colored borders */}
+          {settings.map.showWorkedStations && workedStations.map((station) => {
+            if (!station.latitude || !station.longitude) return null;
+            const icon = createWorkedStationIcon(station.imageUrl, station.band);
+            return (
+              <Marker
+                key={`${station.callsign}-${station.qsoDate}`}
+                position={[station.latitude, station.longitude]}
+                icon={icon}
+              >
+                <Popup>
+                  <div className="text-center">
+                    <strong className="text-accent-primary font-mono">{station.callsign}</strong>
+                    {station.name && (
+                      <>
+                        <br />
+                        <span className="text-xs text-gray-300">{station.name}</span>
+                      </>
+                    )}
+                    <br />
+                    <span className="text-xs font-mono" style={{ color: BAND_COLORS[station.band] || '#888888' }}>
+                      {station.band} • {station.mode}
+                    </span>
+                    {station.grid && (
+                      <>
+                        <br />
+                        <span className="text-xs text-gray-400">{station.grid}</span>
+                      </>
+                    )}
+                    <br />
+                    <span className="text-xs text-gray-500">
+                      {new Date(station.qsoDate).toLocaleDateString()}
+                    </span>
                   </div>
                 </Popup>
               </Marker>
@@ -1139,6 +1246,50 @@ export function MapPlugin() {
                     </label>
                   </div>
                 )}
+
+                <div className="mt-3 mb-2 pt-2 border-t border-dark-600">
+                  <div className="text-xs font-ui text-dark-200 mb-2 font-semibold">Worked Stations</div>
+
+                  {/* Worked Stations Toggle */}
+                  <label className="flex items-center gap-2 mb-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={settings.map.showWorkedStations}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        updateMapSettings({ showWorkedStations: e.target.checked });
+                        saveSettings();
+                      }}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-sm font-ui text-dark-200">Show Worked Stations</span>
+                  </label>
+
+                  {/* Worked Stations Limit Slider */}
+                  {settings.map.showWorkedStations && (
+                    <div className="ml-6">
+                      <label className="flex items-center gap-2 text-xs text-dark-300">
+                        <span>Limit:</span>
+                        <input
+                          type="range"
+                          min="0"
+                          max="100"
+                          step="5"
+                          value={settings.map.workedStationsLimit}
+                          onChange={(e) => {
+                            updateMapSettings({ workedStationsLimit: parseInt(e.target.value) });
+                          }}
+                          onMouseUp={() => saveSettings()}
+                          className="flex-1"
+                        />
+                        <span>{settings.map.workedStationsLimit}</span>
+                      </label>
+                      <div className="text-xs text-dark-400 mt-1">
+                        {workedStations.length} station{workedStations.length !== 1 ? 's' : ''} shown
+                      </div>
+                    </div>
+                  )}
+                </div>
 
                 <div className="mt-3 pt-2 border-t border-dark-600 text-xs text-dark-400">
                   Updates every 60 seconds

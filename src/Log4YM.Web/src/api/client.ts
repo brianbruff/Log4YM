@@ -71,6 +71,18 @@ export interface QsoStatistics {
   qsosByMode: Record<string, number>;
 }
 
+export interface WorkedStation {
+  callsign: string;
+  qsoDate: string;
+  band: string;
+  mode: string;
+  name?: string;
+  latitude?: number;
+  longitude?: number;
+  grid?: string;
+  imageUrl?: string;
+}
+
 export interface Spot {
   id: string;
   dxCall: string;
@@ -185,6 +197,10 @@ class ApiClient {
 
   async getStatistics(): Promise<QsoStatistics> {
     return this.fetch<QsoStatistics>('/qsos/statistics');
+  }
+
+  async getWorkedStations(limit: number = 100): Promise<WorkedStation[]> {
+    return this.fetch<WorkedStation[]>(`/qsos/worked-stations?limit=${limit}`);
   }
 
   // Spots

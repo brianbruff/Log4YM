@@ -88,6 +88,8 @@ export interface MapSettings {
   showMoonMarker: boolean;
   dayNightOpacity: number;
   grayLineOpacity: number;
+  showWorkedStations: boolean;
+  workedStationsLimit: number; // 0-100
 }
 
 export interface HeaderSettings {
@@ -244,6 +246,8 @@ const defaultSettings: Settings = {
     showMoonMarker: true,
     dayNightOpacity: 0.5,
     grayLineOpacity: 0.6,
+    showWorkedStations: true,
+    workedStationsLimit: 50,
   },
   cluster: {
     connections: [],

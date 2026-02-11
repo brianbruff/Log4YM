@@ -17,3 +17,4 @@ export { DXpeditionsPlugin } from './DXpeditionsPlugin';
 export { ChatAiPlugin } from './ChatAiPlugin';
 export { POTAPlugin } from './POTAPlugin';
 export { PropagationPanelPlugin } from './PropagationPanelPlugin';
+export { CwKeyerPlugin } from './CwKeyerPlugin';

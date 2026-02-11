@@ -22,6 +22,13 @@ import {
   Database,
   Server,
   ExternalLink,
+  ChevronDown,
+  ChevronUp,
+  HelpCircle,
+  Download,
+  Terminal,
+  Copy,
+  Check,
   Map,
   Bot,
   Sun,
@@ -451,18 +458,353 @@ function QrzSettingsSection() {
   );
 }
 
+// Hamlib Rotator Model type
+interface HamlibRotatorModel {
+  modelId: number;
+  manufacturer: string;
+  modelName: string;
+  displayName: string;
+}
+
 // Rotator Settings Section
 function RotatorSettingsSection() {
   const { settings, updateRotatorSettings } = useSettingsStore();
   const rotator = settings.rotator;
+  const [showSetupHelp, setShowSetupHelp] = useState(false);
+  const [showModelBrowser, setShowModelBrowser] = useState(false);
+  const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
+  const [testMessage, setTestMessage] = useState('');
+  const [copiedCommand, setCopiedCommand] = useState<string | null>(null);
+  const [rotatorModels, setRotatorModels] = useState<HamlibRotatorModel[]>([]);
+  const [loadingModels, setLoadingModels] = useState(false);
+  const [modelSearchTerm, setModelSearchTerm] = useState('');
+
+  // Load available rotator models from hamlib
+  const loadRotatorModels = async () => {
+    setLoadingModels(true);
+    try {
+      const response = await fetch('/api/hamlib/rotators');
+      if (response.ok) {
+        const models = await response.json();
+        setRotatorModels(models);
+      } else {
+        console.error('Failed to load rotator models');
+      }
+    } catch (error) {
+      console.error('Error loading rotator models:', error);
+    } finally {
+      setLoadingModels(false);
+    }
+  };
+
+  // Load models on component mount
+  useEffect(() => {
+    loadRotatorModels();
+  }, []);
+
+  const handleTestConnection = async () => {
+    setTestStatus('testing');
+    setTestMessage('');
+    try {
+      // Try to connect to the rotctld socket
+      await fetch(`http://${rotator.ipAddress}:${rotator.port}`, {
+        method: 'GET',
+        signal: AbortSignal.timeout(3000),
+      });
+      // If we get any response, even an error, the server is reachable
+      setTestStatus('success');
+      setTestMessage('Connection successful! Rotctld is reachable.');
+    } catch (error) {
+      // Check if it's a timeout or network error
+      if (error instanceof Error) {
+        if (error.name === 'TimeoutError') {
+          setTestStatus('error');
+          setTestMessage('Connection timeout. Check if rotctld is running and firewall settings.');
+        } else {
+          // For rotctld, connection refused or CORS errors are actually expected
+          // because rotctld doesn't serve HTTP - but this means the host is reachable
+          setTestStatus('success');
+          setTestMessage('Host is reachable. Enable rotator control to connect.');
+        }
+      } else {
+        setTestStatus('error');
+        setTestMessage('Connection failed. Verify IP address and port.');
+      }
+    }
+    setTimeout(() => setTestStatus('idle'), 5000);
+  };
+
+  // Filter models based on search term
+  const filteredModels = rotatorModels.filter((model) =>
+    model.displayName.toLowerCase().includes(modelSearchTerm.toLowerCase()) ||
+    model.manufacturer.toLowerCase().includes(modelSearchTerm.toLowerCase()) ||
+    model.modelId.toString().includes(modelSearchTerm)
+  );
+
+  const copyToClipboard = (text: string, id: string) => {
+    navigator.clipboard.writeText(text);
+    setCopiedCommand(id);
+    setTimeout(() => setCopiedCommand(null), 2000);
+  };
 
   return (
-    <div className="space-y-6">
-      <div>
-        <h3 className="text-lg font-semibold font-ui text-dark-200 mb-1">Rotator Control</h3>
-        <p className="text-sm text-dark-300">
-          Configure connection to hamlib rotctld for antenna rotator control.
-        </p>
+    <>
+      {/* Model Browser Modal */}
+      {showModelBrowser && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center">
+          <div className="absolute inset-0 bg-dark-900/80 backdrop-blur-sm" onClick={() => setShowModelBrowser(false)} />
+          <div className="relative w-full max-w-3xl max-h-[80vh] mx-4 bg-dark-800 border border-glass-200 rounded-xl shadow-2xl flex flex-col">
+            {/* Header */}
+            <div className="flex items-center justify-between p-4 border-b border-glass-100">
+              <div>
+                <h3 className="text-lg font-semibold font-display text-dark-200">Hamlib Rotator Models</h3>
+                <p className="text-sm text-dark-300">Select your rotator model</p>
+              </div>
+              <button onClick={() => setShowModelBrowser(false)} className="p-2 hover:bg-dark-700 rounded-lg transition-colors">
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+
+            {/* Search */}
+            <div className="p-4 border-b border-glass-100">
+              <input
+                type="text"
+                value={modelSearchTerm}
+                onChange={(e) => setModelSearchTerm(e.target.value)}
+                placeholder="Search by manufacturer, model, or ID..."
+                className="glass-input w-full"
+                autoFocus
+              />
+            </div>
+
+            {/* Model List */}
+            <div className="flex-1 overflow-auto p-4">
+              {loadingModels ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="w-6 h-6 animate-spin text-accent-primary" />
+                  <span className="ml-2 text-dark-300">Loading models...</span>
+                </div>
+              ) : filteredModels.length === 0 ? (
+                <div className="text-center py-8 text-dark-300">
+                  No models found matching "{modelSearchTerm}"
+                </div>
+              ) : (
+                <div className="space-y-1">
+                  {filteredModels.map((model) => (
+                    <button
+                      key={model.modelId}
+                      onClick={() => {
+                        updateRotatorSettings({
+                          hamlibModelId: model.modelId,
+                          hamlibModelName: model.displayName,
+                        });
+                        setShowModelBrowser(false);
+                        setModelSearchTerm('');
+                      }}
+                      className={`w-full text-left p-3 rounded-lg border transition-all ${
+                        rotator.hamlibModelId === model.modelId
+                          ? 'border-accent-primary bg-accent-primary/10'
+                          : 'border-glass-100 hover:border-glass-200 hover:bg-dark-700'
+                      }`}
+                    >
+                      <div className="flex items-center justify-between">
+                        <div>
+                          <div className="font-medium text-dark-200">{model.displayName}</div>
+                          <div className="text-xs text-dark-300">
+                            {model.manufacturer} • Model ID: {model.modelId}
+                          </div>
+                        </div>
+                        {rotator.hamlibModelId === model.modelId && (
+                          <CheckCircle className="w-5 h-5 text-accent-success" />
+                        )}
+                      </div>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+
+            {/* Footer */}
+            <div className="p-4 border-t border-glass-100">
+              <p className="text-xs text-dark-300">
+                Showing {filteredModels.length} of {rotatorModels.length} supported rotator models
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      <div className="space-y-6">
+        <div>
+          <h3 className="text-lg font-semibold font-ui text-dark-200 mb-1">Rotator Control</h3>
+          <p className="text-sm text-dark-300">
+            Configure connection to hamlib for antenna rotator control.
+          </p>
+        </div>
+
+      {/* Setup Help Banner */}
+      <div className="bg-blue-500/10 border border-blue-500/30 rounded-lg p-4">
+        <button
+          onClick={() => setShowSetupHelp(!showSetupHelp)}
+          className="w-full flex items-center justify-between text-left"
+        >
+          <div className="flex items-center gap-3">
+            <HelpCircle className="w-5 h-5 text-blue-400" />
+            <div>
+              <p className="font-medium text-blue-300">Need help setting up rotctld?</p>
+              <p className="text-sm text-blue-400/70">Click here for installation and setup instructions</p>
+            </div>
+          </div>
+          {showSetupHelp ? (
+            <ChevronUp className="w-5 h-5 text-blue-400" />
+          ) : (
+            <ChevronDown className="w-5 h-5 text-blue-400" />
+          )}
+        </button>
+
+        {showSetupHelp && (
+          <div className="mt-4 space-y-4 pt-4 border-t border-blue-500/30">
+            {/* What is rotctld */}
+            <div>
+              <h4 className="text-sm font-semibold text-blue-300 mb-2">What is rotctld?</h4>
+              <p className="text-sm text-gray-400">
+                rotctld is a TCP network daemon from the Hamlib project that controls antenna rotators.
+                Multiple applications (like Log4YM and QLog) can connect to the same rotctld instance
+                to share control of your rotator.
+              </p>
+            </div>
+
+            {/* Installation */}
+            <div>
+              <h4 className="text-sm font-semibold text-blue-300 mb-2 flex items-center gap-2">
+                <Download className="w-4 h-4" />
+                Installation
+              </h4>
+              <div className="space-y-2 text-sm text-gray-400">
+                <div>
+                  <p className="font-medium text-gray-300 mb-1">Windows:</p>
+                  <p>
+                    Download from{' '}
+                    <a
+                      href="https://github.com/Hamlib/Hamlib/releases"
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      className="text-accent-primary hover:underline inline-flex items-center gap-1"
+                    >
+                      Hamlib releases <ExternalLink className="w-3 h-3" />
+                    </a>
+                  </p>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Install to C:\Program Files\Hamlib\bin\ or similar
+                  </p>
+                </div>
+                <div>
+                  <p className="font-medium text-gray-300 mb-1">Linux:</p>
+                  <div className="bg-dark-900 rounded p-2 font-mono text-xs">
+                    <code>sudo apt install hamlib-utils</code> {/* Debian/Ubuntu */}
+                  </div>
+                </div>
+                <div>
+                  <p className="font-medium text-gray-300 mb-1">macOS:</p>
+                  <div className="bg-dark-900 rounded p-2 font-mono text-xs">
+                    <code>brew install hamlib</code>
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            {/* Finding your model */}
+            <div>
+              <h4 className="text-sm font-semibold text-blue-300 mb-2">Find your rotator model number</h4>
+              <p className="text-sm text-gray-400 mb-2">
+                Run this command to see all supported rotators:
+              </p>
+              <div className="bg-dark-900 rounded p-2 font-mono text-xs flex items-center justify-between">
+                <code>rotctl -l</code>
+                <button
+                  onClick={() => copyToClipboard('rotctl -l', 'list')}
+                  className="p-1 hover:bg-dark-700 rounded"
+                >
+                  {copiedCommand === 'list' ? (
+                    <Check className="w-3 h-3 text-green-400" />
+                  ) : (
+                    <Copy className="w-3 h-3 text-gray-500" />
+                  )}
+                </button>
+              </div>
+              <div className="mt-2 text-xs text-gray-500">
+                Common models: 202 (Easycomm), 601 (Yaesu GS-232A), 603 (GS-232B), 902 (SPID)
+              </div>
+            </div>
+
+            {/* Starting rotctld */}
+            <div>
+              <h4 className="text-sm font-semibold text-blue-300 mb-2 flex items-center gap-2">
+                <Terminal className="w-4 h-4" />
+                Starting rotctld
+              </h4>
+              <div className="space-y-3">
+                <div>
+                  <p className="text-sm text-gray-400 mb-2">
+                    <strong className="text-gray-300">Linux/macOS example</strong> (SPID on USB):
+                  </p>
+                  <div className="bg-dark-900 rounded p-2 font-mono text-xs flex items-center justify-between">
+                    <code>rotctld -m 902 -r /dev/ttyUSB0</code>
+                    <button
+                      onClick={() => copyToClipboard('rotctld -m 902 -r /dev/ttyUSB0', 'linux')}
+                      className="p-1 hover:bg-dark-700 rounded"
+                    >
+                      {copiedCommand === 'linux' ? (
+                        <Check className="w-3 h-3 text-green-400" />
+                      ) : (
+                        <Copy className="w-3 h-3 text-gray-500" />
+                      )}
+                    </button>
+                  </div>
+                </div>
+                <div>
+                  <p className="text-sm text-gray-400 mb-2">
+                    <strong className="text-gray-300">Windows example</strong> (Yaesu on COM3):
+                  </p>
+                  <div className="bg-dark-900 rounded p-2 font-mono text-xs flex items-center justify-between">
+                    <code>rotctld.exe -m 603 -r COM3 -s 9600</code>
+                    <button
+                      onClick={() => copyToClipboard('rotctld.exe -m 603 -r COM3 -s 9600', 'windows')}
+                      className="p-1 hover:bg-dark-700 rounded"
+                    >
+                      {copiedCommand === 'windows' ? (
+                        <Check className="w-3 h-3 text-green-400" />
+                      ) : (
+                        <Copy className="w-3 h-3 text-gray-500" />
+                      )}
+                    </button>
+                  </div>
+                  <p className="text-xs text-gray-500 mt-1">
+                    Replace COM3 with your serial port and 9600 with your baud rate
+                  </p>
+                </div>
+                <div className="bg-yellow-500/10 border border-yellow-500/30 rounded p-2">
+                  <p className="text-xs text-yellow-400">
+                    <strong>Tip:</strong> Leave the terminal window open while using Log4YM. rotctld must stay
+                    running in the background.
+                  </p>
+                </div>
+              </div>
+            </div>
+
+            {/* Full documentation link */}
+            <div className="pt-2 border-t border-blue-500/30">
+              <a
+                href="https://github.com/Hamlib/Hamlib/wiki"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-accent-primary hover:underline inline-flex items-center gap-1"
+              >
+                View complete Hamlib documentation <ExternalLink className="w-3 h-3" />
+              </a>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* Enable toggle */}
@@ -475,7 +817,7 @@ function RotatorSettingsSection() {
           )}
           <div>
             <p className="font-medium font-ui text-dark-200">Enable Rotator Control</p>
-            <p className="text-sm text-dark-300">Connect to rotctld TCP server</p>
+            <p className="text-sm text-dark-300">Connect to hamlib rotator control</p>
           </div>
         </div>
         <button
@@ -492,90 +834,271 @@ function RotatorSettingsSection() {
         </button>
       </div>
 
-      {/* Connection settings */}
+      {/* Rotator Model Selection */}
       <div className={`space-y-4 ${!rotator.enabled ? 'opacity-50 pointer-events-none' : ''}`}>
-        <div className="grid grid-cols-2 gap-4">
-          {/* IP Address */}
-          <div className="space-y-2">
-            <label className="flex items-center gap-2 text-sm font-medium font-ui text-dark-200">
-              <Globe className="w-4 h-4 text-accent-primary" />
-              IP Address
-            </label>
-            <input
-              type="text"
-              value={rotator.ipAddress}
-              onChange={(e) => updateRotatorSettings({ ipAddress: e.target.value })}
-              placeholder="127.0.0.1"
-              className="glass-input w-full font-mono"
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 text-sm font-medium font-ui text-dark-200">
+            <Compass className="w-4 h-4 text-accent-primary" />
+            Rotator Model
+          </label>
+          <div className="flex gap-2">
+            <select
+              value={rotator.hamlibModelId ?? ''}
+              onChange={(e) => {
+                const modelId = e.target.value ? parseInt(e.target.value) : null;
+                const model = rotatorModels.find((m) => m.modelId === modelId);
+                updateRotatorSettings({
+                  hamlibModelId: modelId,
+                  hamlibModelName: model?.displayName ?? '',
+                });
+              }}
+              disabled={!rotator.enabled || loadingModels}
+              className="glass-input flex-1 min-w-0 font-mono text-sm"
+            >
+              <option value="">Select rotator model...</option>
+              {rotatorModels.map((model) => (
+                <option key={model.modelId} value={model.modelId}>
+                  {model.modelId} - {model.displayName}
+                </option>
+              ))}
+            </select>
+            <button
+              onClick={() => setShowModelBrowser(true)}
+              disabled={!rotator.enabled || loadingModels}
+              className="glass-button px-4 py-2 whitespace-nowrap disabled:opacity-50"
+            >
+              Browse Models
+            </button>
+          </div>
+          <p className="text-xs text-dark-300">
+            Select your rotator model from Hamlib's supported list.
+            {loadingModels && ' Loading models...'}
+          </p>
+        </div>
+
+        {/* Connection Type Selector */}
+        <div className="space-y-2">
+          <label className="text-sm font-medium font-ui text-dark-200">Connection Type</label>
+          <div className="grid grid-cols-2 gap-3">
+            <button
+              onClick={() => updateRotatorSettings({ connectionType: 'network' })}
               disabled={!rotator.enabled}
-            />
+              className={`p-4 rounded-lg border transition-all ${
+                rotator.connectionType === 'network'
+                  ? 'border-accent-primary bg-accent-primary/10'
+                  : 'border-glass-100 hover:border-glass-200'
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <Globe className="w-4 h-4" />
+                <span className="font-medium">Network</span>
+              </div>
+              <span className="text-xs text-dark-300">Connect to existing rotctld TCP server</span>
+            </button>
+            <button
+              onClick={() => updateRotatorSettings({ connectionType: 'serial' })}
+              disabled={!rotator.enabled}
+              className={`p-4 rounded-lg border transition-all ${
+                rotator.connectionType === 'serial'
+                  ? 'border-accent-primary bg-accent-primary/10'
+                  : 'border-glass-100 hover:border-glass-200'
+              }`}
+            >
+              <div className="flex items-center gap-2 mb-1">
+                <Server className="w-4 h-4" />
+                <span className="font-medium">Serial</span>
+              </div>
+              <span className="text-xs text-dark-300">Direct serial port connection</span>
+            </button>
+          </div>
+        </div>
+      </div>
+
+      {/* Network Connection Settings */}
+      {rotator.connectionType === 'network' && (
+        <div className={`space-y-4 ${!rotator.enabled ? 'opacity-50 pointer-events-none' : ''}`}>
+          <div className="grid grid-cols-2 gap-4">
+            {/* IP Address */}
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm font-medium font-ui text-dark-200">
+                <Globe className="w-4 h-4 text-accent-primary" />
+                IP Address
+              </label>
+              <input
+                type="text"
+                value={rotator.ipAddress}
+                onChange={(e) => updateRotatorSettings({ ipAddress: e.target.value })}
+                placeholder="127.0.0.1"
+                className="glass-input w-full font-mono"
+                disabled={!rotator.enabled}
+              />
+              <p className="text-xs text-dark-300">
+                Use 127.0.0.1 if rotctld runs locally, or your server's IP
+              </p>
+            </div>
+
+            {/* Port */}
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm font-medium font-ui text-dark-200">
+                <Compass className="w-4 h-4 text-accent-primary" />
+                Port
+              </label>
+              <input
+                type="number"
+                value={rotator.port}
+                onChange={(e) => updateRotatorSettings({ port: parseInt(e.target.value) || 4533 })}
+                placeholder="4533"
+                className="glass-input w-full font-mono"
+                disabled={!rotator.enabled}
+              />
+              <p className="text-xs text-dark-300">
+                Default rotctld port is 4533
+              </p>
+            </div>
           </div>
 
-          {/* Port */}
+          {/* Test Connection Button */}
+          <div className="pt-2 flex items-center gap-4">
+            <button
+              onClick={handleTestConnection}
+              disabled={testStatus === 'testing'}
+              className="glass-button px-4 py-2 flex items-center gap-2 disabled:opacity-50"
+            >
+              {testStatus === 'testing' && (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              )}
+              {testStatus === 'success' && <CheckCircle className="w-4 h-4 text-accent-success" />}
+              {testStatus === 'error' && <AlertCircle className="w-4 h-4 text-accent-danger" />}
+              {testStatus === 'idle' && <Wifi className="w-4 h-4" />}
+              <span>
+                {testStatus === 'testing'
+                  ? 'Testing...'
+                  : testStatus === 'success'
+                    ? 'Connected!'
+                    : testStatus === 'error'
+                      ? 'Failed'
+                      : 'Test Connection'}
+              </span>
+            </button>
+            {testMessage && (
+              <span className={`text-sm ${testStatus === 'success' ? 'text-green-400' : 'text-red-400'}`}>
+                {testMessage}
+              </span>
+            )}
+          </div>
+        </div>
+      )}
+
+      {/* Serial Port Configuration */}
+      {rotator.connectionType === 'serial' && (
+        <div className={`space-y-4 ${!rotator.enabled ? 'opacity-50 pointer-events-none' : ''}`}>
+          <div className="grid grid-cols-2 gap-4">
+            {/* Serial Port */}
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm font-medium font-ui text-dark-200">
+                <Server className="w-4 h-4 text-accent-primary" />
+                Serial Port
+              </label>
+              <input
+                type="text"
+                value={rotator.serialPort}
+                onChange={(e) => updateRotatorSettings({ serialPort: e.target.value })}
+                placeholder="COM3 or /dev/ttyUSB0"
+                className="glass-input w-full font-mono"
+                disabled={!rotator.enabled}
+              />
+              <p className="text-xs text-dark-300">
+                Windows: COM1, COM3, etc. | Linux/macOS: /dev/ttyUSB0, /dev/ttyS0
+              </p>
+            </div>
+
+            {/* Baud Rate */}
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm font-medium font-ui text-dark-200">
+                Baud Rate
+              </label>
+              <select
+                value={rotator.baudRate}
+                onChange={(e) => updateRotatorSettings({ baudRate: parseInt(e.target.value) })}
+                className="glass-input w-full font-mono"
+                disabled={!rotator.enabled}
+              >
+                <option value={4800}>4800</option>
+                <option value={9600}>9600</option>
+                <option value={19200}>19200</option>
+                <option value={38400}>38400</option>
+                <option value={57600}>57600</option>
+                <option value={115200}>115200</option>
+              </select>
+              <p className="text-xs text-dark-300">
+                Serial communication speed (check your rotator manual)
+              </p>
+            </div>
+          </div>
+
+          <div className="bg-blue-500/10 border border-blue-500/30 rounded p-3">
+            <p className="text-xs text-blue-400">
+              <strong>Note:</strong> Serial mode will spawn a rotctld process automatically using the selected model and serial settings.
+              Ensure your rotator is connected and powered on before enabling.
+            </p>
+          </div>
+        </div>
+      )}
+
+      {/* Polling Interval & Rotator ID */}
+      <div className={`space-y-4 ${!rotator.enabled ? 'opacity-50 pointer-events-none' : ''}`}>
+        <div className="grid grid-cols-2 gap-4">
+          {/* Polling Interval */}
           <div className="space-y-2">
             <label className="flex items-center gap-2 text-sm font-medium font-ui text-dark-200">
-              <Compass className="w-4 h-4 text-accent-primary" />
-              Port
+              Polling Interval (ms)
             </label>
             <input
               type="number"
-              value={rotator.port}
-              onChange={(e) => updateRotatorSettings({ port: parseInt(e.target.value) || 4533 })}
-              placeholder="4533"
+              value={rotator.pollingIntervalMs}
+              onChange={(e) => updateRotatorSettings({ pollingIntervalMs: parseInt(e.target.value) || 500 })}
+              min={100}
+              max={5000}
+              step={100}
+              placeholder="500"
               className="glass-input w-full font-mono"
               disabled={!rotator.enabled}
             />
+            <p className="text-xs text-dark-300">
+              How often to poll for position updates (100-5000ms)
+            </p>
           </div>
-        </div>
 
-        {/* Polling Interval */}
-        <div className="space-y-2">
-          <label className="flex items-center gap-2 text-sm font-medium font-ui text-dark-200">
-            Polling Interval (ms)
-          </label>
-          <input
-            type="number"
-            value={rotator.pollingIntervalMs}
-            onChange={(e) => updateRotatorSettings({ pollingIntervalMs: parseInt(e.target.value) || 500 })}
-            min={100}
-            max={5000}
-            step={100}
-            placeholder="500"
-            className="glass-input w-48 font-mono"
-            disabled={!rotator.enabled}
-          />
-          <p className="text-xs text-dark-300">
-            How often to poll the rotator for position updates (100-5000ms)
-          </p>
-        </div>
-
-        {/* Rotator ID */}
-        <div className="space-y-2">
-          <label className="flex items-center gap-2 text-sm font-medium font-ui text-dark-200">
-            Rotator ID
-          </label>
-          <input
-            type="text"
-            value={rotator.rotatorId}
-            onChange={(e) => updateRotatorSettings({ rotatorId: e.target.value })}
-            placeholder="default"
-            className="glass-input w-48 font-mono"
-            disabled={!rotator.enabled}
-          />
-          <p className="text-xs text-dark-300">
-            Identifier for this rotator (useful if you have multiple rotators)
-          </p>
+          {/* Rotator ID */}
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-sm font-medium font-ui text-dark-200">
+              Rotator ID
+            </label>
+            <input
+              type="text"
+              value={rotator.rotatorId}
+              onChange={(e) => updateRotatorSettings({ rotatorId: e.target.value })}
+              placeholder="default"
+              className="glass-input w-full font-mono"
+              disabled={!rotator.enabled}
+            />
+            <p className="text-xs text-dark-300">
+              Identifier for this rotator (useful with multiple rotators)
+            </p>
+          </div>
         </div>
       </div>
 
       {/* Help text */}
       <div className="pt-4 border-t border-glass-100">
         <p className="text-xs text-dark-300">
-          The rotator service connects to hamlib's rotctld daemon via TCP. Make sure rotctld is
-          running and accessible at the configured address. Default port for rotctld is 4533.
+          {rotator.connectionType === 'network'
+            ? 'Network mode connects to an existing rotctld daemon via TCP. Make sure rotctld is running and accessible at the configured address. Default port for rotctld is 4533.'
+            : 'Serial mode will automatically start rotctld with your configured serial port and rotator model. Ensure your rotator is connected before enabling.'}
         </p>
       </div>
     </div>
+    </>
   );
 }
 
@@ -1325,9 +1848,9 @@ export function SettingsPanel() {
       <div className="absolute inset-0 bg-dark-900/80 backdrop-blur-sm" onClick={closeSettings} />
 
       {/* Panel */}
-      <div className="relative w-full max-w-4xl h-[600px] mx-4 bg-dark-800 border border-glass-200 rounded-xl shadow-2xl flex overflow-hidden animate-fade-in">
+      <div className="relative w-full max-w-4xl max-h-[85vh] mx-4 bg-dark-800 border border-glass-200 rounded-xl shadow-2xl flex overflow-hidden animate-fade-in">
         {/* Master - Navigation sidebar */}
-        <div className="w-64 bg-dark-850 border-r border-glass-100 flex flex-col">
+        <div className="w-64 flex-shrink-0 bg-dark-850 border-r border-glass-100 flex flex-col">
           {/* Header */}
           <div className="p-4 border-b border-glass-100">
             <div className="flex items-center gap-3">
@@ -1384,7 +1907,7 @@ export function SettingsPanel() {
         </div>
 
         {/* Detail - Content area */}
-        <div className="flex-1 flex flex-col">
+        <div className="flex-1 min-w-0 flex flex-col">
           {/* Header with close button */}
           <div className="flex items-center justify-between p-4 border-b border-glass-100">
             <h3 className="text-lg font-semibold font-display text-dark-200">

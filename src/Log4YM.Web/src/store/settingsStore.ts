@@ -28,10 +28,22 @@ export interface RotatorPreset {
   azimuth: number;
 }
 
+export type RotatorConnectionType = 'network' | 'serial';
+
 export interface RotatorSettings {
   enabled: boolean;
+  // Connection type
+  connectionType: RotatorConnectionType;
+  // Network settings (for connecting to existing rotctld)
   ipAddress: string;
   port: number;
+  // Serial settings (for direct serial connection)
+  serialPort: string; // e.g., 'COM3' or '/dev/ttyUSB0'
+  baudRate: number;
+  // Hamlib configuration
+  hamlibModelId: number | null; // Hamlib rotator model ID (e.g., 603 for Yaesu GS-232B)
+  hamlibModelName: string; // Human-readable model name
+  // Polling and identification
   pollingIntervalMs: number;
   rotatorId: string;
   presets: RotatorPreset[];
@@ -184,8 +196,13 @@ const defaultSettings: Settings = {
   },
   rotator: {
     enabled: false,
+    connectionType: 'network',
     ipAddress: '127.0.0.1',
     port: 4533,
+    serialPort: '',
+    baudRate: 9600,
+    hamlibModelId: null,
+    hamlibModelName: '',
     pollingIntervalMs: 500,
     rotatorId: 'default',
     presets: [

@@ -91,8 +91,8 @@ export function CwKeyerPlugin() {
     // Simple macro variable substitution
     // In a full implementation, these would come from settings/station info
     let processedText = macroText
-      .replace('{MYCALL}', 'STATION')
-      .replace('{MYGRID}', 'FN31');
+      .replaceAll('{MYCALL}', 'STATION')
+      .replaceAll('{MYGRID}', 'FN31');
 
     setMessageText(processedText);
     await sendCwKey(activeRadioId, processedText, speedWpm);

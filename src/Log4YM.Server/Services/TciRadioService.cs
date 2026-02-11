@@ -380,7 +380,7 @@ public class TciRadioService : BackgroundService
         return await connection.SetFrequencyAsync(frequencyHz);
     }
 
-    public async Task<bool> SendCwAsync(string radioId, string message, int speedWpm)
+    public virtual async Task<bool> SendCwAsync(string radioId, string message, int speedWpm)
     {
         if (!_connections.TryGetValue(radioId, out var connection))
         {
@@ -391,7 +391,7 @@ public class TciRadioService : BackgroundService
         return await connection.SendCwAsync(message, speedWpm);
     }
 
-    public async Task<bool> SetCwSpeedAsync(string radioId, int speedWpm)
+    public virtual async Task<bool> SetCwSpeedAsync(string radioId, int speedWpm)
     {
         if (!_connections.TryGetValue(radioId, out var connection))
         {

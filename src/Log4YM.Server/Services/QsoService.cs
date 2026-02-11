@@ -10,11 +10,16 @@ namespace Log4YM.Server.Services;
 public class QsoService : IQsoService
 {
     private readonly IQsoRepository _repository;
+    private readonly IQrzImageCacheRepository _imageCacheRepository;
     private readonly IHubContext<LogHub, ILogHubClient> _hub;
 
-    public QsoService(IQsoRepository repository, IHubContext<LogHub, ILogHubClient> hub)
+    public QsoService(
+        IQsoRepository repository,
+        IQrzImageCacheRepository imageCacheRepository,
+        IHubContext<LogHub, ILogHubClient> hub)
     {
         _repository = repository;
+        _imageCacheRepository = imageCacheRepository;
         _hub = hub;
     }
 
@@ -111,6 +116,37 @@ public class QsoService : IQsoService
     public async Task<QsoStatistics> GetStatisticsAsync()
     {
         return await _repository.GetStatisticsAsync();
+    }
+
+    public async Task<IEnumerable<WorkedStationDto>> GetRecentWorkedStationsAsync(int limit)
+    {
+        // Get recent QSOs
+        var qsos = await _repository.GetRecentAsync(limit);
+
+        // Get unique callsigns from recent QSOs
+        var callsigns = qsos.Select(q => q.Callsign).Distinct().ToList();
+
+        // Fetch cached QRZ data for these callsigns
+        var cachedData = await _imageCacheRepository.GetByCallsignsAsync(callsigns);
+        var cacheDict = cachedData.ToDictionary(c => c.Callsign, c => c);
+
+        // Map to WorkedStationDto, enriching with cached QRZ data
+        return qsos.Select(qso =>
+        {
+            cacheDict.TryGetValue(qso.Callsign.ToUpperInvariant(), out var cache);
+
+            return new WorkedStationDto(
+                Callsign: qso.Callsign,
+                QsoDate: qso.QsoDate,
+                Band: qso.Band,
+                Mode: qso.Mode,
+                Name: cache?.Name ?? qso.Name ?? qso.Station?.Name,
+                Latitude: cache?.Latitude ?? qso.Station?.Latitude,
+                Longitude: cache?.Longitude ?? qso.Station?.Longitude,
+                Grid: cache?.Grid ?? qso.Grid ?? qso.Station?.Grid,
+                ImageUrl: cache?.ImageUrl
+            );
+        }).Where(ws => ws.Latitude.HasValue && ws.Longitude.HasValue); // Only return stations with coordinates
     }
 
     private static QsoResponse MapToResponse(Qso qso) => new(

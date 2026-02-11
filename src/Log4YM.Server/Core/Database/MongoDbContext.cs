@@ -167,6 +167,11 @@ public class MongoDbContext
         get { EnsureConnected(); return _database!.GetCollection<SmartUnlinkRadioEntity>("smartunlink_radios"); }
     }
 
+    public IMongoCollection<QrzImageCache> QrzImageCache
+    {
+        get { EnsureConnected(); return _database!.GetCollection<QrzImageCache>("qrz_image_cache"); }
+    }
+
     private void CreateIndexes()
     {
         // QSO indexes
@@ -179,6 +184,20 @@ public class MongoDbContext
             new CreateIndexModel<Qso>(Builders<Qso>.IndexKeys.Ascending("station.grid")),
             // Index for efficient sync status queries (like QLog's upload status columns)
             new CreateIndexModel<Qso>(Builders<Qso>.IndexKeys.Ascending(q => q.QrzSyncStatus))
+        });
+
+        // QRZ image cache indexes
+        QrzImageCache.Indexes.CreateMany(new[]
+        {
+            // Unique index on callsign for efficient lookups
+            new CreateIndexModel<QrzImageCache>(
+                Builders<QrzImageCache>.IndexKeys.Ascending(c => c.Callsign),
+                new CreateIndexOptions { Unique = true }
+            ),
+            // Index on lastAccessedAt for LRU eviction
+            new CreateIndexModel<QrzImageCache>(
+                Builders<QrzImageCache>.IndexKeys.Ascending(c => c.LastAccessedAt)
+            )
         });
     }
 }

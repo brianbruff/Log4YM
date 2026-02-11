@@ -116,6 +116,22 @@ public class QsosController : ControllerBase
     }
 
     /// <summary>
+    /// Get recent worked stations with QRZ images for map display
+    /// </summary>
+    [HttpGet("worked-stations")]
+    [ProducesResponseType(typeof(IEnumerable<WorkedStationDto>), StatusCodes.Status200OK)]
+    public async Task<ActionResult<IEnumerable<WorkedStationDto>>> GetWorkedStations(
+        [FromQuery] int limit = 100)
+    {
+        // Enforce max limit of 100 as per requirements
+        if (limit < 0) limit = 0;
+        if (limit > 100) limit = 100;
+
+        var stations = await _qsoService.GetRecentWorkedStationsAsync(limit);
+        return Ok(stations);
+    }
+
+    /// <summary>
     /// Search QSOs with advanced criteria
     /// </summary>
     [HttpPost("search")]

@@ -59,6 +59,7 @@ builder.Services.AddSingleton<MongoDbContext>();
 // Register repositories
 builder.Services.AddScoped<IQsoRepository, QsoRepository>();
 builder.Services.AddScoped<ISettingsRepository, SettingsRepository>();
+builder.Services.AddScoped<IQrzImageCacheRepository, QrzImageCacheRepository>();
 
 // Register services
 builder.Services.AddScoped<IQsoService, QsoService>();

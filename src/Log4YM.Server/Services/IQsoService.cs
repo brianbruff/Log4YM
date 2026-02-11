@@ -11,4 +11,5 @@ public interface IQsoService
     Task<QsoResponse?> UpdateAsync(string id, UpdateQsoRequest request);
     Task<bool> DeleteAsync(string id);
     Task<QsoStatistics> GetStatisticsAsync();
+    Task<IEnumerable<WorkedStationDto>> GetRecentWorkedStationsAsync(int limit);
 }

@@ -11,6 +11,7 @@ namespace Log4YM.Server.Services;
 public class QrzService : IQrzService
 {
     private readonly ISettingsRepository _settingsRepository;
+    private readonly IQrzImageCacheRepository _imageCacheRepository;
     private readonly HttpClient _httpClient;
     private readonly ILogger<QrzService> _logger;
 
@@ -25,10 +26,12 @@ public class QrzService : IQrzService
 
     public QrzService(
         ISettingsRepository settingsRepository,
+        IQrzImageCacheRepository imageCacheRepository,
         IHttpClientFactory httpClientFactory,
         ILogger<QrzService> logger)
     {
         _settingsRepository = settingsRepository;
+        _imageCacheRepository = imageCacheRepository;
         _httpClient = httpClientFactory.CreateClient("QRZ");
         _logger = logger;
     }
@@ -286,15 +289,48 @@ public class QrzService : IQrzService
                     callsign, parsedLat, parsedLon, latitude, longitude);
             }
 
+            var imageUrl = GetElementValueNs(callsignElement, "image");
+            var name = GetElementValueNs(callsignElement, "name");
+            var grid = GetElementValueNs(callsignElement, "grid");
+
+            // Cache the image URL and basic info in MongoDB for map display
+            if (!string.IsNullOrEmpty(imageUrl) || latitude.HasValue)
+            {
+                var cache = new QrzImageCache
+                {
+                    Callsign = callsign.ToUpperInvariant(),
+                    ImageUrl = imageUrl,
+                    Name = name,
+                    Latitude = latitude,
+                    Longitude = longitude,
+                    Grid = grid
+                };
+
+                // Save to cache asynchronously (don't block the response)
+                _ = Task.Run(async () =>
+                {
+                    try
+                    {
+                        await _imageCacheRepository.UpsertAsync(cache);
+                        // Maintain cache size at 100 entries max (as per requirements)
+                        await _imageCacheRepository.MaintainCacheSizeAsync(100);
+                    }
+                    catch (Exception ex)
+                    {
+                        _logger.LogWarning(ex, "Failed to cache QRZ image for {Callsign}", callsign);
+                    }
+                });
+            }
+
             return new QrzCallsignInfo(
                 Callsign: GetElementValueNs(callsignElement, "call") ?? callsign,
-                Name: GetElementValueNs(callsignElement, "name"),
+                Name: name,
                 FirstName: GetElementValueNs(callsignElement, "fname"),
                 Address: GetElementValueNs(callsignElement, "addr1"),
                 City: GetElementValueNs(callsignElement, "addr2"),
                 State: GetElementValueNs(callsignElement, "state"),
                 Country: GetElementValueNs(callsignElement, "country"),
-                Grid: GetElementValueNs(callsignElement, "grid"),
+                Grid: grid,
                 Latitude: latitude,
                 Longitude: longitude,
                 Dxcc: ParseInt(GetElementValueNs(callsignElement, "dxcc")),
@@ -302,7 +338,7 @@ public class QrzService : IQrzService
                 ItuZone: ParseInt(GetElementValueNs(callsignElement, "ituzone")),
                 Email: GetElementValueNs(callsignElement, "email"),
                 QslManager: GetElementValueNs(callsignElement, "qslmgr"),
-                ImageUrl: GetElementValueNs(callsignElement, "image"),
+                ImageUrl: imageUrl,
                 LicenseExpiration: ParseDate(GetElementValueNs(callsignElement, "expdate"))
             );
         }

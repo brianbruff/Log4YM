@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useRef, useState } from 'react';
 import { useSettingsStore } from '../store/settingsStore';
 import { api, SpaceWeatherData } from '../api/client';
 
@@ -27,8 +27,34 @@ export function HeaderPlugin() {
   const [spaceWeather, setSpaceWeather] = useState<SpaceWeatherData | null>(null);
   const [weather, setWeather] = useState<WeatherData | null>(null);
 
+  const containerRef = useRef<HTMLDivElement>(null);
+  const fitRef = useRef<() => void>(() => {});
   const { callsign } = settings.station;
   const { showWeather } = settings.header;
+
+  // Binary search for largest --ts where content fits without overflow
+  useEffect(() => {
+    const el = containerRef.current;
+    if (!el) return;
+    const fit = () => {
+      if (!el.clientHeight) return;
+      let lo = 8, hi = el.clientHeight;
+      while (hi - lo > 1) {
+        const mid = Math.floor((lo + hi) / 2);
+        el.style.setProperty('--ts', `${mid}`);
+        if (el.scrollHeight > el.clientHeight || el.scrollWidth > el.clientWidth) {
+          hi = mid;
+        } else {
+          lo = mid;
+        }
+      }
+      el.style.setProperty('--ts', `${lo}`);
+    };
+    fitRef.current = fit;
+    const observer = new ResizeObserver(() => fit());
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
@@ -74,6 +100,9 @@ export function HeaderPlugin() {
     return () => clearInterval(interval);
   }, [showWeather, settings.station.latitude, settings.station.longitude]);
 
+  // Re-fit when content changes (data loads in)
+  useEffect(() => { fitRef.current(); }, [spaceWeather, weather]);
+
   const pad = (n: number) => n.toString().padStart(2, '0');
 
   const utcHours = currentTime.getUTCHours();
@@ -92,7 +121,7 @@ export function HeaderPlugin() {
   const localDateStr = `${days[currentTime.getDay()]}, ${months[currentTime.getMonth()]} ${currentTime.getDate()}`;
 
   return (
-    <div className="header-plugin bg-dark-900">
+    <div ref={containerRef} className="header-plugin bg-dark-900">
       {/* Callsign + Version */}
       <div className="header-plugin__group">
         <span className="header-plugin__callsign font-display text-accent-primary">{callsign || 'N0CALL'}</span>

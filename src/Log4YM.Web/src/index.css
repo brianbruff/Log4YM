@@ -487,43 +487,38 @@
    HEADER PLUGIN — themed
    ============================================================ */
 
+/* --ts is set by ResizeObserver (fit-text algorithm) */
 .header-plugin {
   display: flex;
-  align-items: center;
-  justify-content: space-between;
   flex-wrap: wrap;
-  gap: 12px 20px;
-  padding: 4px 20px;
+  align-items: baseline;
+  align-content: center;
+  justify-content: flex-start;
+  gap: 4px 16px;
+  padding: 4px 16px;
   height: 100%;
   width: 100%;
-  min-height: 0;
+  overflow: hidden;
   background: rgb(var(--surface-900));
   font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
-  overflow: hidden;
   box-sizing: border-box;
+  --ts: 48;
 }
 
+.header-plugin__sep { display: none; }
+
 .header-plugin__group {
-  display: flex;
+  display: inline-flex;
   align-items: baseline;
   gap: 8px;
   white-space: nowrap;
-  line-height: 1;
-  flex-shrink: 0;
-}
-
-.header-plugin__sep {
-  width: 1px;
-  height: 32px;
-  background: rgb(var(--accent-primary) / 0.15);
-  align-self: center;
-  flex-shrink: 0;
+  line-height: 1.2;
 }
 
 .header-plugin__callsign {
   font-family: 'Orbitron', system-ui, sans-serif;
   font-weight: 900;
-  font-size: 28px;
+  font-size: calc(var(--ts) * 0.65 * 1px);
   letter-spacing: 2px;
   color: rgb(var(--accent-primary));
   text-shadow: var(--text-glow-primary);
@@ -532,15 +527,13 @@
 
 .header-plugin__version {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 11px;
+  font-size: calc(var(--ts) * 0.2 * 1px);
   color: rgb(var(--surface-300));
-  align-self: flex-end;
-  margin-bottom: 2px;
 }
 
 .header-plugin__label {
   font-family: 'Space Grotesk', system-ui, sans-serif;
-  font-size: 12px;
+  font-size: calc(var(--ts) * 0.25 * 1px);
   font-weight: 600;
   letter-spacing: 1.5px;
   text-transform: uppercase;
@@ -549,7 +542,7 @@
 
 .header-plugin__time {
   font-family: 'Orbitron', system-ui, sans-serif;
-  font-size: 28px;
+  font-size: calc(var(--ts) * 0.6 * 1px);
   font-weight: 700;
   color: rgb(var(--accent-primary));
   letter-spacing: 2px;
@@ -559,31 +552,27 @@
 
 .header-plugin__date {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 13px;
+  font-size: calc(var(--ts) * 0.25 * 1px);
   color: rgb(var(--surface-300));
-  align-self: flex-end;
-  margin-bottom: 2px;
 }
 
 .header-plugin__weather-icon {
-  font-size: 20px;
+  font-size: calc(var(--ts) * 0.35 * 1px);
   line-height: 1;
 }
 
 .header-plugin__weather-temp {
   font-family: 'JetBrains Mono', monospace;
-  font-size: 16px;
+  font-size: calc(var(--ts) * 0.3 * 1px);
   font-weight: 600;
   color: rgb(var(--accent-secondary));
 }
 
-.header-plugin__indices {
-  gap: 6px;
-}
+.header-plugin__indices { gap: 6px; }
 
 .header-plugin__value {
   font-family: 'Orbitron', system-ui, sans-serif;
-  font-size: 16px;
+  font-size: calc(var(--ts) * 0.3 * 1px);
   font-weight: 700;
   color: rgb(var(--accent-primary));
 }

@@ -39,7 +39,6 @@ Download the latest release for your platform from the [Releases](https://github
 The macOS builds are not signed with an Apple Developer certificate. You'll need to remove the quarantine attribute before running:
 
 ```bash
-# After mounting the DMG and copying Log4YM.app to Applications:
 xattr -cr /Applications/Log4YM.app
 ```
 

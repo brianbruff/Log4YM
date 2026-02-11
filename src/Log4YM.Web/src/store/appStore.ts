@@ -114,11 +114,9 @@ interface AppState {
   clusterStatuses: Record<string, ClusterStatus>;
   setClusterStatus: (clusterId: string, status: ClusterStatus) => void;
 
-  // POTA spots and map markers
+  // POTA spots
   potaSpots: PotaSpot[];
-  showPotaMapMarkers: boolean;
   setPotaSpots: (spots: PotaSpot[]) => void;
-  setShowPotaMapMarkers: (show: boolean) => void;
 
   // DX Cluster map overlay
   dxClusterMapEnabled: boolean;
@@ -388,11 +386,9 @@ export const useAppStore = create<AppState>((set) => ({
       },
     })),
 
-  // POTA spots and map markers
+  // POTA spots
   potaSpots: [],
-  showPotaMapMarkers: false,
   setPotaSpots: (spots) => set({ potaSpots: spots }),
-  setShowPotaMapMarkers: (show) => set({ showPotaMapMarkers: show }),
 
   // DX Cluster map overlay
   dxClusterMapEnabled: false,

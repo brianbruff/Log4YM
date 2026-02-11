@@ -22,6 +22,7 @@ builder.Host.UseSerilog();
 
 // Add controllers
 builder.Services.AddControllers();
+builder.Services.AddMemoryCache();
 
 // Add API Explorer and Swagger
 builder.Services.AddEndpointsApiExplorer();

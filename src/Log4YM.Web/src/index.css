@@ -74,11 +74,11 @@
   --surface-850: 14 19 25;        /* #0e1319 */
   --surface-800: 17 24 32;        /* #111820 */
   --surface-700: 26 35 50;        /* #1a2332 */
-  --surface-600: 36 48 68;        /* #243044 */
-  --surface-500: 46 61 85;        /* #2e3d55 */
-  --surface-400: 61 80 112;       /* #3d5070 */
-  --surface-300: 90 112 144;      /* #5a7090 */
-  --surface-200: 136 153 170;     /* #8899aa */
+  --surface-600: 42 56 78;        /* #2a384e — borders, dividers (boosted) */
+  --surface-500: 60 78 105;       /* #3c4e69 — subtle elements (boosted) */
+  --surface-400: 105 128 158;     /* #697e9e — muted interactive */
+  --surface-300: 165 180 200;     /* #a5b4c8 — muted text, tabs, form labels */
+  --surface-200: 205 215 228;     /* #cdd7e4 — secondary text */
 
   /* Accent colors — amber/cyan for dark theme */
   --accent-primary: 255 180 50;   /* #ffb432 */
@@ -94,20 +94,20 @@
   --ham-ft8: 0 221 255;           /* #00ddff */
   --ham-rtty: 170 102 255;        /* #aa66ff */
 
-  /* Gray scale — standard Tailwind grays */
+  /* Gray scale — boosted for dark mode readability */
   --gray-50: 249 250 251;
   --gray-100: 243 244 246;
   --gray-200: 229 231 235;
   --gray-300: 209 213 219;
-  --gray-400: 156 163 175;
-  --gray-500: 107 114 128;
-  --gray-600: 75 85 99;
+  --gray-400: 190 198 210;        /* boosted for readability */
+  --gray-500: 155 164 180;        /* boosted from 107 114 128 */
+  --gray-600: 125 135 152;        /* boosted from 75 85 99 */
   --gray-700: 55 65 81;
   --gray-800: 31 41 55;
   --gray-900: 17 24 39;
 
   /* Text foreground */
-  --text-foreground: 160 176 192;  /* #a0b0c0 */
+  --text-foreground: 220 228 238;  /* #dce4ee — main body text (high contrast) */
 
   /* Shadows — dramatic for dark theme */
   --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 180, 50, 0.05);
@@ -118,8 +118,8 @@
 
   /* Scrollbar */
   --scrollbar-track: #0a0e14;
-  --scrollbar-thumb: #243044;
-  --scrollbar-thumb-hover: #2e3d55;
+  --scrollbar-thumb: #2e3d55;
+  --scrollbar-thumb-hover: #3c4e69;
 
   /* Text glow — enabled in dark mode */
   --text-glow-primary: 0 0 12px rgb(var(--accent-primary) / 0.3);
@@ -304,14 +304,14 @@
 
 .flexlayout__tabset {
   background: rgb(var(--surface-800));
-  border: 1px solid rgb(var(--accent-primary) / 0.1);
+  border: 1px solid rgb(var(--accent-primary) / 0.15);
   border-radius: 8px 8px 0 0;
   overflow: hidden;
 }
 
 .flexlayout__tabset_tabbar_outer {
   background: rgb(var(--surface-800));
-  border-bottom: 1px solid rgb(var(--accent-primary) / 0.1);
+  border-bottom: 1px solid rgb(var(--accent-primary) / 0.15);
 }
 
 .flexlayout__tab {
@@ -394,19 +394,19 @@
 
 .ag-theme-alpine-dark {
   --ag-background-color: rgb(var(--surface-900));
-  --ag-header-background-color: rgb(var(--surface-800));
+  --ag-header-background-color: rgb(var(--surface-700));
   --ag-odd-row-background-color: rgb(var(--surface-850));
-  --ag-row-hover-color: rgb(var(--accent-secondary) / 0.06);
+  --ag-row-hover-color: rgb(var(--accent-secondary) / 0.08);
   --ag-selected-row-background-color: rgb(var(--accent-primary) / 0.12);
-  --ag-border-color: rgb(var(--accent-primary) / 0.1);
-  --ag-header-foreground-color: rgb(var(--accent-success));
+  --ag-border-color: rgb(var(--accent-primary) / 0.12);
+  --ag-header-foreground-color: rgb(var(--accent-secondary));
   --ag-foreground-color: rgb(var(--text-foreground));
-  --ag-row-border-color: rgb(var(--accent-primary) / 0.05);
+  --ag-row-border-color: rgb(var(--accent-primary) / 0.06);
   --ag-font-family: 'JetBrains Mono', 'Consolas', monospace;
   --ag-font-size: 13px;
   --ag-grid-size: 4px;
   --ag-cell-horizontal-padding: 12px;
-  --ag-header-column-separator-color: rgb(var(--accent-primary) / 0.1);
+  --ag-header-column-separator-color: rgb(var(--accent-primary) / 0.15);
   --ag-header-column-resize-handle-color: rgb(var(--accent-secondary));
   --ag-range-selection-border-color: rgb(var(--accent-secondary));
   --ag-input-focus-border-color: rgb(var(--accent-primary));
@@ -415,23 +415,33 @@
 }
 
 .ag-theme-alpine-dark .ag-root-wrapper {
-  background-color: rgb(var(--surface-900));
-  border: 1px solid rgb(var(--accent-primary) / 0.1);
+  background-color: rgb(var(--surface-900)) !important;
+  border: 1px solid rgb(var(--accent-primary) / 0.1) !important;
   border-radius: 4px;
   overflow: hidden;
+  color: rgb(var(--text-foreground)) !important;
 }
 
 .ag-theme-alpine-dark .ag-header {
-  background-color: rgb(var(--surface-800));
-  border-bottom: 1px solid rgb(var(--accent-primary) / 0.1);
+  background-color: rgb(var(--surface-700)) !important;
+  border-bottom: 1px solid rgb(var(--accent-primary) / 0.2) !important;
 }
 
 .ag-theme-alpine-dark .ag-header-cell {
-  font-family: 'Space Grotesk', system-ui, sans-serif;
-  font-weight: 600;
-  font-size: 12px;
-  letter-spacing: 0.04em;
+  font-family: 'Space Grotesk', system-ui, sans-serif !important;
+  font-weight: 700 !important;
+  font-size: 12px !important;
+  letter-spacing: 0.06em;
   text-transform: uppercase;
+  color: rgb(235 240 245) !important;
+}
+
+.ag-theme-alpine-dark .ag-header-cell-text {
+  color: rgb(235 240 245) !important;
+}
+
+.ag-theme-alpine-dark .ag-header-cell .ag-icon {
+  color: rgb(var(--surface-300)) !important;
 }
 
 .ag-theme-alpine-dark .ag-header-cell-resize {
@@ -443,13 +453,14 @@
 }
 
 .ag-theme-alpine-dark .ag-row {
-  background-color: rgb(var(--surface-900));
-  border-bottom: 1px solid rgb(var(--accent-primary) / 0.04);
+  background-color: rgb(var(--surface-900)) !important;
+  border-bottom: 1px solid rgb(var(--accent-primary) / 0.04) !important;
   transition: background-color 0.1s ease;
+  color: rgb(var(--text-foreground)) !important;
 }
 
 .ag-theme-alpine-dark .ag-row-odd {
-  background-color: rgb(var(--surface-850));
+  background-color: rgb(var(--surface-850)) !important;
 }
 
 .ag-theme-alpine-dark .ag-row:hover {
@@ -461,15 +472,15 @@
 }
 
 .ag-theme-alpine-dark .ag-body-viewport {
-  background-color: rgb(var(--surface-900));
+  background-color: rgb(var(--surface-900)) !important;
 }
 
 .ag-theme-alpine-dark .ag-overlay-no-rows-wrapper {
-  background-color: rgb(var(--surface-900));
+  background-color: rgb(var(--surface-900)) !important;
 }
 
 .ag-theme-alpine-dark .ag-overlay-no-rows-center {
-  color: rgb(var(--surface-300));
+  color: rgb(var(--surface-300)) !important;
 }
 
 /* ============================================================

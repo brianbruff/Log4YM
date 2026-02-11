@@ -38,6 +38,7 @@ export function useSignalRConnection() {
     setSelectedSpot,
     setLogHistoryCallsignFilter,
     setClusterStatus,
+    setCwKeyerStatus,
   } = useAppStore();
 
   useEffect(() => {
@@ -236,6 +237,11 @@ export function useSignalRConnection() {
             console.log('Radio slices updated:', evt.radioId, evt.slices.length);
             setRadioSlices(evt.radioId, evt.slices);
           },
+          // CW Keyer handlers
+          onCwKeyerStatus: (evt) => {
+            console.log('CW keyer status:', evt.radioId, 'isKeying:', evt.isKeying, 'speed:', evt.speedWpm);
+            setCwKeyerStatus(evt);
+          },
           // SmartUnlink handlers
           onSmartUnlinkRadioAdded: (evt) => {
             console.log('SmartUnlink radio added:', evt.name, evt.model);
@@ -363,6 +369,19 @@ export function useSignalR() {
     await signalRService.selectRadioInstance(radioId, instance);
   }, []);
 
+  // CW Keyer methods
+  const sendCwKey = useCallback(async (radioId: string, message: string, speedWpm?: number) => {
+    await signalRService.sendCwKey(radioId, message, speedWpm);
+  }, []);
+
+  const stopCwKey = useCallback(async (radioId: string) => {
+    await signalRService.stopCwKey(radioId);
+  }, []);
+
+  const setCwSpeed = useCallback(async (radioId: string, speedWpm: number) => {
+    await signalRService.setCwSpeed(radioId, speedWpm);
+  }, []);
+
   // Hamlib methods (new native library integration)
   const getHamlibRigList = useCallback(async () => {
     await signalRService.getHamlibRigList();
@@ -480,6 +499,10 @@ export function useSignalR() {
     disconnectRadio,
     selectRadioSlice,
     selectRadioInstance,
+    // CW Keyer
+    sendCwKey,
+    stopCwKey,
+    setCwSpeed,
     // Hamlib (new native integration)
     getHamlibRigList,
     getHamlibRigCaps,

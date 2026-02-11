@@ -12,6 +12,7 @@ import type {
   RadioSliceInfo,
   SmartUnlinkRadioAddedEvent,
   SpotSelectedEvent,
+  CwKeyerStatusEvent,
 } from '../api/signalr';
 import type { PotaSpot } from '../api/client';
 
@@ -83,6 +84,11 @@ interface AppState {
   setSelectedRadio: (radioId: string | null) => void;
   clearRadioState: (radioId: string) => void;
   clearDiscoveredRadios: () => void;
+
+  // CW Keyer
+  cwKeyerStatus: Map<string, CwKeyerStatusEvent>;
+  setCwKeyerStatus: (status: CwKeyerStatusEvent) => void;
+  clearCwKeyerStatus: (radioId: string) => void;
 
   // SmartUnlink
   smartUnlinkRadios: Map<string, SmartUnlinkRadioAddedEvent>;
@@ -309,6 +315,21 @@ export const useAppStore = create<AppState>((set) => ({
       radioStates: new Map(),
       radioSlices: new Map(),
       selectedRadioId: null,
+    }),
+
+  // CW Keyer
+  cwKeyerStatus: new Map(),
+  setCwKeyerStatus: (status) =>
+    set((state) => {
+      const cwStatus = new Map(state.cwKeyerStatus);
+      cwStatus.set(status.radioId, status);
+      return { cwKeyerStatus: cwStatus };
+    }),
+  clearCwKeyerStatus: (radioId) =>
+    set((state) => {
+      const cwStatus = new Map(state.cwKeyerStatus);
+      cwStatus.delete(radioId);
+      return { cwKeyerStatus: cwStatus };
     }),
 
   // SmartUnlink

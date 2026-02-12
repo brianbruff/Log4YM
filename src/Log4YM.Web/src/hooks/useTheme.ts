@@ -20,7 +20,7 @@ export function useTheme() {
         html.classList.remove('dark');
       }
       if (meta) {
-        meta.setAttribute('content', resolved === 'dark' ? '#0a0e14' : '#f6f7f9');
+        meta.setAttribute('content', resolved === 'dark' ? '#0a0e14' : '#faf8f3');
       }
     };
 

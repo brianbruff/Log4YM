@@ -123,7 +123,22 @@ export function useSignalRConnection() {
             setFocusedCallsign(evt.callsign);
           },
           onCallsignLookedUp: (evt) => {
-            // Only apply result if it matches the current focused callsign
+            // Always add callsign image to map overlay (backend already saved to MongoDB,
+            // but we need the in-memory store updated for the current session)
+            if (evt.imageUrl && evt.latitude != null && evt.longitude != null) {
+              useAppStore.getState().addCallsignMapImage({
+                callsign: evt.callsign,
+                imageUrl: evt.imageUrl,
+                latitude: evt.latitude,
+                longitude: evt.longitude,
+                name: evt.name ?? undefined,
+                country: evt.country ?? undefined,
+                grid: evt.grid ?? undefined,
+                savedAt: new Date().toISOString(),
+              });
+            }
+
+            // Only apply focused marker/fly-to if it matches the current focused callsign
             // This prevents out-of-order responses from showing stale data
             const currentCallsign = useAppStore.getState().focusedCallsign;
             if (evt.callsign?.toUpperCase() === currentCallsign?.toUpperCase()) {

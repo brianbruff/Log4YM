@@ -16,7 +16,7 @@
   --surface-800: 252 250 246;     /* #fcfaf6 — warm white panel background */
   --surface-700: 238 234 225;     /* #eeeae1 — warm elevated surface */
   --surface-600: 190 180 165;     /* #beb4a5 — strong warm borders, dividers */
-  --surface-500: 165 152 135;     /* #a59887 — warm mid elements */
+  --surface-500: 140 128 112;     /* #8c8070 — warm mid elements, darker for placeholder readability */
   --surface-400: 135 122 105;     /* #877a69 — warm muted interactive */
   --surface-300: 105 95 82;       /* #695f52 — warm muted text */
   --surface-200: 75 65 55;        /* #4b4137 — warm secondary text */
@@ -42,7 +42,7 @@
   --gray-200: 75 65 55;           /* #4b4137 — warm brown */
   --gray-300: 95 85 75;           /* #5f554b — warm medium brown */
   --gray-400: 115 105 92;         /* #73695c — warm taupe */
-  --gray-500: 150 140 125;        /* #968c7d — warm stone */
+  --gray-500: 120 110 95;         /* #786e5f — warm stone, darker for placeholder contrast */
   --gray-600: 190 180 165;        /* #beb4a5 — warm sand */
   --gray-700: 210 202 190;        /* #d2cabe — warm light beige */
   --gray-800: 235 230 222;        /* #ebe6de — warm cream */
@@ -309,6 +309,22 @@
   border-bottom: 2px solid rgb(var(--accent-secondary));
 }
 
+/* Light mode: white text on orange header bars */
+html:not(.dark) .flexlayout__tab_button {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+html:not(.dark) .flexlayout__tab_button:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+html:not(.dark) .flexlayout__tab_button--selected {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  border-bottom: 2px solid #fff;
+}
+
 .flexlayout__tabset {
   background: rgb(var(--surface-800));
   border: 1px solid rgb(var(--surface-600));
@@ -319,6 +335,12 @@
 .flexlayout__tabset_tabbar_outer {
   background: rgb(var(--surface-800));
   border-bottom: 1px solid rgb(var(--surface-600));
+}
+
+/* Light mode: orange panel header bars */
+html:not(.dark) .flexlayout__tabset_tabbar_outer {
+  background: rgb(var(--accent-primary));
+  border-bottom: 1px solid rgb(var(--accent-primary));
 }
 
 .flexlayout__tab {
@@ -365,6 +387,20 @@
 
 .flexlayout__tab_button_trailing {
   @apply ml-2 opacity-50 hover:opacity-100;
+}
+
+/* Light mode: white icons on orange header */
+html:not(.dark) .flexlayout__tab_button_trailing img,
+html:not(.dark) .flexlayout__tab_toolbar_button img {
+  filter: brightness(0) invert(1);
+}
+
+html:not(.dark) .flexlayout__tab_toolbar_button {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+html:not(.dark) .flexlayout__tab_toolbar_button:hover {
+  background: rgba(255, 255, 255, 0.15);
 }
 
 .flexlayout__popup_menu {
@@ -446,6 +482,13 @@
   --ag-range-selection-background-color: rgb(var(--accent-secondary) / 0.1);
 }
 
+/* Light mode: distinct grey header for AG Grid */
+html:not(.dark) .ag-theme-alpine-dark {
+  --ag-header-background-color: #e0dcd4;
+  --ag-header-foreground-color: #3a3228;
+  --ag-header-column-separator-color: #c5bfb5;
+}
+
 /* Dark mode: restore subtle AG Grid borders */
 .dark .ag-theme-alpine-dark {
   --ag-border-color: rgb(var(--accent-primary) / 0.12);
@@ -468,6 +511,11 @@
 .ag-theme-alpine-dark .ag-header {
   background-color: rgb(var(--surface-700)) !important;
   border-bottom: 1px solid rgb(var(--surface-600)) !important;
+}
+
+html:not(.dark) .ag-theme-alpine-dark .ag-header {
+  background-color: #e0dcd4 !important;
+  border-bottom: 2px solid #c5bfb5 !important;
 }
 
 .dark .ag-theme-alpine-dark .ag-header {

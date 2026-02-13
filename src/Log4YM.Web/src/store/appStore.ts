@@ -14,7 +14,7 @@ import type {
   SpotSelectedEvent,
   CwKeyerStatusEvent,
 } from '../api/signalr';
-import type { PotaSpot } from '../api/client';
+import type { PotaSpot, CallsignMapImage } from '../api/client';
 
 // Connection state enum for detailed tracking
 // - disconnected: No connection to backend
@@ -127,6 +127,11 @@ interface AppState {
   // DX Cluster spots (ephemeral, in-memory only)
   dxClusterSpots: Spot[];
   addDxClusterSpot: (spot: Spot) => void;
+
+  // Callsign map images (persisted in MongoDB)
+  callsignMapImages: CallsignMapImage[];
+  setCallsignMapImages: (images: CallsignMapImage[]) => void;
+  addCallsignMapImage: (image: CallsignMapImage) => void;
 }
 
 export interface Spot {
@@ -402,5 +407,16 @@ export const useAppStore = create<AppState>((set) => ({
     // Keep only the most recent 200 spots to prevent memory bloat
     const updatedSpots = [spot, ...state.dxClusterSpots].slice(0, 200);
     return { dxClusterSpots: updatedSpots };
+  }),
+
+  // Callsign map images
+  callsignMapImages: [],
+  setCallsignMapImages: (images) => set({ callsignMapImages: images }),
+  addCallsignMapImage: (image) => set((state) => {
+    // Replace existing entry for same callsign, or add new
+    const filtered = state.callsignMapImages.filter(
+      (i) => i.callsign.toUpperCase() !== image.callsign.toUpperCase()
+    );
+    return { callsignMapImages: [image, ...filtered] };
   }),
 }));

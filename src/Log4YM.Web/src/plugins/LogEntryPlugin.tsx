@@ -23,8 +23,8 @@ const MODES = ['SSB', 'CW', 'FT8', 'FT4', 'RTTY', 'PSK31', 'AM', 'FM'];
 
 export function LogEntryPlugin() {
   const queryClient = useQueryClient();
-  const { focusCallsign } = useSignalR();
-  const { focusedCallsignInfo, radioStates, selectedRadioId, isLookingUpCallsign, setFocusedCallsign, setFocusedCallsignInfo, setLogHistoryCallsignFilter, clearCallsignFromAllControls, selectedSpot, setSelectedSpot } = useAppStore();
+  const { focusCallsign, persistCallsignMapImage } = useSignalR();
+  const { focusedCallsignInfo, radioStates, selectedRadioId, isLookingUpCallsign, setFocusedCallsign, setFocusedCallsignInfo, setLogHistoryCallsignFilter, clearCallsignFromAllControls, selectedSpot, setSelectedSpot, addCallsignMapImage } = useAppStore();
   const { settings, updateRadioSettings } = useSettingsStore();
   const followRadio = settings.radio.followRadio;
 
@@ -159,6 +159,22 @@ export function LogEntryPlugin() {
     onSuccess: () => {
       queryClient.invalidateQueries({ queryKey: ['qsos'] });
       queryClient.invalidateQueries({ queryKey: ['statistics'] });
+      // Save focused callsign to map overlay BEFORE clearing (only logged QSOs persist on map)
+      const info = useAppStore.getState().focusedCallsignInfo;
+      if (info?.latitude != null && info?.longitude != null) {
+        const mapImage = {
+          callsign: info.callsign,
+          imageUrl: info.imageUrl ?? undefined,
+          latitude: info.latitude,
+          longitude: info.longitude,
+          name: info.name ?? undefined,
+          country: info.country ?? undefined,
+          grid: info.grid ?? undefined,
+          savedAt: new Date().toISOString(),
+        };
+        addCallsignMapImage(mapImage);
+        persistCallsignMapImage(mapImage).catch(() => {});
+      }
       // Clear callsign from all controls (QRZ profile, rotator, log history filter, etc.)
       clearCallsignFromAllControls();
       // Clear form

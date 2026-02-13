@@ -633,7 +633,7 @@ export interface GenericBandConditions {
 // Callsign Map Image Types
 export interface CallsignMapImage {
   callsign: string;
-  imageUrl: string;
+  imageUrl?: string;
   latitude: number;
   longitude: number;
   name?: string;

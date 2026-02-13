@@ -94,7 +94,7 @@ const satelliteIcon = new L.DivIcon({
 });
 
 // Create callsign image marker icon
-function createCallsignImageIcon(imageUrl: string, callsign: string, scale: '1x' | '2x') {
+function createCallsignImageIcon(imageUrl: string | undefined | null, callsign: string, scale: '1x' | '2x') {
   const size = scale === '2x' ? 56 : 44;
   const borderWidth = scale === '2x' ? 3 : 2;
   const borderColor = scale === '2x' ? '#ffb432' : '#00ddff';
@@ -102,6 +102,15 @@ function createCallsignImageIcon(imageUrl: string, callsign: string, scale: '1x'
   const fontSize = scale === '2x' ? 11 : 10;
   // Escape HTML special chars in callsign to prevent XSS
   const safeCallsign = callsign.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  const contentHtml = imageUrl
+    ? `<img
+            src="${imageUrl}"
+            alt="${safeCallsign}"
+            style="width: 100%; height: 100%; object-fit: cover; display: block;"
+            onerror="this.parentElement.innerHTML='<div style=\\'display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:${Math.round(size * 0.5)}px\\'>📻</div>'"
+          />`
+    : `<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:${Math.round(size * 0.5)}px">📻</div>`;
 
   return new L.DivIcon({
     className: 'custom-callsign-image-marker',
@@ -124,12 +133,7 @@ function createCallsignImageIcon(imageUrl: string, callsign: string, scale: '1x'
           background: #1a1e26;
           flex-shrink: 0;
         ">
-          <img
-            src="${imageUrl}"
-            alt="${safeCallsign}"
-            style="width: 100%; height: 100%; object-fit: cover; display: block;"
-            onerror="this.parentElement.innerHTML='<div style=\\'display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:${Math.round(size * 0.5)}px\\'>📻</div>'"
-          />
+          ${contentHtml}
         </div>
         <span style="
           font-family: monospace;
@@ -343,7 +347,7 @@ export function MapPlugin() {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const lastTargetCoordsRef = useRef<{ lat: number; lon: number } | null>(null);
-  const { stationGrid, rotatorPosition, focusedCallsignInfo, potaSpots, dxClusterMapEnabled, hoveredSpotId, callsignMapImages, setCallsignMapImages, addCallsignMapImage } = useAppStore();
+  const { stationGrid, rotatorPosition, focusedCallsignInfo, potaSpots, dxClusterMapEnabled, hoveredSpotId, callsignMapImages, setCallsignMapImages } = useAppStore();
   const { settings, updateMapSettings, saveSettings } = useSettingsStore();
   const { commandRotator } = useSignalR();
 
@@ -628,23 +632,7 @@ export function MapPlugin() {
     loadImages();
   }, [settings.map.showCallsignImages, settings.map.maxCallsignImages, setCallsignMapImages]);
 
-  // When a callsign is looked up with an image, add it to the local map images list
-  useEffect(() => {
-    if (!focusedCallsignInfo?.imageUrl || !focusedCallsignInfo?.latitude || !focusedCallsignInfo?.longitude) return;
-
-    addCallsignMapImage({
-      callsign: focusedCallsignInfo.callsign,
-      imageUrl: focusedCallsignInfo.imageUrl,
-      latitude: focusedCallsignInfo.latitude,
-      longitude: focusedCallsignInfo.longitude,
-      name: focusedCallsignInfo.name,
-      country: focusedCallsignInfo.country,
-      grid: focusedCallsignInfo.grid,
-      savedAt: new Date().toISOString(),
-    });
-  }, [focusedCallsignInfo?.callsign, focusedCallsignInfo?.imageUrl, focusedCallsignInfo?.latitude, focusedCallsignInfo?.longitude, addCallsignMapImage]);
-
-  // Callsign images to show on map (limited by maxCallsignImages, excluding the currently focused one)
+  // Callsign images to show on map (only logged QSOs, not browsed callsigns) (limited by maxCallsignImages, excluding the currently focused one)
   const visibleCallsignImages = useMemo(() => {
     if (!settings.map.showCallsignImages) return [];
     const focusedCall = focusedCallsignInfo?.callsign?.toUpperCase();
@@ -771,24 +759,24 @@ export function MapPlugin() {
             />
           )}
 
-          {/* Target marker - show image if available (2x), otherwise standard dot marker */}
+          {/* Target marker - show callsign image icon (2x) with image or placeholder, or standard dot if callsign images disabled */}
           {targetLat != null && targetLon != null && (
-            focusedCallsignInfo?.imageUrl && settings.map.showCallsignImages ? (
+            settings.map.showCallsignImages ? (
               <Marker
                 position={[targetLat, targetLon]}
-                icon={createCallsignImageIcon(focusedCallsignInfo.imageUrl, focusedCallsignInfo.callsign, '2x')}
+                icon={createCallsignImageIcon(focusedCallsignInfo?.imageUrl, focusedCallsignInfo?.callsign ?? '', '2x')}
               >
                 <Popup>
                   <div className="text-center">
-                    <strong style={{ color: '#ffb432' }} className="font-mono">{focusedCallsignInfo.callsign}</strong>
+                    <strong style={{ color: '#ffb432' }} className="font-mono">{focusedCallsignInfo?.callsign}</strong>
                     <br />
-                    {focusedCallsignInfo.name && (
+                    {focusedCallsignInfo?.name && (
                       <><span className="text-xs" style={{ color: '#aabbcc' }}>{focusedCallsignInfo.name}</span><br /></>
                     )}
-                    {focusedCallsignInfo.grid && (
+                    {focusedCallsignInfo?.grid && (
                       <span className="text-xs font-mono" style={{ color: '#8899aa' }}>{focusedCallsignInfo.grid}</span>
                     )}
-                    {focusedCallsignInfo.bearing != null && (
+                    {focusedCallsignInfo?.bearing != null && (
                       <>
                         <br />
                         <span className="text-xs font-mono" style={{ color: '#00ddff' }}>

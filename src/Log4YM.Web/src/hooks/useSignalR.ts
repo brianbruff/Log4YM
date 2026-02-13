@@ -123,23 +123,9 @@ export function useSignalRConnection() {
             setFocusedCallsign(evt.callsign);
           },
           onCallsignLookedUp: (evt) => {
-            // Always add callsign image to map overlay (backend already saved to MongoDB,
-            // but we need the in-memory store updated for the current session)
-            if (evt.imageUrl && evt.latitude != null && evt.longitude != null) {
-              useAppStore.getState().addCallsignMapImage({
-                callsign: evt.callsign,
-                imageUrl: evt.imageUrl,
-                latitude: evt.latitude,
-                longitude: evt.longitude,
-                name: evt.name ?? undefined,
-                country: evt.country ?? undefined,
-                grid: evt.grid ?? undefined,
-                savedAt: new Date().toISOString(),
-              });
-            }
-
             // Only apply focused marker/fly-to if it matches the current focused callsign
             // This prevents out-of-order responses from showing stale data
+            // Note: We do NOT add to callsignMapImages here — only logged QSOs should persist on the map
             const currentCallsign = useAppStore.getState().focusedCallsign;
             if (evt.callsign?.toUpperCase() === currentCallsign?.toUpperCase()) {
               setFocusedCallsignInfo(evt);
@@ -492,6 +478,11 @@ export function useSignalR() {
     await signalRService.setSmartUnlinkRadioEnabled(id, enabled);
   }, []);
 
+  // Persist callsign map image to MongoDB (called after QSO is logged)
+  const persistCallsignMapImage = useCallback(async (image: { callsign: string; imageUrl?: string; latitude: number; longitude: number; name?: string; country?: string; grid?: string }) => {
+    await signalRService.persistCallsignMapImage(image);
+  }, []);
+
   // Manual reconnect function
   const reconnect = useCallback(async () => {
     await signalRService.reconnect();
@@ -539,5 +530,7 @@ export function useSignalR() {
     updateSmartUnlinkRadio: updateSmartUnlinkRadioFn,
     removeSmartUnlinkRadio: removeSmartUnlinkRadioFn,
     setSmartUnlinkRadioEnabled,
+    // Map image persistence
+    persistCallsignMapImage,
   };
 }

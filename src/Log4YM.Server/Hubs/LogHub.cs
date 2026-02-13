@@ -177,19 +177,6 @@ public class LogHub : Hub<ILogHubClient>
                     info.Callsign, info.Name, info.Country, bearing?.ToString("F0") ?? "N/A");
 
                 await Clients.All.OnCallsignLookedUp(lookedUpEvent);
-
-                // Save callsign image to MongoDB for map overlay persistence
-                if (!string.IsNullOrEmpty(info.ImageUrl) && info.Latitude.HasValue && info.Longitude.HasValue)
-                {
-                    try
-                    {
-                        await SaveCallsignMapImageAsync(info);
-                    }
-                    catch (Exception imgEx)
-                    {
-                        _logger.LogWarning(imgEx, "Failed to save callsign map image for {Callsign}", info.Callsign);
-                    }
-                }
             }
             else
             {
@@ -284,7 +271,7 @@ public class LogHub : Hub<ILogHubClient>
         var filter = Builders<CallsignMapImage>.Filter.Eq(i => i.Callsign, info.Callsign);
         var update = Builders<CallsignMapImage>.Update
             .Set(i => i.Callsign, info.Callsign)
-            .Set(i => i.ImageUrl, info.ImageUrl!)
+            .Set(i => i.ImageUrl, info.ImageUrl)
             .Set(i => i.Latitude, info.Latitude!.Value)
             .Set(i => i.Longitude, info.Longitude!.Value)
             .Set(i => i.Name, BuildFullName(info.FirstName, info.Name))
@@ -294,6 +281,30 @@ public class LogHub : Hub<ILogHubClient>
 
         await _db.CallsignMapImages.UpdateOneAsync(filter, update, new UpdateOptions { IsUpsert = true });
         _logger.LogDebug("Saved callsign map image for {Callsign}", info.Callsign);
+    }
+
+    /// <summary>
+    /// Persist a callsign map image to MongoDB. Called by the frontend after a QSO is logged,
+    /// so only actually worked callsigns are saved to the map overlay.
+    /// </summary>
+    public async Task PersistCallsignMapImage(CallsignMapImage image)
+    {
+        if (!_db.IsConnected) return;
+        if (string.IsNullOrEmpty(image.Callsign)) return;
+
+        var filter = Builders<CallsignMapImage>.Filter.Eq(i => i.Callsign, image.Callsign);
+        var update = Builders<CallsignMapImage>.Update
+            .Set(i => i.Callsign, image.Callsign)
+            .Set(i => i.ImageUrl, image.ImageUrl)
+            .Set(i => i.Latitude, image.Latitude)
+            .Set(i => i.Longitude, image.Longitude)
+            .Set(i => i.Name, image.Name)
+            .Set(i => i.Country, image.Country)
+            .Set(i => i.Grid, image.Grid)
+            .Set(i => i.SavedAt, DateTime.UtcNow);
+
+        await _db.CallsignMapImages.UpdateOneAsync(filter, update, new UpdateOptions { IsUpsert = true });
+        _logger.LogDebug("Persisted callsign map image for {Callsign} after QSO logged", image.Callsign);
     }
 
     public async Task SelectSpot(SpotSelectedEvent evt)

@@ -13,7 +13,7 @@ public class CallsignMapImage
     public string Callsign { get; set; } = null!;
 
     [BsonElement("imageUrl")]
-    public string ImageUrl { get; set; } = null!;
+    public string? ImageUrl { get; set; }
 
     [BsonElement("latitude")]
     public double Latitude { get; set; }

@@ -10,58 +10,58 @@
 
 :root {
   /* Surface / background colors (maps to dark-* Tailwind classes) */
-  /* Warm, cream-based palette for reduced eye strain */
-  --surface-900: 250 248 243;     /* #faf8f3 — warm cream deepest background */
-  --surface-850: 247 244 237;     /* #f7f4ed — soft linen */
-  --surface-800: 253 251 247;     /* #fdfbf7 — warm white panel background */
-  --surface-700: 245 242 235;     /* #f5f2eb — warm elevated surface */
-  --surface-600: 225 218 206;     /* #e1dace — warm borders, dividers */
-  --surface-500: 205 195 180;     /* #cdc3b4 — warm lighter elements */
-  --surface-400: 165 155 140;     /* #a59b8c — warm muted interactive */
-  --surface-300: 125 115 100;     /* #7d7364 — warm muted text */
-  --surface-200: 85 75 65;        /* #554b41 — warm secondary text */
+  /* Warm, cream-based palette with strong contrast */
+  --surface-900: 247 244 237;     /* #f7f4ed — warm cream deepest background */
+  --surface-850: 242 238 230;     /* #f2eee6 — soft linen */
+  --surface-800: 252 250 246;     /* #fcfaf6 — warm white panel background */
+  --surface-700: 238 234 225;     /* #eeeae1 — warm elevated surface */
+  --surface-600: 190 180 165;     /* #beb4a5 — strong warm borders, dividers */
+  --surface-500: 165 152 135;     /* #a59887 — warm mid elements */
+  --surface-400: 135 122 105;     /* #877a69 — warm muted interactive */
+  --surface-300: 105 95 82;       /* #695f52 — warm muted text */
+  --surface-200: 75 65 55;        /* #4b4137 — warm secondary text */
 
   /* Accent colors — warm amber/rust/terracotta palette for light theme */
-  --accent-primary: 185 95 50;    /* #b95f32 — warm rust primary */
-  --accent-secondary: 210 125 60; /* #d27d3c — warm amber secondary */
-  --accent-success: 110 150 80;   /* #6e9650 — warm sage green */
-  --accent-warning: 215 145 55;   /* #d79137 — warm golden amber */
-  --accent-danger: 205 75 65;     /* #cd4b41 — warm terracotta */
-  --accent-info: 90 130 170;      /* #5a82aa — warm steel blue */
+  --accent-primary: 175 80 35;    /* #af5023 — deeper rust primary */
+  --accent-secondary: 195 105 40; /* #c36928 — deeper amber secondary */
+  --accent-success: 85 130 55;    /* #558237 — deeper sage green */
+  --accent-warning: 200 130 35;   /* #c88223 — deeper golden amber */
+  --accent-danger: 190 55 45;     /* #be372d — deeper terracotta */
+  --accent-info: 60 110 155;      /* #3c6e9b — deeper steel blue */
 
   /* Ham radio mode colors — warmer tones for light theme */
-  --ham-cw: 195 115 50;           /* #c37332 — warm copper */
-  --ham-ssb: 110 150 80;          /* #6e9650 — warm sage */
-  --ham-ft8: 90 130 170;          /* #5a82aa — warm steel blue */
-  --ham-rtty: 155 95 155;         /* #9b5f9b — warm plum */
+  --ham-cw: 180 100 35;           /* #b46423 — warm copper */
+  --ham-ssb: 85 130 55;           /* #558237 — warm sage */
+  --ham-ft8: 60 110 155;          /* #3c6e9b — warm steel blue */
+  --ham-rtty: 135 75 135;         /* #874b87 — warm plum */
 
   /* Gray scale — semantic (inverted for light mode so gray-100 = dark text) */
   /* Warmer grays with brown undertones */
-  --gray-50: 45 40 35;            /* #2d2823 — warm near-black */
-  --gray-100: 65 58 50;           /* #413a32 — warm dark brown */
-  --gray-200: 85 75 65;           /* #554b41 — warm brown */
-  --gray-300: 105 95 85;          /* #695f55 — warm medium brown */
-  --gray-400: 125 115 100;        /* #7d7364 — warm taupe */
-  --gray-500: 165 155 140;        /* #a59b8c — warm stone */
-  --gray-600: 205 195 180;        /* #cdc3b4 — warm sand */
-  --gray-700: 225 218 206;        /* #e1dace — warm light beige */
-  --gray-800: 240 235 227;        /* #f0ebe3 — warm cream */
-  --gray-900: 250 247 242;        /* #faf7f2 — warm off-white */
+  --gray-50: 40 35 30;            /* #28231e — warm near-black */
+  --gray-100: 55 48 40;           /* #373028 — warm dark brown */
+  --gray-200: 75 65 55;           /* #4b4137 — warm brown */
+  --gray-300: 95 85 75;           /* #5f554b — warm medium brown */
+  --gray-400: 115 105 92;         /* #73695c — warm taupe */
+  --gray-500: 150 140 125;        /* #968c7d — warm stone */
+  --gray-600: 190 180 165;        /* #beb4a5 — warm sand */
+  --gray-700: 210 202 190;        /* #d2cabe — warm light beige */
+  --gray-800: 235 230 222;        /* #ebe6de — warm cream */
+  --gray-900: 247 244 238;        /* #f7f4ee — warm off-white */
 
   /* Text foreground — warm brown for better readability */
-  --text-foreground: 65 58 50;    /* #413a32 — warm dark text */
+  --text-foreground: 50 42 35;    /* #322a23 — darker warm text */
 
-  /* Shadows — soft, warm shadows for light theme */
-  --shadow-glass: 0 2px 8px 0 rgba(100, 80, 60, 0.08), 0 1px 3px -1px rgba(100, 80, 60, 0.06);
-  --shadow-glass-sm: 0 1px 3px 0 rgba(100, 80, 60, 0.05);
-  --shadow-glow: 0 0 20px rgba(185, 95, 50, 0.15);
-  --shadow-glow-success: 0 0 20px rgba(110, 150, 80, 0.15);
-  --shadow-glow-cyan: 0 0 20px rgba(210, 125, 60, 0.15);
+  /* Shadows — stronger warm shadows for light theme */
+  --shadow-glass: 0 2px 8px 0 rgba(80, 60, 40, 0.14), 0 1px 4px -1px rgba(80, 60, 40, 0.10);
+  --shadow-glass-sm: 0 1px 4px 0 rgba(80, 60, 40, 0.10);
+  --shadow-glow: 0 0 16px rgba(175, 80, 35, 0.2);
+  --shadow-glow-success: 0 0 16px rgba(85, 130, 55, 0.2);
+  --shadow-glow-cyan: 0 0 16px rgba(195, 105, 40, 0.2);
 
   /* Scrollbar — warm tones */
-  --scrollbar-track: #f5f2eb;
-  --scrollbar-thumb: #cdc3b4;
-  --scrollbar-thumb-hover: #a59b8c;
+  --scrollbar-track: #eeeae1;
+  --scrollbar-thumb: #beb4a5;
+  --scrollbar-thumb-hover: #a59887;
 
   /* Text glow — disabled in light mode */
   --text-glow-primary: none;
@@ -137,6 +137,11 @@
 @layer base {
   * {
     @apply border-glass-100;
+  }
+
+  /* Light mode: stronger default border using surface color instead of translucent accent */
+  html:not(.dark) * {
+    border-color: rgb(var(--surface-600));
   }
 
   body {
@@ -306,14 +311,14 @@
 
 .flexlayout__tabset {
   background: rgb(var(--surface-800));
-  border: 1px solid rgb(var(--accent-primary) / 0.15);
+  border: 1px solid rgb(var(--surface-600));
   border-radius: 8px 8px 0 0;
   overflow: hidden;
 }
 
 .flexlayout__tabset_tabbar_outer {
   background: rgb(var(--surface-800));
-  border-bottom: 1px solid rgb(var(--accent-primary) / 0.15);
+  border-bottom: 1px solid rgb(var(--surface-600));
 }
 
 .flexlayout__tab {
@@ -321,11 +326,28 @@
 }
 
 .flexlayout__splitter {
-  background: rgb(var(--accent-primary) / 0.08);
+  background: rgb(var(--surface-600));
   transition: background 0.2s ease;
 }
 
 .flexlayout__splitter:hover {
+  background: rgb(var(--accent-secondary) / 0.5);
+}
+
+/* Dark mode: restore subtle borders for flexlayout */
+.dark .flexlayout__tabset {
+  border-color: rgb(var(--accent-primary) / 0.15);
+}
+
+.dark .flexlayout__tabset_tabbar_outer {
+  border-bottom-color: rgb(var(--accent-primary) / 0.15);
+}
+
+.dark .flexlayout__splitter {
+  background: rgb(var(--accent-primary) / 0.08);
+}
+
+.dark .flexlayout__splitter:hover {
   background: rgb(var(--accent-secondary) / 0.3);
 }
 
@@ -347,9 +369,13 @@
 
 .flexlayout__popup_menu {
   background: rgb(var(--surface-800));
-  border: 1px solid rgb(var(--accent-primary) / 0.15);
+  border: 1px solid rgb(var(--surface-600));
   border-radius: 8px;
   box-shadow: var(--shadow-glass);
+}
+
+.dark .flexlayout__popup_menu {
+  border-color: rgb(var(--accent-primary) / 0.15);
 }
 
 .flexlayout__popup_menu_item {
@@ -385,9 +411,13 @@
 
 .flexlayout__tab_floating {
   background: rgb(var(--surface-800));
-  border: 1px solid rgb(var(--accent-primary) / 0.15);
+  border: 1px solid rgb(var(--surface-600));
   border-radius: 8px;
   box-shadow: var(--shadow-glass);
+}
+
+.dark .flexlayout__tab_floating {
+  border-color: rgb(var(--accent-primary) / 0.15);
 }
 
 /* ============================================================
@@ -400,15 +430,15 @@
   --ag-odd-row-background-color: rgb(var(--surface-850));
   --ag-row-hover-color: rgb(var(--accent-secondary) / 0.08);
   --ag-selected-row-background-color: rgb(var(--accent-primary) / 0.12);
-  --ag-border-color: rgb(var(--accent-primary) / 0.12);
+  --ag-border-color: rgb(var(--surface-600));
   --ag-header-foreground-color: rgb(var(--accent-secondary));
   --ag-foreground-color: rgb(var(--text-foreground));
-  --ag-row-border-color: rgb(var(--accent-primary) / 0.06);
+  --ag-row-border-color: rgb(var(--surface-600) / 0.5);
   --ag-font-family: 'JetBrains Mono', 'Consolas', monospace;
   --ag-font-size: 13px;
   --ag-grid-size: 4px;
   --ag-cell-horizontal-padding: 12px;
-  --ag-header-column-separator-color: rgb(var(--accent-primary) / 0.15);
+  --ag-header-column-separator-color: rgb(var(--surface-600));
   --ag-header-column-resize-handle-color: rgb(var(--accent-secondary));
   --ag-range-selection-border-color: rgb(var(--accent-secondary));
   --ag-input-focus-border-color: rgb(var(--accent-primary));
@@ -416,17 +446,32 @@
   --ag-range-selection-background-color: rgb(var(--accent-secondary) / 0.1);
 }
 
+/* Dark mode: restore subtle AG Grid borders */
+.dark .ag-theme-alpine-dark {
+  --ag-border-color: rgb(var(--accent-primary) / 0.12);
+  --ag-row-border-color: rgb(var(--accent-primary) / 0.06);
+  --ag-header-column-separator-color: rgb(var(--accent-primary) / 0.15);
+}
+
 .ag-theme-alpine-dark .ag-root-wrapper {
   background-color: rgb(var(--surface-900)) !important;
-  border: 1px solid rgb(var(--accent-primary) / 0.1) !important;
+  border: 1px solid rgb(var(--surface-600)) !important;
   border-radius: 4px;
   overflow: hidden;
   color: rgb(var(--text-foreground)) !important;
 }
 
+.dark .ag-theme-alpine-dark .ag-root-wrapper {
+  border-color: rgb(var(--accent-primary) / 0.1) !important;
+}
+
 .ag-theme-alpine-dark .ag-header {
   background-color: rgb(var(--surface-700)) !important;
-  border-bottom: 1px solid rgb(var(--accent-primary) / 0.2) !important;
+  border-bottom: 1px solid rgb(var(--surface-600)) !important;
+}
+
+.dark .ag-theme-alpine-dark .ag-header {
+  border-bottom-color: rgb(var(--accent-primary) / 0.2) !important;
 }
 
 .ag-theme-alpine-dark .ag-header-cell {
@@ -435,10 +480,18 @@
   font-size: 12px !important;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: rgb(235 240 245) !important;
+  color: rgb(var(--text-foreground)) !important;
 }
 
 .ag-theme-alpine-dark .ag-header-cell-text {
+  color: rgb(var(--text-foreground)) !important;
+}
+
+.dark .ag-theme-alpine-dark .ag-header-cell {
+  color: rgb(235 240 245) !important;
+}
+
+.dark .ag-theme-alpine-dark .ag-header-cell-text {
   color: rgb(235 240 245) !important;
 }
 
@@ -456,9 +509,13 @@
 
 .ag-theme-alpine-dark .ag-row {
   background-color: rgb(var(--surface-900)) !important;
-  border-bottom: 1px solid rgb(var(--accent-primary) / 0.04) !important;
+  border-bottom: 1px solid rgb(var(--surface-600) / 0.4) !important;
   transition: background-color 0.1s ease;
   color: rgb(var(--text-foreground)) !important;
+}
+
+.dark .ag-theme-alpine-dark .ag-row {
+  border-bottom-color: rgb(var(--accent-primary) / 0.04) !important;
 }
 
 .ag-theme-alpine-dark .ag-row-odd {

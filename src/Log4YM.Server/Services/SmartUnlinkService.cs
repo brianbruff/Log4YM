@@ -16,7 +16,7 @@ public class SmartUnlinkService : BackgroundService
 {
     private readonly ILogger<SmartUnlinkService> _logger;
     private readonly IHubContext<LogHub, ILogHubClient> _hubContext;
-    private readonly ISmartUnlinkRepository _repository;
+    private readonly IServiceScopeFactory _scopeFactory;
     private readonly ConcurrentDictionary<string, SmartUnlinkRadioEntity> _radios = new();
     private readonly ConcurrentDictionary<string, DateTime> _lastBroadcast = new();
 
@@ -30,11 +30,11 @@ public class SmartUnlinkService : BackgroundService
     public SmartUnlinkService(
         ILogger<SmartUnlinkService> logger,
         IHubContext<LogHub, ILogHubClient> hubContext,
-        ISmartUnlinkRepository repository)
+        IServiceScopeFactory scopeFactory)
     {
         _logger = logger;
         _hubContext = hubContext;
-        _repository = repository;
+        _scopeFactory = scopeFactory;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -59,7 +59,9 @@ public class SmartUnlinkService : BackgroundService
     {
         try
         {
-            var radios = await _repository.GetAllAsync();
+            using var scope = _scopeFactory.CreateScope();
+            var repository = scope.ServiceProvider.GetRequiredService<ISmartUnlinkRepository>();
+            var radios = await repository.GetAllAsync();
 
             foreach (var radio in radios)
             {
@@ -323,7 +325,11 @@ public class SmartUnlinkService : BackgroundService
             UpdatedAt = DateTime.UtcNow
         };
 
-        await _repository.InsertAsync(entity);
+        using (var scope = _scopeFactory.CreateScope())
+        {
+            var repository = scope.ServiceProvider.GetRequiredService<ISmartUnlinkRepository>();
+            await repository.InsertAsync(entity);
+        }
 
         _radios[entity.Id] = entity;
 
@@ -367,7 +373,12 @@ public class SmartUnlinkService : BackgroundService
             CreatedAt = existing?.CreatedAt ?? DateTime.UtcNow
         };
 
-        var success = await _repository.UpdateAsync(updatedEntity);
+        bool success;
+        using (var scope = _scopeFactory.CreateScope())
+        {
+            var repository = scope.ServiceProvider.GetRequiredService<ISmartUnlinkRepository>();
+            success = await repository.UpdateAsync(updatedEntity);
+        }
 
         if (!success)
             return null;
@@ -396,7 +407,12 @@ public class SmartUnlinkService : BackgroundService
 
     public async Task<bool> RemoveRadioAsync(string id)
     {
-        var success = await _repository.DeleteAsync(id);
+        bool success;
+        using (var scope = _scopeFactory.CreateScope())
+        {
+            var repository = scope.ServiceProvider.GetRequiredService<ISmartUnlinkRepository>();
+            success = await repository.DeleteAsync(id);
+        }
 
         if (!success)
             return false;
@@ -413,7 +429,12 @@ public class SmartUnlinkService : BackgroundService
 
     public async Task<bool> SetRadioEnabledAsync(string id, bool enabled)
     {
-        var success = await _repository.SetEnabledAsync(id, enabled);
+        bool success;
+        using (var scope = _scopeFactory.CreateScope())
+        {
+            var repository = scope.ServiceProvider.GetRequiredService<ISmartUnlinkRepository>();
+            success = await repository.SetEnabledAsync(id, enabled);
+        }
 
         if (!success)
             return false;

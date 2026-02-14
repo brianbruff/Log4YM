@@ -109,12 +109,25 @@ async function startBackend() {
     return;
   }
 
-  // Make executable on Unix
+  // Make executable on Unix and remove macOS quarantine attribute
   if (process.platform !== 'win32') {
     try {
       fs.chmodSync(backendPath, '755');
     } catch (err) {
       log.warn(`Could not set executable permission: ${err.message}`);
+    }
+  }
+
+  // Remove macOS quarantine attribute from the backend directory
+  // Unsigned apps downloaded from the internet get quarantined by Gatekeeper,
+  // which prevents child process binaries from executing
+  if (process.platform === 'darwin') {
+    const { execSync } = require('child_process');
+    try {
+      execSync(`xattr -rd com.apple.quarantine "${backendDir}"`, { stdio: 'ignore' });
+      log.info('Removed quarantine attribute from backend directory');
+    } catch (err) {
+      log.warn(`Could not remove quarantine attribute: ${err.message}`);
     }
   }
 
@@ -124,7 +137,7 @@ async function startBackend() {
     env: {
       ...process.env,
       ASPNETCORE_URLS: `http://localhost:${backendPort}`,
-      ASPNETCORE_ENVIRONMENT: 'Development'
+      ASPNETCORE_ENVIRONMENT: app.isPackaged ? 'Production' : 'Development'
     },
     stdio: ['ignore', 'pipe', 'pipe']
   });
@@ -139,14 +152,10 @@ async function startBackend() {
 
   backendProcess.on('error', (err) => {
     log.error(`Backend process error: ${err.message}`);
-    dialog.showErrorBox('Backend Error', `Failed to start backend: ${err.message}`);
   });
 
   backendProcess.on('close', (code) => {
     log.info(`Backend process exited with code ${code}`);
-    if (code !== 0 && code !== null) {
-      dialog.showErrorBox('Backend Crashed', `The backend process exited unexpectedly with code ${code}`);
-    }
   });
 
   // Wait for backend to be ready
@@ -160,6 +169,11 @@ async function waitForBackend(retries = 30, delayMs = 1000) {
   log.info('Waiting for backend to be ready...');
 
   for (let i = 0; i < retries; i++) {
+    // Check if the backend process has already exited
+    if (backendProcess && backendProcess.exitCode !== null) {
+      throw new Error(`Backend process exited with code ${backendProcess.exitCode} before becoming ready. Check the logs for details.`);
+    }
+
     try {
       const response = await fetch(`http://localhost:${backendPort}/api/health`);
       if (response.ok) {
@@ -437,6 +451,10 @@ app.whenReady().then(async () => {
     });
   } catch (err) {
     log.error(`Startup error: ${err.message}`);
+    if (splashWindow) {
+      splashWindow.close();
+      splashWindow = null;
+    }
     dialog.showErrorBox('Startup Error', err.message);
     app.quit();
   }

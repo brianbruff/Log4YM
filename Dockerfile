@@ -41,8 +41,10 @@ ENV ASPNETCORE_ENVIRONMENT=Production
 # Copy published app
 COPY --from=backend-build /app/publish .
 
-# Create non-root user
-RUN addgroup -S log4ym && adduser -S log4ym -G log4ym
+# Create non-root user and config directory
+RUN addgroup -S log4ym && adduser -S log4ym -G log4ym \
+    && mkdir -p /home/log4ym/.config/Log4YM \
+    && chown -R log4ym:log4ym /home/log4ym
 USER log4ym
 
 EXPOSE 5050

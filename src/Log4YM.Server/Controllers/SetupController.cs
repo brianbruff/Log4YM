@@ -10,12 +10,12 @@ namespace Log4YM.Server.Controllers;
 [Produces("application/json")]
 public class SetupController : ControllerBase
 {
-    private readonly MongoDbContext _dbContext;
+    private readonly IDbContext _dbContext;
     private readonly IUserConfigService _userConfigService;
     private readonly ILogger<SetupController> _logger;
 
     public SetupController(
-        MongoDbContext dbContext,
+        IDbContext dbContext,
         IUserConfigService userConfigService,
         ILogger<SetupController> logger)
     {
@@ -37,6 +37,7 @@ public class SetupController : ControllerBase
         {
             IsConfigured = _userConfigService.IsConfigured(),
             IsConnected = _dbContext.IsConnected,
+            Provider = config.Provider == DatabaseProvider.MongoDb ? "mongodb" : "local",
             ConfiguredAt = config.ConfiguredAt,
             DatabaseName = _dbContext.DatabaseName ?? config.MongoDbDatabaseName
         });
@@ -175,6 +176,7 @@ public class SetupStatusResponse
 {
     public bool IsConfigured { get; set; }
     public bool IsConnected { get; set; }
+    public string? Provider { get; set; }
     public DateTime? ConfiguredAt { get; set; }
     public string? DatabaseName { get; set; }
 }

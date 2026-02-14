@@ -37,7 +37,8 @@ import {
 } from 'lucide-react';
 import { useSettingsStore, SettingsSection, StationSettings } from '../store/settingsStore';
 import { gridToLatLon } from '../utils/maidenhead';
-import { useSetupStore } from '../store/setupStore';
+import { useSetupStore, type DatabaseProvider } from '../store/setupStore';
+import { HardDrive, Cloud, AlertTriangle, ArrowRightLeft } from 'lucide-react';
 
 // Settings navigation items
 const SETTINGS_SECTIONS: { id: SettingsSection; name: string; icon: React.ReactNode; description: string }[] = [
@@ -63,7 +64,7 @@ const SETTINGS_SECTIONS: { id: SettingsSection; name: string; icon: React.ReactN
     id: 'database',
     name: 'Database',
     icon: <Database className="w-5 h-5" />,
-    description: 'MongoDB connection settings',
+    description: 'Storage provider and connection',
   },
   {
     id: 'appearance',
@@ -1106,12 +1107,15 @@ function RotatorSettingsSection() {
 function DatabaseSettingsSection() {
   const {
     status,
+    provider,
+    setProvider,
     connectionString,
     databaseName,
     setConnectionString,
     setDatabaseName,
     testConnection,
     configure,
+    configureLocal,
     isTesting,
     isLoading,
     testResult,
@@ -1122,10 +1126,32 @@ function DatabaseSettingsSection() {
   } = useSetupStore();
 
   const [showConnectionString, setShowConnectionString] = useState(false);
+  const [showSwitchConfirm, setShowSwitchConfirm] = useState<DatabaseProvider | null>(null);
 
   useEffect(() => {
     fetchStatus();
   }, [fetchStatus]);
+
+  const activeProvider: DatabaseProvider = status?.provider ?? provider;
+
+  const handleProviderSwitch = (target: DatabaseProvider) => {
+    if (target === activeProvider) return;
+    setShowSwitchConfirm(target);
+  };
+
+  const confirmProviderSwitch = async () => {
+    if (!showSwitchConfirm) return;
+    const target = showSwitchConfirm;
+    setShowSwitchConfirm(null);
+    clearError();
+
+    if (target === 'local') {
+      await configureLocal();
+    } else {
+      // Switch to cloud - just update the provider view, user needs to fill in connection details
+      setProvider('mongodb');
+    }
+  };
 
   const handleTest = async () => {
     clearError();
@@ -1136,7 +1162,6 @@ function DatabaseSettingsSection() {
     clearError();
     const success = await configure();
     if (success) {
-      // Refresh status after save
       await fetchStatus();
     }
   };
@@ -1146,7 +1171,7 @@ function DatabaseSettingsSection() {
       <div>
         <h3 className="text-lg font-semibold font-ui text-dark-200 mb-1">Database Connection</h3>
         <p className="text-sm text-dark-300">
-          Configure your MongoDB connection for QSO and settings storage.
+          Manage your database storage provider.
         </p>
       </div>
 
@@ -1167,6 +1192,8 @@ function DatabaseSettingsSection() {
           <div>
             <p className={`font-medium ${status?.isConnected ? 'text-accent-success' : 'text-accent-danger'}`}>
               {status?.isConnected ? 'Connected' : 'Not Connected'}
+              {' - '}
+              {activeProvider === 'local' ? 'Local (LiteDB)' : 'Cloud (MongoDB)'}
             </p>
             {status?.databaseName && (
               <p className="text-sm text-dark-300">Database: {status.databaseName}</p>
@@ -1180,152 +1207,266 @@ function DatabaseSettingsSection() {
         </div>
       </div>
 
-      {/* MongoDB Atlas link */}
-      <a
-        href="https://www.mongodb.com/atlas/database"
-        target="_blank"
-        rel="noopener noreferrer"
-        className="inline-flex items-center gap-2 text-sm text-accent-primary hover:underline"
-      >
-        <ExternalLink className="w-4 h-4" />
-        Get a free MongoDB Atlas cluster
-      </a>
-
-      {/* Connection String Input */}
-      <div className="space-y-4">
-        <div className="space-y-2">
-          <label className="flex items-center gap-2 text-sm font-medium font-ui text-dark-200">
-            <Server className="w-4 h-4 text-accent-primary" />
-            MongoDB Connection String
-          </label>
-          <div className="relative">
-            <input
-              type={showConnectionString ? 'text' : 'password'}
-              value={connectionString}
-              onChange={(e) => {
-                setConnectionString(e.target.value);
-                clearTestResult();
-              }}
-              placeholder="mongodb+srv://user:password@cluster.mongodb.net/"
-              className="glass-input w-full pr-10 font-mono text-sm"
-            />
-            <button
-              type="button"
-              onClick={() => setShowConnectionString(!showConnectionString)}
-              className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-dark-300 hover:text-dark-200"
-            >
-              {showConnectionString ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
-            </button>
-          </div>
-          <p className="text-xs text-dark-300">
-            Your connection string is stored locally and never sent anywhere except MongoDB.
-          </p>
-        </div>
-
-        {/* Database Name Input */}
-        <div className="space-y-2">
-          <label className="text-sm font-medium font-ui text-dark-200">Database Name</label>
-          <input
-            type="text"
-            value={databaseName}
-            onChange={(e) => {
-              setDatabaseName(e.target.value);
-              clearTestResult();
-            }}
-            placeholder="Log4YM"
-            className="glass-input w-full font-mono"
-          />
-          <p className="text-xs text-dark-300">
-            The database will be created automatically if it doesn't exist.
-          </p>
+      {/* Provider Selector */}
+      <div className="space-y-2">
+        <label className="text-sm font-medium font-ui text-dark-200">Current Provider</label>
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={() => handleProviderSwitch('local')}
+            className={`p-4 rounded-lg border transition-all ${
+              activeProvider === 'local'
+                ? 'border-accent-primary bg-accent-primary/10'
+                : 'border-glass-100 hover:border-glass-200'
+            }`}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <HardDrive className="w-4 h-4" />
+              <span className="font-medium">Local</span>
+            </div>
+            <span className="text-xs text-dark-300">LiteDB file on this computer</span>
+          </button>
+          <button
+            onClick={() => handleProviderSwitch('mongodb')}
+            className={`p-4 rounded-lg border transition-all ${
+              activeProvider === 'mongodb'
+                ? 'border-accent-primary bg-accent-primary/10'
+                : 'border-glass-100 hover:border-glass-200'
+            }`}
+          >
+            <div className="flex items-center gap-2 mb-1">
+              <Cloud className="w-4 h-4" />
+              <span className="font-medium">Cloud</span>
+            </div>
+            <span className="text-xs text-dark-300">MongoDB Atlas or self-hosted</span>
+          </button>
         </div>
       </div>
 
-      {/* Test Result */}
-      {testResult && (
-        <div
-          className={`p-4 rounded-lg border ${
-            testResult.success
-              ? 'bg-accent-success/10 border-accent-success/30'
-              : 'bg-accent-danger/10 border-accent-danger/30'
-          }`}
-        >
-          <div className="flex items-start gap-3">
-            {testResult.success ? (
-              <CheckCircle className="w-5 h-5 text-accent-success flex-shrink-0 mt-0.5" />
-            ) : (
-              <AlertCircle className="w-5 h-5 text-accent-danger flex-shrink-0 mt-0.5" />
-            )}
+      {/* Provider Switch Confirmation */}
+      {showSwitchConfirm && (
+        <div className="p-4 rounded-lg border bg-accent-warning/10 border-accent-warning/30">
+          <div className="flex items-start gap-3 mb-3">
+            <AlertTriangle className="w-5 h-5 text-accent-warning flex-shrink-0 mt-0.5" />
             <div>
-              <p className={`font-medium ${testResult.success ? 'text-accent-success' : 'text-accent-danger'}`}>
-                {testResult.message}
+              <p className="font-medium text-accent-warning">Switch Database Provider?</p>
+              <p className="text-sm text-dark-300 mt-1">
+                You are about to switch from {activeProvider === 'local' ? 'Local' : 'Cloud'} to{' '}
+                {showSwitchConfirm === 'local' ? 'Local' : 'Cloud'}.
               </p>
-              {testResult.serverInfo && (
-                <p className="text-sm text-dark-300 mt-1">
-                  Found {testResult.serverInfo.databaseCount} database(s) on server
-                </p>
+              <p className="text-sm text-dark-300 mt-1">
+                Switching providers does not migrate your data. Export your QSOs to ADIF first if you want to transfer them.
+              </p>
+            </div>
+          </div>
+          <div className="flex justify-end gap-3">
+            <button
+              onClick={() => setShowSwitchConfirm(null)}
+              className="glass-button px-4 py-2"
+            >
+              Cancel
+            </button>
+            <button
+              onClick={confirmProviderSwitch}
+              disabled={isLoading}
+              className="glass-button-primary px-4 py-2 flex items-center gap-2 disabled:opacity-50"
+            >
+              {isLoading ? (
+                <Loader2 className="w-4 h-4 animate-spin" />
+              ) : (
+                <ArrowRightLeft className="w-4 h-4" />
               )}
+              Switch Provider
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Provider-specific content */}
+      {activeProvider === 'local' ? (
+        /* Local Provider View */
+        <div className="space-y-4">
+          {status?.localDbPath && (
+            <div className="p-4 bg-dark-700/50 rounded-lg border border-glass-100 space-y-2">
+              <div className="flex items-center gap-2 text-sm text-dark-300">
+                <span className="font-medium text-dark-200">Location:</span>
+                <span className="font-mono text-xs">{status.localDbPath}</span>
+              </div>
+              {status.localDbSizeBytes != null && (
+                <div className="text-sm text-dark-300">
+                  <span className="font-medium text-dark-200">Size:</span>{' '}
+                  {(status.localDbSizeBytes / 1024 / 1024).toFixed(1)} MB
+                </div>
+              )}
+              {status.qsoCount != null && (
+                <div className="text-sm text-dark-300">
+                  <span className="font-medium text-dark-200">QSOs:</span>{' '}
+                  {status.qsoCount.toLocaleString()}
+                </div>
+              )}
+            </div>
+          )}
+
+          <div className="p-4 bg-dark-700/30 rounded-lg border border-glass-100">
+            <div className="flex gap-3">
+              <Info className="w-5 h-5 text-accent-info flex-shrink-0 mt-0.5" />
+              <p className="text-sm text-dark-300">
+                Your data is stored locally in a LiteDB file. No internet connection required.
+                Back up this file to preserve your logs.
+              </p>
             </div>
           </div>
         </div>
-      )}
+      ) : (
+        /* Cloud Provider View */
+        <>
+          {/* MongoDB Atlas link */}
+          <a
+            href="https://www.mongodb.com/atlas/database"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="inline-flex items-center gap-2 text-sm text-accent-primary hover:underline"
+          >
+            <ExternalLink className="w-4 h-4" />
+            Get a free MongoDB Atlas cluster
+          </a>
 
-      {/* Error Display */}
-      {error && (
-        <div className="p-4 rounded-lg border bg-accent-danger/10 border-accent-danger/30">
-          <div className="flex items-start gap-3">
-            <AlertCircle className="w-5 h-5 text-accent-danger flex-shrink-0 mt-0.5" />
-            <p className="text-accent-danger">{error}</p>
+          {/* Connection String Input */}
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <label className="flex items-center gap-2 text-sm font-medium font-ui text-dark-200">
+                <Server className="w-4 h-4 text-accent-primary" />
+                MongoDB Connection String
+              </label>
+              <div className="relative">
+                <input
+                  type={showConnectionString ? 'text' : 'password'}
+                  value={connectionString}
+                  onChange={(e) => {
+                    setConnectionString(e.target.value);
+                    clearTestResult();
+                  }}
+                  placeholder="mongodb+srv://user:password@cluster.mongodb.net/"
+                  className="glass-input w-full pr-10 font-mono text-sm"
+                />
+                <button
+                  type="button"
+                  onClick={() => setShowConnectionString(!showConnectionString)}
+                  className="absolute right-2 top-1/2 -translate-y-1/2 p-1 text-dark-300 hover:text-dark-200"
+                >
+                  {showConnectionString ? <EyeOff className="w-4 h-4" /> : <Eye className="w-4 h-4" />}
+                </button>
+              </div>
+              <p className="text-xs text-dark-300">
+                Your connection string is stored locally and never sent anywhere except MongoDB.
+              </p>
+            </div>
+
+            {/* Database Name Input */}
+            <div className="space-y-2">
+              <label className="text-sm font-medium font-ui text-dark-200">Database Name</label>
+              <input
+                type="text"
+                value={databaseName}
+                onChange={(e) => {
+                  setDatabaseName(e.target.value);
+                  clearTestResult();
+                }}
+                placeholder="Log4YM"
+                className="glass-input w-full font-mono"
+              />
+              <p className="text-xs text-dark-300">
+                The database will be created automatically if it doesn't exist.
+              </p>
+            </div>
           </div>
-        </div>
+
+          {/* Test Result */}
+          {testResult && (
+            <div
+              className={`p-4 rounded-lg border ${
+                testResult.success
+                  ? 'bg-accent-success/10 border-accent-success/30'
+                  : 'bg-accent-danger/10 border-accent-danger/30'
+              }`}
+            >
+              <div className="flex items-start gap-3">
+                {testResult.success ? (
+                  <CheckCircle className="w-5 h-5 text-accent-success flex-shrink-0 mt-0.5" />
+                ) : (
+                  <AlertCircle className="w-5 h-5 text-accent-danger flex-shrink-0 mt-0.5" />
+                )}
+                <div>
+                  <p className={`font-medium ${testResult.success ? 'text-accent-success' : 'text-accent-danger'}`}>
+                    {testResult.message}
+                  </p>
+                  {testResult.serverInfo && (
+                    <p className="text-sm text-dark-300 mt-1">
+                      Found {testResult.serverInfo.databaseCount} database(s) on server
+                    </p>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+
+          {/* Error Display */}
+          {error && (
+            <div className="p-4 rounded-lg border bg-accent-danger/10 border-accent-danger/30">
+              <div className="flex items-start gap-3">
+                <AlertCircle className="w-5 h-5 text-accent-danger flex-shrink-0 mt-0.5" />
+                <p className="text-accent-danger">{error}</p>
+              </div>
+            </div>
+          )}
+
+          {/* Actions */}
+          <div className="flex gap-3">
+            <button
+              onClick={handleTest}
+              disabled={!connectionString || isTesting}
+              className="glass-button px-4 py-2 flex items-center gap-2 disabled:opacity-50"
+            >
+              {isTesting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Testing...
+                </>
+              ) : (
+                <>
+                  <Database className="w-4 h-4" />
+                  Test Connection
+                </>
+              )}
+            </button>
+            <button
+              onClick={handleSave}
+              disabled={!connectionString || !testResult?.success || isLoading}
+              className="glass-button-success px-4 py-2 flex items-center gap-2 disabled:opacity-50"
+            >
+              {isLoading ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  Saving...
+                </>
+              ) : (
+                <>
+                  <Save className="w-4 h-4" />
+                  Save & Reconnect
+                </>
+              )}
+            </button>
+          </div>
+
+          {/* Info */}
+          <div className="pt-4 border-t border-glass-100">
+            <p className="text-xs text-dark-300">
+              Log4YM uses MongoDB to store your QSOs, settings, and layout preferences. You can use a
+              free MongoDB Atlas cluster or a local MongoDB installation. Configuration is stored
+              locally on your device.
+            </p>
+          </div>
+        </>
       )}
-
-      {/* Actions */}
-      <div className="flex gap-3">
-        <button
-          onClick={handleTest}
-          disabled={!connectionString || isTesting}
-          className="glass-button px-4 py-2 flex items-center gap-2 disabled:opacity-50"
-        >
-          {isTesting ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Testing...
-            </>
-          ) : (
-            <>
-              <Database className="w-4 h-4" />
-              Test Connection
-            </>
-          )}
-        </button>
-        <button
-          onClick={handleSave}
-          disabled={!connectionString || !testResult?.success || isLoading}
-          className="glass-button-success px-4 py-2 flex items-center gap-2 disabled:opacity-50"
-        >
-          {isLoading ? (
-            <>
-              <Loader2 className="w-4 h-4 animate-spin" />
-              Saving...
-            </>
-          ) : (
-            <>
-              <Save className="w-4 h-4" />
-              Save & Reconnect
-            </>
-          )}
-        </button>
-      </div>
-
-      {/* Info */}
-      <div className="pt-4 border-t border-glass-100">
-        <p className="text-xs text-dark-300">
-          Log4YM uses MongoDB to store your QSOs, settings, and layout preferences. You can use a
-          free MongoDB Atlas cluster or a local MongoDB installation. Configuration is stored
-          locally on your device.
-        </p>
-      </div>
     </div>
   );
 }

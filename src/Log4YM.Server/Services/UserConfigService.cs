@@ -1,4 +1,6 @@
 using System.Text.Json;
+using System.Text.Json.Serialization;
+using Log4YM.Server.Core.Database;
 
 namespace Log4YM.Server.Services;
 
@@ -12,8 +14,11 @@ public interface IUserConfigService
 
 public class UserConfig
 {
+    [JsonConverter(typeof(JsonStringEnumConverter))]
+    public DatabaseProvider Provider { get; set; } = DatabaseProvider.Local;
     public string? MongoDbConnectionString { get; set; }
     public string? MongoDbDatabaseName { get; set; }
+    public string? LocalDbPath { get; set; }
     public DateTime? ConfiguredAt { get; set; }
 }
 
@@ -61,7 +66,10 @@ public class UserConfigService : IUserConfigService
     public bool IsConfigured()
     {
         if (_cachedConfig != null)
-            return !string.IsNullOrEmpty(_cachedConfig.MongoDbConnectionString);
+        {
+            return _cachedConfig.Provider == DatabaseProvider.Local ||
+                   !string.IsNullOrEmpty(_cachedConfig.MongoDbConnectionString);
+        }
 
         if (!File.Exists(_configPath))
             return false;
@@ -70,7 +78,17 @@ public class UserConfigService : IUserConfigService
         {
             var json = File.ReadAllText(_configPath);
             var config = JsonSerializer.Deserialize<UserConfig>(json);
-            return !string.IsNullOrEmpty(config?.MongoDbConnectionString);
+            if (config == null) return false;
+
+            // Legacy config migration: MongoDbConnectionString set but no Provider field
+            if (config.Provider == DatabaseProvider.Local
+                && !string.IsNullOrEmpty(config.MongoDbConnectionString))
+            {
+                return true; // Existing Atlas user
+            }
+
+            return config.Provider == DatabaseProvider.Local ||
+                   !string.IsNullOrEmpty(config.MongoDbConnectionString);
         }
         catch
         {
@@ -93,6 +111,17 @@ public class UserConfigService : IUserConfigService
         {
             var json = await File.ReadAllTextAsync(_configPath);
             _cachedConfig = JsonSerializer.Deserialize<UserConfig>(json) ?? new UserConfig();
+
+            // Migrate pre-dual-provider configs: if a MongoDbConnectionString exists
+            // but Provider is Local (the default), this is an existing Atlas user
+            // whose config.json predates the Provider field. Infer MongoDb.
+            if (_cachedConfig.Provider == DatabaseProvider.Local
+                && !string.IsNullOrEmpty(_cachedConfig.MongoDbConnectionString))
+            {
+                _cachedConfig.Provider = DatabaseProvider.MongoDb;
+                _logger.LogInformation("Migrated legacy config to MongoDb provider");
+            }
+
             return _cachedConfig;
         }
         catch (Exception ex)

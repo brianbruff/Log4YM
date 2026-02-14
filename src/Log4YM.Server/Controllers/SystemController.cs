@@ -1,5 +1,6 @@
 using Microsoft.AspNetCore.Mvc;
 using Log4YM.Server.Core.Database;
+using Log4YM.Server.Services;
 
 namespace Log4YM.Server.Controllers;
 
@@ -8,11 +9,13 @@ namespace Log4YM.Server.Controllers;
 [Produces("application/json")]
 public class SystemController : ControllerBase
 {
-    private readonly MongoDbContext _dbContext;
+    private readonly IDbContext _dbContext;
+    private readonly IUserConfigService _userConfigService;
 
-    public SystemController(MongoDbContext dbContext)
+    public SystemController(IDbContext dbContext, IUserConfigService userConfigService)
     {
         _dbContext = dbContext;
+        _userConfigService = userConfigService;
     }
 
     /// <summary>
@@ -20,9 +23,11 @@ public class SystemController : ControllerBase
     /// </summary>
     [HttpGet("health")]
     [ProducesResponseType(typeof(HealthResponse), StatusCodes.Status200OK)]
-    public ActionResult<HealthResponse> GetHealth()
+    public async Task<ActionResult<HealthResponse>> GetHealth()
     {
-        return Ok(new HealthResponse("Healthy", DateTime.UtcNow, _dbContext.IsConnected));
+        var config = await _userConfigService.GetConfigAsync();
+        var provider = config.Provider == DatabaseProvider.MongoDb ? "mongodb" : "local";
+        return Ok(new HealthResponse("Healthy", DateTime.UtcNow, _dbContext.IsConnected, _dbContext.IsConnected, provider));
     }
 
     /// <summary>
@@ -45,5 +50,5 @@ public class SystemController : ControllerBase
     }
 }
 
-public record HealthResponse(string Status, DateTime Timestamp, bool MongoDbConnected);
+public record HealthResponse(string Status, DateTime Timestamp, bool MongoDbConnected, bool DatabaseConnected, string DatabaseProvider);
 public record PluginInfo(string Id, string Name, string Version, bool Enabled);

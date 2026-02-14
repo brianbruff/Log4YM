@@ -27,10 +27,9 @@ icon: assets/icon.png
 
 # Windows configuration
 win:
-  icon: assets/icon.ico
   target:
     - target: nsis
-      arch: [x64, ia32]
+      arch: [x64]
   artifactName: "${productName}-${version}-${os}-${arch}.${ext}"
 
 nsis:

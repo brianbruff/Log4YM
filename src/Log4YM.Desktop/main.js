@@ -24,6 +24,7 @@ log.transports.file.level = 'info';
 log.transports.console.level = 'debug';
 
 let mainWindow;
+let splashWindow;
 let backendProcess;
 let backendPort;
 let isDevMode = process.argv.includes('--dev');
@@ -176,6 +177,38 @@ async function waitForBackend(retries = 30, delayMs = 1000) {
 }
 
 /**
+ * Create the splash screen window
+ */
+function createSplashWindow() {
+  const imgPath = path.join(__dirname, 'assets', 'splash.webp');
+
+  splashWindow = new BrowserWindow({
+    width: 600,
+    height: 400,
+    frame: false,
+    resizable: false,
+    transparent: false,
+    alwaysOnTop: true,
+    center: true,
+    backgroundColor: '#0a0e14',
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true
+    }
+  });
+
+  const splashPath = path.join(__dirname, 'splash.html');
+  const version = app.getVersion();
+  splashWindow.loadFile(splashPath, {
+    query: { v: version, img: imgPath }
+  });
+
+  splashWindow.on('closed', () => {
+    splashWindow = null;
+  });
+}
+
+/**
  * Create the main application window
  */
 function createWindow() {
@@ -207,11 +240,6 @@ function createWindow() {
   log.info(`Loading URL: ${loadUrl}`);
   mainWindow.loadURL(loadUrl);
 
-  // Show window when ready
-  mainWindow.once('ready-to-show', () => {
-    mainWindow.show();
-  });
-
   // Open external links in default browser
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url);
@@ -235,7 +263,14 @@ function createMenu() {
     ...(isMac ? [{
       label: 'Log4YM',
       submenu: [
-        { label: 'About Log4YM', role: 'about' },
+        {
+          label: 'About Log4YM',
+          click: () => {
+            if (mainWindow) {
+              mainWindow.webContents.send('open-about');
+            }
+          }
+        },
         { type: 'separator' },
         {
           label: 'Settings...',
@@ -374,9 +409,18 @@ app.whenReady().then(async () => {
   log.info(`Dev mode: ${isDevMode}, Vite dev server: ${useViteDevServer}`);
 
   try {
+    createSplashWindow();
     await startBackend();
     createMenu();
     createWindow();
+
+    // Close splash and show main window when ready
+    mainWindow.once('ready-to-show', () => {
+      if (splashWindow) {
+        splashWindow.close();
+      }
+      mainWindow.show();
+    });
 
     // Check for updates after startup (delayed to not slow down launch)
     setTimeout(() => {

@@ -2,6 +2,8 @@
 interface ElectronAPI {
   onOpenSettings: (callback: () => void) => void;
   removeOpenSettingsListener: () => void;
+  onOpenAbout: (callback: () => void) => void;
+  removeOpenAboutListener: () => void;
 }
 
 declare global {

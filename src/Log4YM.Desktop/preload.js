@@ -9,5 +9,12 @@ contextBridge.exposeInMainWorld('electronAPI', {
   // Remove listener when component unmounts
   removeOpenSettingsListener: () => {
     ipcRenderer.removeAllListeners('open-settings');
+  },
+  // Listen for about dialog command from main process
+  onOpenAbout: (callback) => {
+    ipcRenderer.on('open-about', () => callback());
+  },
+  removeOpenAboutListener: () => {
+    ipcRenderer.removeAllListeners('open-about');
   }
 });

@@ -385,6 +385,11 @@ class ApiClient {
   async getGenericConditions(): Promise<GenericBandConditions> {
     return this.fetch<GenericBandConditions>('/propagation/conditions');
   }
+
+  // Callsign Map Images
+  async getCallsignMapImages(limit: number = 100): Promise<CallsignMapImage[]> {
+    return this.fetch<CallsignMapImage[]>(`/callsign-images?limit=${limit}`);
+  }
 }
 
 // QRZ Types
@@ -623,6 +628,18 @@ export interface GenericBandConditions {
   ssn: number;
   source: string;
   timestamp: string;
+}
+
+// Callsign Map Image Types
+export interface CallsignMapImage {
+  callsign: string;
+  imageUrl?: string;
+  latitude: number;
+  longitude: number;
+  name?: string;
+  country?: string;
+  grid?: string;
+  savedAt: string;
 }
 
 export const api = new ApiClient();

@@ -10,56 +10,58 @@
 
 :root {
   /* Surface / background colors (maps to dark-* Tailwind classes) */
-  --surface-900: 246 247 249;     /* #f6f7f9 — deepest background */
-  --surface-850: 240 241 244;     /* #f0f1f4 */
-  --surface-800: 255 255 255;     /* #ffffff — panel background */
-  --surface-700: 243 244 246;     /* #f3f4f6 — elevated surface */
-  --surface-600: 216 220 227;     /* #d8dce3 — borders, dividers */
-  --surface-500: 192 199 209;     /* #c0c7d1 — lighter elements */
-  --surface-400: 156 163 175;     /* #9ca3af — muted interactive */
-  --surface-300: 107 114 128;     /* #6b7280 — muted text */
-  --surface-200: 55 65 81;        /* #374151 — secondary text */
+  /* Warm, cream-based palette with strong contrast */
+  --surface-900: 247 244 237;     /* #f7f4ed — warm cream deepest background */
+  --surface-850: 242 238 230;     /* #f2eee6 — soft linen */
+  --surface-800: 252 250 246;     /* #fcfaf6 — warm white panel background */
+  --surface-700: 238 234 225;     /* #eeeae1 — warm elevated surface */
+  --surface-600: 190 180 165;     /* #beb4a5 — strong warm borders, dividers */
+  --surface-500: 140 128 112;     /* #8c8070 — warm mid elements, darker for placeholder readability */
+  --surface-400: 135 122 105;     /* #877a69 — warm muted interactive */
+  --surface-300: 105 95 82;       /* #695f52 — warm muted text */
+  --surface-200: 75 65 55;        /* #4b4137 — warm secondary text */
 
-  /* Accent colors — deep indigo/purple for light theme */
-  --accent-primary: 74 61 143;    /* #4a3d8f */
-  --accent-secondary: 99 102 241; /* #6366f1 */
-  --accent-success: 5 150 105;    /* #059669 */
-  --accent-warning: 217 119 6;    /* #d97706 */
-  --accent-danger: 220 38 38;     /* #dc2626 */
-  --accent-info: 37 99 235;       /* #2563eb */
+  /* Accent colors — warm amber/rust/terracotta palette for light theme */
+  --accent-primary: 175 80 35;    /* #af5023 — deeper rust primary */
+  --accent-secondary: 195 105 40; /* #c36928 — deeper amber secondary */
+  --accent-success: 85 130 55;    /* #558237 — deeper sage green */
+  --accent-warning: 200 130 35;   /* #c88223 — deeper golden amber */
+  --accent-danger: 190 55 45;     /* #be372d — deeper terracotta */
+  --accent-info: 60 110 155;      /* #3c6e9b — deeper steel blue */
 
-  /* Ham radio mode colors */
-  --ham-cw: 180 83 9;             /* #b45309 */
-  --ham-ssb: 5 150 105;           /* #059669 */
-  --ham-ft8: 37 99 235;           /* #2563eb */
-  --ham-rtty: 124 58 237;         /* #7c3aed */
+  /* Ham radio mode colors — warmer tones for light theme */
+  --ham-cw: 180 100 35;           /* #b46423 — warm copper */
+  --ham-ssb: 85 130 55;           /* #558237 — warm sage */
+  --ham-ft8: 60 110 155;          /* #3c6e9b — warm steel blue */
+  --ham-rtty: 135 75 135;         /* #874b87 — warm plum */
 
   /* Gray scale — semantic (inverted for light mode so gray-100 = dark text) */
-  --gray-50: 17 24 39;
-  --gray-100: 31 41 55;
-  --gray-200: 55 65 81;
-  --gray-300: 75 85 99;
-  --gray-400: 107 114 128;
-  --gray-500: 156 163 175;
-  --gray-600: 209 213 219;
-  --gray-700: 229 231 235;
-  --gray-800: 243 244 246;
-  --gray-900: 249 250 251;
+  /* Warmer grays with brown undertones */
+  --gray-50: 40 35 30;            /* #28231e — warm near-black */
+  --gray-100: 55 48 40;           /* #373028 — warm dark brown */
+  --gray-200: 75 65 55;           /* #4b4137 — warm brown */
+  --gray-300: 95 85 75;           /* #5f554b — warm medium brown */
+  --gray-400: 115 105 92;         /* #73695c — warm taupe */
+  --gray-500: 120 110 95;         /* #786e5f — warm stone, darker for placeholder contrast */
+  --gray-600: 190 180 165;        /* #beb4a5 — warm sand */
+  --gray-700: 210 202 190;        /* #d2cabe — warm light beige */
+  --gray-800: 235 230 222;        /* #ebe6de — warm cream */
+  --gray-900: 247 244 238;        /* #f7f4ee — warm off-white */
 
-  /* Text foreground */
-  --text-foreground: 75 85 99;    /* #4b5563 */
+  /* Text foreground — warm brown for better readability */
+  --text-foreground: 50 42 35;    /* #322a23 — darker warm text */
 
-  /* Shadows — soft, minimal for light theme */
-  --shadow-glass: 0 1px 3px 0 rgba(0, 0, 0, 0.07), 0 1px 2px -1px rgba(0, 0, 0, 0.05);
-  --shadow-glass-sm: 0 1px 2px 0 rgba(0, 0, 0, 0.04);
-  --shadow-glow: 0 0 15px rgba(74, 61, 143, 0.12);
-  --shadow-glow-success: 0 0 15px rgba(5, 150, 105, 0.12);
-  --shadow-glow-cyan: 0 0 15px rgba(99, 102, 241, 0.12);
+  /* Shadows — stronger warm shadows for light theme */
+  --shadow-glass: 0 2px 8px 0 rgba(80, 60, 40, 0.14), 0 1px 4px -1px rgba(80, 60, 40, 0.10);
+  --shadow-glass-sm: 0 1px 4px 0 rgba(80, 60, 40, 0.10);
+  --shadow-glow: 0 0 16px rgba(175, 80, 35, 0.2);
+  --shadow-glow-success: 0 0 16px rgba(85, 130, 55, 0.2);
+  --shadow-glow-cyan: 0 0 16px rgba(195, 105, 40, 0.2);
 
-  /* Scrollbar */
-  --scrollbar-track: #f3f4f6;
-  --scrollbar-thumb: #d1d5db;
-  --scrollbar-thumb-hover: #9ca3af;
+  /* Scrollbar — warm tones */
+  --scrollbar-track: #eeeae1;
+  --scrollbar-thumb: #beb4a5;
+  --scrollbar-thumb-hover: #a59887;
 
   /* Text glow — disabled in light mode */
   --text-glow-primary: none;
@@ -135,6 +137,11 @@
 @layer base {
   * {
     @apply border-glass-100;
+  }
+
+  /* Light mode: stronger default border using surface color instead of translucent accent */
+  html:not(.dark) * {
+    border-color: rgb(var(--surface-600));
   }
 
   body {
@@ -302,16 +309,38 @@
   border-bottom: 2px solid rgb(var(--accent-secondary));
 }
 
+/* Light mode: white text on orange header bars */
+html:not(.dark) .flexlayout__tab_button {
+  color: rgba(255, 255, 255, 0.75);
+}
+
+html:not(.dark) .flexlayout__tab_button:hover {
+  color: #fff;
+  background: rgba(255, 255, 255, 0.15);
+}
+
+html:not(.dark) .flexlayout__tab_button--selected {
+  background: rgba(255, 255, 255, 0.2);
+  color: #fff;
+  border-bottom: 2px solid #fff;
+}
+
 .flexlayout__tabset {
   background: rgb(var(--surface-800));
-  border: 1px solid rgb(var(--accent-primary) / 0.15);
+  border: 1px solid rgb(var(--surface-600));
   border-radius: 8px 8px 0 0;
   overflow: hidden;
 }
 
 .flexlayout__tabset_tabbar_outer {
   background: rgb(var(--surface-800));
-  border-bottom: 1px solid rgb(var(--accent-primary) / 0.15);
+  border-bottom: 1px solid rgb(var(--surface-600));
+}
+
+/* Light mode: orange panel header bars */
+html:not(.dark) .flexlayout__tabset_tabbar_outer {
+  background: rgb(var(--accent-primary));
+  border-bottom: 1px solid rgb(var(--accent-primary));
 }
 
 .flexlayout__tab {
@@ -319,11 +348,28 @@
 }
 
 .flexlayout__splitter {
-  background: rgb(var(--accent-primary) / 0.08);
+  background: rgb(var(--surface-600));
   transition: background 0.2s ease;
 }
 
 .flexlayout__splitter:hover {
+  background: rgb(var(--accent-secondary) / 0.5);
+}
+
+/* Dark mode: restore subtle borders for flexlayout */
+.dark .flexlayout__tabset {
+  border-color: rgb(var(--accent-primary) / 0.15);
+}
+
+.dark .flexlayout__tabset_tabbar_outer {
+  border-bottom-color: rgb(var(--accent-primary) / 0.15);
+}
+
+.dark .flexlayout__splitter {
+  background: rgb(var(--accent-primary) / 0.08);
+}
+
+.dark .flexlayout__splitter:hover {
   background: rgb(var(--accent-secondary) / 0.3);
 }
 
@@ -343,11 +389,29 @@
   @apply ml-2 opacity-50 hover:opacity-100;
 }
 
+/* Light mode: white icons on orange header */
+html:not(.dark) .flexlayout__tab_button_trailing img,
+html:not(.dark) .flexlayout__tab_toolbar_button img {
+  filter: brightness(0) invert(1);
+}
+
+html:not(.dark) .flexlayout__tab_toolbar_button {
+  color: rgba(255, 255, 255, 0.7);
+}
+
+html:not(.dark) .flexlayout__tab_toolbar_button:hover {
+  background: rgba(255, 255, 255, 0.15);
+}
+
 .flexlayout__popup_menu {
   background: rgb(var(--surface-800));
-  border: 1px solid rgb(var(--accent-primary) / 0.15);
+  border: 1px solid rgb(var(--surface-600));
   border-radius: 8px;
   box-shadow: var(--shadow-glass);
+}
+
+.dark .flexlayout__popup_menu {
+  border-color: rgb(var(--accent-primary) / 0.15);
 }
 
 .flexlayout__popup_menu_item {
@@ -383,9 +447,13 @@
 
 .flexlayout__tab_floating {
   background: rgb(var(--surface-800));
-  border: 1px solid rgb(var(--accent-primary) / 0.15);
+  border: 1px solid rgb(var(--surface-600));
   border-radius: 8px;
   box-shadow: var(--shadow-glass);
+}
+
+.dark .flexlayout__tab_floating {
+  border-color: rgb(var(--accent-primary) / 0.15);
 }
 
 /* ============================================================
@@ -398,15 +466,15 @@
   --ag-odd-row-background-color: rgb(var(--surface-850));
   --ag-row-hover-color: rgb(var(--accent-secondary) / 0.08);
   --ag-selected-row-background-color: rgb(var(--accent-primary) / 0.12);
-  --ag-border-color: rgb(var(--accent-primary) / 0.12);
+  --ag-border-color: rgb(var(--surface-600));
   --ag-header-foreground-color: rgb(var(--accent-secondary));
   --ag-foreground-color: rgb(var(--text-foreground));
-  --ag-row-border-color: rgb(var(--accent-primary) / 0.06);
+  --ag-row-border-color: rgb(var(--surface-600) / 0.5);
   --ag-font-family: 'JetBrains Mono', 'Consolas', monospace;
   --ag-font-size: 13px;
   --ag-grid-size: 4px;
   --ag-cell-horizontal-padding: 12px;
-  --ag-header-column-separator-color: rgb(var(--accent-primary) / 0.15);
+  --ag-header-column-separator-color: rgb(var(--surface-600));
   --ag-header-column-resize-handle-color: rgb(var(--accent-secondary));
   --ag-range-selection-border-color: rgb(var(--accent-secondary));
   --ag-input-focus-border-color: rgb(var(--accent-primary));
@@ -414,17 +482,44 @@
   --ag-range-selection-background-color: rgb(var(--accent-secondary) / 0.1);
 }
 
+/* Light mode: distinct grey header for AG Grid */
+html:not(.dark) .ag-theme-alpine-dark {
+  --ag-header-background-color: #e0dcd4;
+  --ag-header-foreground-color: #3a3228;
+  --ag-header-column-separator-color: #c5bfb5;
+}
+
+/* Dark mode: restore subtle AG Grid borders */
+.dark .ag-theme-alpine-dark {
+  --ag-border-color: rgb(var(--accent-primary) / 0.12);
+  --ag-row-border-color: rgb(var(--accent-primary) / 0.06);
+  --ag-header-column-separator-color: rgb(var(--accent-primary) / 0.15);
+}
+
 .ag-theme-alpine-dark .ag-root-wrapper {
   background-color: rgb(var(--surface-900)) !important;
-  border: 1px solid rgb(var(--accent-primary) / 0.1) !important;
+  border: 1px solid rgb(var(--surface-600)) !important;
   border-radius: 4px;
   overflow: hidden;
   color: rgb(var(--text-foreground)) !important;
 }
 
+.dark .ag-theme-alpine-dark .ag-root-wrapper {
+  border-color: rgb(var(--accent-primary) / 0.1) !important;
+}
+
 .ag-theme-alpine-dark .ag-header {
   background-color: rgb(var(--surface-700)) !important;
-  border-bottom: 1px solid rgb(var(--accent-primary) / 0.2) !important;
+  border-bottom: 1px solid rgb(var(--surface-600)) !important;
+}
+
+html:not(.dark) .ag-theme-alpine-dark .ag-header {
+  background-color: #e0dcd4 !important;
+  border-bottom: 2px solid #c5bfb5 !important;
+}
+
+.dark .ag-theme-alpine-dark .ag-header {
+  border-bottom-color: rgb(var(--accent-primary) / 0.2) !important;
 }
 
 .ag-theme-alpine-dark .ag-header-cell {
@@ -433,10 +528,18 @@
   font-size: 12px !important;
   letter-spacing: 0.06em;
   text-transform: uppercase;
-  color: rgb(235 240 245) !important;
+  color: rgb(var(--text-foreground)) !important;
 }
 
 .ag-theme-alpine-dark .ag-header-cell-text {
+  color: rgb(var(--text-foreground)) !important;
+}
+
+.dark .ag-theme-alpine-dark .ag-header-cell {
+  color: rgb(235 240 245) !important;
+}
+
+.dark .ag-theme-alpine-dark .ag-header-cell-text {
   color: rgb(235 240 245) !important;
 }
 
@@ -454,9 +557,13 @@
 
 .ag-theme-alpine-dark .ag-row {
   background-color: rgb(var(--surface-900)) !important;
-  border-bottom: 1px solid rgb(var(--accent-primary) / 0.04) !important;
+  border-bottom: 1px solid rgb(var(--surface-600) / 0.4) !important;
   transition: background-color 0.1s ease;
   color: rgb(var(--text-foreground)) !important;
+}
+
+.dark .ag-theme-alpine-dark .ag-row {
+  border-bottom-color: rgb(var(--accent-primary) / 0.04) !important;
 }
 
 .ag-theme-alpine-dark .ag-row-odd {
@@ -635,4 +742,11 @@
 
 .animate-pulse-subtle {
   animation: pulse-subtle 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* Callsign image map markers - override Leaflet's default DivIcon styles */
+.custom-callsign-image-marker {
+  background: none !important;
+  border: none !important;
+  overflow: visible !important;
 }

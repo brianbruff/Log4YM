@@ -620,6 +620,8 @@ html:not(.dark) .ag-theme-alpine-dark .ag-header {
   gap: 8px;
   white-space: nowrap;
   line-height: 1.2;
+  flex-shrink: 0;
+  min-width: 0;
 }
 
 .header-plugin__callsign {
@@ -655,6 +657,8 @@ html:not(.dark) .ag-theme-alpine-dark .ag-header {
   letter-spacing: 2px;
   line-height: 1;
   text-shadow: var(--text-glow-secondary);
+  min-width: 8ch;
+  display: inline-block;
 }
 
 .header-plugin__date {
@@ -682,6 +686,9 @@ html:not(.dark) .ag-theme-alpine-dark .ag-header {
   font-size: calc(var(--ts) * 0.3 * 1px);
   font-weight: 700;
   color: rgb(var(--accent-primary));
+  min-width: 3ch;
+  display: inline-block;
+  text-align: center;
 }
 
 .header-plugin__value--danger {

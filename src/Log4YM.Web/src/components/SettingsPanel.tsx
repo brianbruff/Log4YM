@@ -1574,29 +1574,6 @@ function HeaderSettingsSection() {
           <p className="text-xs text-dark-300">You can also click the local time in the header to toggle formats.</p>
         </div>
 
-        {/* Size Multiplier */}
-        <div className="space-y-2">
-          <label className="flex items-center gap-2 text-sm font-medium font-ui text-dark-200">
-            Header Size
-          </label>
-          <div className="grid grid-cols-4 gap-2">
-            {[0.75, 1.0, 1.25, 1.5].map((size) => (
-              <button
-                key={size}
-                onClick={() => updateHeaderSettings({ sizeMultiplier: size })}
-                className={`px-4 py-2 rounded-lg border transition-colors ${
-                  header.sizeMultiplier === size
-                    ? 'bg-accent-primary/10 border-accent-primary text-accent-primary'
-                    : 'bg-dark-700/50 border-glass-100 text-dark-300 hover:bg-dark-700'
-                }`}
-              >
-                {size === 1.0 ? 'Normal' : `${size}x`}
-              </button>
-            ))}
-          </div>
-          <p className="text-xs text-dark-300">Adjust the size of text and spacing in the header bar.</p>
-        </div>
-
         {/* Show Weather */}
         <label className="flex items-center justify-between p-4 bg-dark-700/50 rounded-lg border border-glass-100 cursor-pointer hover:bg-dark-700 transition-colors">
           <div className="flex items-center gap-3">

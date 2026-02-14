@@ -596,18 +596,15 @@ export function MapPlugin() {
     beamLinePoints.push(getDestinationPoint(stationLat, stationLon, currentAzimuth, d));
   }
 
-  // Generate target heading line (amber) - separate from rotator beam
-  const targetBearing = focusedCallsignInfo?.bearing;
-  const targetLinePoints: [number, number][] = [];
-  if (targetBearing != null) {
-    for (let d = 0; d <= beamDistance; d += 100) {
-      targetLinePoints.push(getDestinationPoint(stationLat, stationLon, targetBearing, d));
-    }
-  }
-
   // Target location from focused callsign
   const targetLat = focusedCallsignInfo?.latitude;
   const targetLon = focusedCallsignInfo?.longitude;
+
+  // Generate great circle path from station to focused callsign (amber)
+  const targetPathSegments = useMemo<[number, number][][]>(() => {
+    if (targetLat == null || targetLon == null) return [];
+    return generateGreatCirclePoints(stationLat, stationLon, targetLat, targetLon);
+  }, [stationLat, stationLon, targetLat, targetLon]);
 
   // Fetch RBN spots periodically when enabled
   useEffect(() => {
@@ -772,10 +769,11 @@ export function MapPlugin() {
             />
           )}
 
-          {/* Target heading line - show when we have a focused callsign with bearing (amber) */}
-          {targetLinePoints.length > 0 && (
+          {/* Great circle path to focused callsign (amber) */}
+          {targetPathSegments.map((segment, segmentIndex) => (
             <Polyline
-              positions={targetLinePoints}
+              key={`target-path-${segmentIndex}`}
+              positions={segment}
               pathOptions={{
                 color: '#ffb432',
                 weight: 2,
@@ -783,7 +781,7 @@ export function MapPlugin() {
                 dashArray: '5, 10',
               }}
             />
-          )}
+          ))}
 
           {/* Target marker - show callsign image icon (2x) with image or placeholder, or standard dot if callsign images disabled */}
           {targetLat != null && targetLon != null && (

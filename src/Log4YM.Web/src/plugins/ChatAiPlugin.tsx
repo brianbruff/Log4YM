@@ -75,34 +75,49 @@ export function ChatAiPlugin() {
     }
   };
 
+  const sendStreamingChat = async (question: string, history: ChatMessageType[]) => {
+    setChatMessages((prev) => [...prev, { role: 'user', content: question }]);
+    setIsSendingChat(true);
+    setError(null);
+
+    // Add empty assistant message that will be filled by streaming tokens
+    setChatMessages((prev) => [...prev, { role: 'assistant', content: '' }]);
+
+    try {
+      await api.chatStream(
+        { callsign: callsign!, question, conversationHistory: history },
+        (token) => {
+          setChatMessages((prev) => {
+            const updated = [...prev];
+            const last = updated[updated.length - 1];
+            updated[updated.length - 1] = { ...last, content: last.content + token };
+            return updated;
+          });
+        }
+      );
+    } catch (err) {
+      console.error('Failed to send chat:', err);
+      const msg = err instanceof Error ? err.message : 'Unknown error';
+      setError(`Failed to get response: ${msg}`);
+      // Remove empty assistant message on error
+      setChatMessages((prev) => {
+        const last = prev[prev.length - 1];
+        if (last.role === 'assistant' && !last.content) {
+          return prev.slice(0, -1);
+        }
+        return prev;
+      });
+    } finally {
+      setIsSendingChat(false);
+    }
+  };
+
   const handleSendChat = async () => {
     if (!callsign || !chatInput.trim() || isSendingChat) return;
 
     const question = chatInput.trim();
     setChatInput('');
-
-    // Add user message to chat
-    const userMessage: ChatMessageType = { role: 'user', content: question };
-    setChatMessages((prev) => [...prev, userMessage]);
-    setIsSendingChat(true);
-    setError(null);
-
-    try {
-      const response = await api.chat({
-        callsign,
-        question,
-        conversationHistory: chatMessages,
-      });
-
-      // Add assistant response
-      const assistantMessage: ChatMessageType = { role: 'assistant', content: response.answer };
-      setChatMessages((prev) => [...prev, assistantMessage]);
-    } catch (err) {
-      console.error('Failed to send chat:', err);
-      setError('Failed to get response. Check your API key and try again.');
-    } finally {
-      setIsSendingChat(false);
-    }
+    await sendStreamingChat(question, chatMessages);
   };
 
   const handleKeyPress = (e: React.KeyboardEvent) => {
@@ -320,7 +335,8 @@ export function ChatAiPlugin() {
                 <button
                   key={idx}
                   onClick={() => {
-                    setChatInput(suggestion);
+                    setChatInput('');
+                    sendStreamingChat(suggestion, chatMessages);
                   }}
                   className="w-full text-left glass-panel p-2.5 text-sm text-gray-400 hover:text-gray-200 hover:bg-glass-100 transition-colors cursor-pointer flex items-start gap-2"
                 >

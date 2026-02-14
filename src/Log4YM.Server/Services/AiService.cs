@@ -1,4 +1,5 @@
 using System.Net.Http.Headers;
+using System.Runtime.CompilerServices;
 using System.Text;
 using System.Text.Json;
 using System.Text.Json.Serialization;
@@ -101,6 +102,38 @@ public class AiService : IAiService
         var response = await CallLlmWithMessagesAsync(aiSettings, messages);
 
         return new ChatResponse(response);
+    }
+
+    public async IAsyncEnumerable<string> ChatStreamAsync(
+        ChatRequest request,
+        [EnumeratorCancellation] CancellationToken cancellationToken = default)
+    {
+        var settings = await _settingsRepository.GetAsync() ?? new UserSettings();
+        var aiSettings = settings.Ai;
+
+        if (string.IsNullOrEmpty(aiSettings.ApiKey))
+        {
+            throw new InvalidOperationException("AI API key not configured");
+        }
+
+        var previousQsos = await GetPreviousQsosAsync(request.Callsign);
+        var qrzProfile = aiSettings.IncludeQrzProfile
+            ? await GetQrzProfileAsync(request.Callsign)
+            : null;
+
+        var messages = BuildChatMessages(
+            settings.Station.Callsign,
+            request.Callsign,
+            previousQsos,
+            qrzProfile,
+            request.Question,
+            request.ConversationHistory
+        );
+
+        await foreach (var token in StreamLlmAsync(aiSettings, messages, cancellationToken))
+        {
+            yield return token;
+        }
     }
 
     public async Task<TestApiKeyResponse> TestApiKeyAsync(TestApiKeyRequest request)
@@ -377,6 +410,140 @@ public class AiService : IAiService
         var responseObj = JsonSerializer.Deserialize<OpenAiResponse>(responseJson);
 
         return responseObj?.Choices?.FirstOrDefault()?.Message?.Content ?? "No response from AI";
+    }
+
+    private IAsyncEnumerable<string> StreamLlmAsync(
+        AiSettings settings, List<object> messages, CancellationToken cancellationToken)
+    {
+        if (settings.Provider.Equals("anthropic", StringComparison.OrdinalIgnoreCase))
+            return StreamAnthropicAsync(settings, messages, cancellationToken);
+        else if (settings.Provider.Equals("openai", StringComparison.OrdinalIgnoreCase))
+            return StreamOpenAiAsync(settings, messages, cancellationToken);
+        else
+            throw new InvalidOperationException($"Unsupported AI provider: {settings.Provider}");
+    }
+
+    private async IAsyncEnumerable<string> StreamAnthropicAsync(
+        AiSettings settings, List<object> messages,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        var requestBody = new
+        {
+            model = settings.Model,
+            max_tokens = 1024,
+            messages = messages,
+            stream = true
+        };
+
+        var json = JsonSerializer.Serialize(requestBody);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "https://api.anthropic.com/v1/messages");
+        httpRequest.Headers.Add("x-api-key", settings.ApiKey);
+        httpRequest.Headers.Add("anthropic-version", "2023-06-01");
+        httpRequest.Content = content;
+
+        using var response = await _httpClient.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var reader = new StreamReader(stream);
+
+        string? line;
+        while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
+        {
+            if (cancellationToken.IsCancellationRequested) yield break;
+            if (line.Length == 0 || !line.StartsWith("data: "))
+                continue;
+
+            var data = line.Substring(6);
+            string? token = null;
+            var shouldStop = false;
+
+            try
+            {
+                using var doc = JsonDocument.Parse(data);
+                var type = doc.RootElement.GetProperty("type").GetString();
+
+                if (type == "content_block_delta")
+                {
+                    token = doc.RootElement.GetProperty("delta").GetProperty("text").GetString();
+                }
+                else if (type == "message_stop")
+                {
+                    shouldStop = true;
+                }
+            }
+            catch (JsonException)
+            {
+                // Skip malformed JSON lines
+            }
+
+            if (shouldStop) yield break;
+            if (!string.IsNullOrEmpty(token))
+                yield return token;
+        }
+    }
+
+    private async IAsyncEnumerable<string> StreamOpenAiAsync(
+        AiSettings settings, List<object> messages,
+        [EnumeratorCancellation] CancellationToken cancellationToken)
+    {
+        var requestBody = new
+        {
+            model = settings.Model,
+            messages = messages,
+            max_completion_tokens = 1024,
+            stream = true
+        };
+
+        var json = JsonSerializer.Serialize(requestBody);
+        var content = new StringContent(json, Encoding.UTF8, "application/json");
+
+        using var httpRequest = new HttpRequestMessage(HttpMethod.Post, "https://api.openai.com/v1/chat/completions");
+        httpRequest.Headers.Authorization = new AuthenticationHeaderValue("Bearer", settings.ApiKey);
+        httpRequest.Content = content;
+
+        using var response = await _httpClient.SendAsync(httpRequest, HttpCompletionOption.ResponseHeadersRead, cancellationToken);
+        response.EnsureSuccessStatusCode();
+
+        using var stream = await response.Content.ReadAsStreamAsync(cancellationToken);
+        using var reader = new StreamReader(stream);
+
+        string? line;
+        while ((line = await reader.ReadLineAsync(cancellationToken)) != null)
+        {
+            if (cancellationToken.IsCancellationRequested) yield break;
+            if (line.Length == 0 || !line.StartsWith("data: "))
+                continue;
+
+            var data = line.Substring(6);
+            if (data == "[DONE]")
+                yield break;
+
+            string? token = null;
+
+            try
+            {
+                using var doc = JsonDocument.Parse(data);
+                var choices = doc.RootElement.GetProperty("choices");
+                if (choices.GetArrayLength() > 0)
+                {
+                    var delta = choices[0].GetProperty("delta");
+                    if (delta.TryGetProperty("content", out var contentProp))
+                    {
+                        token = contentProp.GetString();
+                    }
+                }
+            }
+            catch (JsonException)
+            {
+                // Skip malformed JSON lines
+            }
+
+            if (!string.IsNullOrEmpty(token))
+                yield return token;
+        }
     }
 
     private List<string> ParseTalkPoints(string response)

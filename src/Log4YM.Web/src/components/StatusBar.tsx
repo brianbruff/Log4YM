@@ -2,15 +2,25 @@ import { Radio, Wifi, WifiOff, MapPin, Clock, Loader2, Settings, AlertTriangle }
 import { useAppStore } from '../store/appStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { useEffect, useState } from 'react';
+import { APP_VERSION } from '../version';
+import { AboutDialog } from './AboutDialog';
 
 export function StatusBar() {
   const { connectionState, reconnectAttempt, stationCallsign, stationGrid, rigStatus, databaseConnected, databaseProvider } = useAppStore();
   const { openSettings } = useSettingsStore();
   const [currentTime, setCurrentTime] = useState(new Date());
+  const [showAbout, setShowAbout] = useState(false);
 
   useEffect(() => {
     const timer = setInterval(() => setCurrentTime(new Date()), 1000);
     return () => clearInterval(timer);
+  }, []);
+
+  useEffect(() => {
+    if (window.electronAPI?.onOpenAbout) {
+      window.electronAPI.onOpenAbout(() => setShowAbout(true));
+      return () => window.electronAPI?.removeOpenAboutListener?.();
+    }
   }, []);
 
   const formatUtcTime = (date: Date) => {
@@ -22,9 +32,19 @@ export function StatusBar() {
   };
 
   return (
+    <>
     <div className={`h-8 bg-dark-800/90 backdrop-blur-sm border-t ${!databaseConnected && databaseProvider === 'mongodb' ? 'border-accent-danger shadow-[0_-2px_12px_rgba(239,68,68,0.4)] animate-pulse-subtle' : 'border-glass-100'} flex items-center justify-between px-4 text-sm font-ui`}>
       {/* Left side - Station info */}
       <div className="flex items-center gap-6">
+        <button
+          onClick={() => setShowAbout(true)}
+          className="flex items-center gap-1.5 hover:bg-dark-600 rounded px-1.5 py-0.5 transition-colors group"
+          title="About Log4YM"
+        >
+          <img src="./logo.webp" alt="Log4YM" className="w-4 h-4" />
+          <span className="text-xs font-display text-dark-300 group-hover:text-accent-primary transition-colors">Log4YM</span>
+          <span className="text-[10px] font-mono text-dark-500">v{APP_VERSION}</span>
+        </button>
         {!databaseConnected && databaseProvider === 'mongodb' && (
           <div className="flex items-center gap-2 text-accent-danger font-bold animate-pulse-subtle">
             <AlertTriangle className="w-4 h-4" />
@@ -109,5 +129,7 @@ export function StatusBar() {
         </div>
       </div>
     </div>
+    <AboutDialog isOpen={showAbout} onClose={() => setShowAbout(false)} />
+    </>
   );
 }

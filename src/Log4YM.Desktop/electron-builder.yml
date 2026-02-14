@@ -10,6 +10,7 @@ files:
   - "main.js"
   - "preload.js"
   - "updater.js"
+  - "splash.html"
   - "package.json"
   - "assets/**/*"
 

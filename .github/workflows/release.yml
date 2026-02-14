@@ -68,6 +68,8 @@ jobs:
       - name: Build frontend
         working-directory: src/Log4YM.Web
         run: npm run build
+        env:
+          VITE_APP_VERSION: ${{ steps.version.outputs.version }}
 
       - name: Install desktop dependencies
         working-directory: src/Log4YM.Desktop
@@ -122,11 +124,32 @@ jobs:
     runs-on: ubuntu-latest
 
     steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
       - name: Get version from tag
         id: version
         run: |
           VERSION=${GITHUB_REF#refs/tags/v}
           echo "version=$VERSION" >> $GITHUB_OUTPUT
+
+      - name: Generate changelog
+        run: |
+          PREV_TAG=$(git tag --sort=-version:refname | head -2 | tail -1)
+          CURR_TAG=v${{ steps.version.outputs.version }}
+
+          echo "# Changelog" > CHANGELOG.md
+          echo "" >> CHANGELOG.md
+          echo "## $CURR_TAG" >> CHANGELOG.md
+          echo "" >> CHANGELOG.md
+
+          if [ -n "$PREV_TAG" ]; then
+            git log ${PREV_TAG}..${CURR_TAG} --pretty=format:"- %s (%h)" --no-merges >> CHANGELOG.md
+          else
+            git log --pretty=format:"- %s (%h)" --no-merges >> CHANGELOG.md
+          fi
 
       - name: Download all artifacts
         uses: actions/download-artifact@v4
@@ -146,5 +169,6 @@ jobs:
           generate_release_notes: true
           files: |
             artifacts/*
+            CHANGELOG.md
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

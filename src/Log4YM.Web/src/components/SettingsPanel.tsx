@@ -39,6 +39,7 @@ import { useSettingsStore, SettingsSection, StationSettings } from '../store/set
 import { gridToLatLon } from '../utils/maidenhead';
 import { useSetupStore, type DatabaseProvider } from '../store/setupStore';
 import { HardDrive, Cloud, AlertTriangle, ArrowRightLeft } from 'lucide-react';
+import { APP_VERSION } from '../version';
 
 // Settings navigation items
 const SETTINGS_SECTIONS: { id: SettingsSection; name: string; icon: React.ReactNode; description: string }[] = [
@@ -1875,13 +1876,11 @@ function AboutSection() {
       <div className="space-y-4">
         <div className="p-4 bg-dark-700/50 rounded-lg border border-glass-100">
           <div className="flex items-center gap-4">
-            <div className="w-16 h-16 bg-accent-primary/20 rounded-lg flex items-center justify-center">
-              <Radio className="w-8 h-8 text-accent-primary" />
-            </div>
+            <img src="./logo.webp" alt="Log4YM" className="w-16 h-16 rounded-lg" />
             <div>
               <h4 className="text-xl font-bold font-display text-accent-primary">LOG4YM</h4>
               <p className="text-sm text-dark-300">Ham Radio Logging Software</p>
-              <p className="text-xs text-dark-300 mt-1">Version 0.1.0 (Alpha)</p>
+              <p className="text-xs text-dark-300 mt-1">Version {APP_VERSION}</p>
             </div>
           </div>
         </div>

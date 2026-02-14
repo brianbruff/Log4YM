@@ -422,6 +422,13 @@ app.whenReady().then(async () => {
   log.info(`Packaged: ${app.isPackaged}`);
   log.info(`Dev mode: ${isDevMode}, Vite dev server: ${useViteDevServer}`);
 
+  // Handle restart requests from renderer (e.g. database provider switch)
+  ipcMain.handle('restart-app', () => {
+    log.info('Restart requested via IPC');
+    app.relaunch();
+    app.exit(0);
+  });
+
   try {
     createSplashWindow();
     await startBackend();

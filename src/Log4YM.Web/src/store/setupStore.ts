@@ -22,6 +22,12 @@ export interface TestConnectionResult {
   };
 }
 
+export interface ConfigureResult {
+  success: boolean;
+  message: string;
+  restartRequired: boolean;
+}
+
 interface SetupState {
   // Status
   status: SetupStatus | null;
@@ -39,16 +45,20 @@ interface SetupState {
   isTesting: boolean;
   testResult: TestConnectionResult | null;
 
+  // Last configure result (for restart handling)
+  lastConfigureResult: ConfigureResult | null;
+
   // Actions
   setProvider: (provider: DatabaseProvider) => void;
   setConnectionString: (value: string) => void;
   setDatabaseName: (value: string) => void;
   fetchStatus: () => Promise<void>;
   testConnection: () => Promise<boolean>;
-  configure: () => Promise<boolean>;
-  configureLocal: () => Promise<boolean>;
+  configure: () => Promise<ConfigureResult | null>;
+  configureLocal: () => Promise<ConfigureResult | null>;
   clearError: () => void;
   clearTestResult: () => void;
+  clearConfigureResult: () => void;
 }
 
 export const useSetupStore = create<SetupState>((set, get) => ({
@@ -60,12 +70,14 @@ export const useSetupStore = create<SetupState>((set, get) => ({
   databaseName: 'Log4YM',
   isTesting: false,
   testResult: null,
+  lastConfigureResult: null,
 
   setProvider: (provider) => set({ provider }),
   setConnectionString: (value) => set({ connectionString: value, testResult: null }),
   setDatabaseName: (value) => set({ databaseName: value }),
   clearError: () => set({ error: null }),
   clearTestResult: () => set({ testResult: null }),
+  clearConfigureResult: () => set({ lastConfigureResult: null }),
 
   fetchStatus: async () => {
     set({ isLoading: true, error: null });
@@ -112,7 +124,7 @@ export const useSetupStore = create<SetupState>((set, get) => ({
 
   configure: async () => {
     const { connectionString, databaseName } = get();
-    set({ isLoading: true, error: null });
+    set({ isLoading: true, error: null, lastConfigureResult: null });
 
     try {
       const response = await fetch('/api/setup/configure', {
@@ -121,27 +133,29 @@ export const useSetupStore = create<SetupState>((set, get) => ({
         body: JSON.stringify({ provider: 'mongodb', connectionString, databaseName }),
       });
 
-      const result = await response.json();
+      const result: ConfigureResult = await response.json();
 
       if (result.success) {
-        // Refresh status
-        await get().fetchStatus();
-        return true;
+        if (!result.restartRequired) {
+          await get().fetchStatus();
+        }
+        set({ lastConfigureResult: result, isLoading: false });
+        return result;
       } else {
         set({ error: result.message, isLoading: false });
-        return false;
+        return null;
       }
     } catch (err) {
       set({
         error: err instanceof Error ? err.message : 'Configuration failed',
         isLoading: false,
       });
-      return false;
+      return null;
     }
   },
 
   configureLocal: async () => {
-    set({ isLoading: true, error: null });
+    set({ isLoading: true, error: null, lastConfigureResult: null });
     try {
       const response = await fetch('/api/setup/configure', {
         method: 'POST',
@@ -149,21 +163,24 @@ export const useSetupStore = create<SetupState>((set, get) => ({
         body: JSON.stringify({ provider: 'local' }),
       });
 
-      const result = await response.json();
+      const result: ConfigureResult = await response.json();
 
       if (result.success) {
-        await get().fetchStatus();
-        return true;
+        if (!result.restartRequired) {
+          await get().fetchStatus();
+        }
+        set({ lastConfigureResult: result, isLoading: false });
+        return result;
       } else {
         set({ error: result.message, isLoading: false });
-        return false;
+        return null;
       }
     } catch (err) {
       set({
         error: err instanceof Error ? err.message : 'Setup failed',
         isLoading: false,
       });
-      return false;
+      return null;
     }
   },
 }));

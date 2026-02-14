@@ -105,6 +105,7 @@ public class MongoDbContext : IDbContext
         // Save to user config
         await _userConfigService.SaveConfigAsync(new UserConfig
         {
+            Provider = DatabaseProvider.MongoDb,
             MongoDbConnectionString = connectionString,
             MongoDbDatabaseName = databaseName
         });

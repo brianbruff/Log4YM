@@ -50,9 +50,6 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Register user config service
-builder.Services.AddSingleton<IUserConfigService, UserConfigService>();
-
 // Resolve database provider: config.json > env vars > default (Local)
 var userConfigService = new UserConfigService(
     LoggerFactory.Create(b => b.AddConsole()).CreateLogger<UserConfigService>());
@@ -70,12 +67,17 @@ else if (!string.IsNullOrEmpty(builder.Configuration["MongoDB:ConnectionString"]
         MongoDbConnectionString = builder.Configuration["MongoDB:ConnectionString"],
         MongoDbDatabaseName = builder.Configuration["MongoDB:DatabaseName"] ?? "log4ym"
     };
+    // Seed the resolved config so GetConfigAsync/GetStatus return the correct provider
+    await userConfigService.SaveConfigAsync(userConfig);
     Log.Information("No config.json found, using MongoDB from environment variables");
 }
 else
 {
     userConfig = new UserConfig(); // defaults to Local
 }
+
+// Register the same instance used at startup so DI callers see the resolved config
+builder.Services.AddSingleton<IUserConfigService>(userConfigService);
 
 // Register database provider and repositories
 builder.Services.AddDatabase(userConfig);

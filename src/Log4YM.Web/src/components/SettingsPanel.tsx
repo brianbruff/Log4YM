@@ -37,8 +37,8 @@ import {
 } from 'lucide-react';
 import { useSettingsStore, SettingsSection, StationSettings } from '../store/settingsStore';
 import { gridToLatLon } from '../utils/maidenhead';
-import { useSetupStore, type DatabaseProvider } from '../store/setupStore';
-import { HardDrive, Cloud, AlertTriangle, ArrowRightLeft } from 'lucide-react';
+import { useSetupStore, type DatabaseProvider, type ConfigureResult } from '../store/setupStore';
+import { HardDrive, Cloud, AlertTriangle, ArrowRightLeft, RefreshCw } from 'lucide-react';
 import { APP_VERSION } from '../version';
 
 // Settings navigation items
@@ -1128,6 +1128,7 @@ function DatabaseSettingsSection() {
 
   const [showConnectionString, setShowConnectionString] = useState(false);
   const [showSwitchConfirm, setShowSwitchConfirm] = useState<DatabaseProvider | null>(null);
+  const [restartPrompt, setRestartPrompt] = useState<ConfigureResult | null>(null);
 
   useEffect(() => {
     fetchStatus();
@@ -1147,7 +1148,10 @@ function DatabaseSettingsSection() {
     clearError();
 
     if (target === 'local') {
-      await configureLocal();
+      const result = await configureLocal();
+      if (result?.restartRequired) {
+        setRestartPrompt(result);
+      }
     } else {
       // Switch to cloud - just update the provider view, user needs to fill in connection details
       setProvider('mongodb');
@@ -1161,9 +1165,21 @@ function DatabaseSettingsSection() {
 
   const handleSave = async () => {
     clearError();
-    const success = await configure();
-    if (success) {
+    const result = await configure();
+    if (result?.restartRequired) {
+      setRestartPrompt(result);
+    } else if (result?.success) {
       await fetchStatus();
+    }
+  };
+
+  const handleRestart = () => {
+    if (window.electronAPI?.restartApp) {
+      window.electronAPI.restartApp();
+    } else {
+      // Browser dev mode - just show a message
+      setRestartPrompt(null);
+      alert('Please restart the backend server to apply the provider change.');
     }
   };
 
@@ -1277,6 +1293,34 @@ function DatabaseSettingsSection() {
                 <ArrowRightLeft className="w-4 h-4" />
               )}
               Switch Provider
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* Restart Required Prompt */}
+      {restartPrompt && (
+        <div className="p-4 rounded-lg border bg-accent-info/10 border-accent-info/30">
+          <div className="flex items-start gap-3 mb-3">
+            <RefreshCw className="w-5 h-5 text-accent-info flex-shrink-0 mt-0.5" />
+            <div>
+              <p className="font-medium text-accent-info">Restart Required</p>
+              <p className="text-sm text-dark-300 mt-1">{restartPrompt.message}</p>
+            </div>
+          </div>
+          <div className="flex justify-end gap-3">
+            <button
+              onClick={() => setRestartPrompt(null)}
+              className="glass-button px-4 py-2"
+            >
+              Later
+            </button>
+            <button
+              onClick={handleRestart}
+              className="glass-button-primary px-4 py-2 flex items-center gap-2"
+            >
+              <RefreshCw className="w-4 h-4" />
+              Restart Now
             </button>
           </div>
         </div>

@@ -16,5 +16,7 @@ contextBridge.exposeInMainWorld('electronAPI', {
   },
   removeOpenAboutListener: () => {
     ipcRenderer.removeAllListeners('open-about');
-  }
+  },
+  // Restart the app (used after database provider switch)
+  restartApp: () => ipcRenderer.invoke('restart-app')
 });

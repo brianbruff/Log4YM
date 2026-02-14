@@ -127,7 +127,7 @@ public class SetupController : ControllerBase
     }
 
     /// <summary>
-    /// Save the MongoDB configuration and connect
+    /// Save the database configuration and connect
     /// </summary>
     [HttpPost("configure")]
     [ProducesResponseType(typeof(ConfigureResponse), StatusCodes.Status200OK)]
@@ -135,39 +135,80 @@ public class SetupController : ControllerBase
     public async Task<ActionResult<ConfigureResponse>> Configure(
         [FromBody] ConfigureRequest request)
     {
+        var currentConfig = await _userConfigService.GetConfigAsync();
+        var currentProvider = currentConfig.Provider;
+        var targetProvider = request.Provider?.ToLowerInvariant() == "mongodb"
+            ? DatabaseProvider.MongoDb
+            : DatabaseProvider.Local;
+
+        if (targetProvider == DatabaseProvider.Local)
+        {
+            _logger.LogInformation("Configuring Local (LiteDB) provider");
+
+            await _userConfigService.SaveConfigAsync(new UserConfig
+            {
+                Provider = DatabaseProvider.Local,
+                // Preserve MongoDB settings in case user switches back
+                MongoDbConnectionString = currentConfig.MongoDbConnectionString,
+                MongoDbDatabaseName = currentConfig.MongoDbDatabaseName,
+            });
+
+            var restartRequired = currentProvider != DatabaseProvider.Local;
+            return Ok(new ConfigureResponse
+            {
+                Success = true,
+                Message = restartRequired
+                    ? "Configuration saved. Restart required to apply provider change."
+                    : "Local database configuration saved.",
+                RestartRequired = restartRequired,
+            });
+        }
+
+        // MongoDB provider
         if (string.IsNullOrEmpty(request.ConnectionString))
         {
             return BadRequest(new ConfigureResponse
             {
                 Success = false,
-                Message = "Connection string is required"
+                Message = "Connection string is required for MongoDB"
             });
         }
 
         var databaseName = request.DatabaseName ?? "Log4YM";
-
         _logger.LogInformation("Configuring MongoDB with database: {DatabaseName}", databaseName);
 
-        var success = await _dbContext.ReinitializeAsync(
-            request.ConnectionString,
-            databaseName);
+        // Always persist the config with the correct provider
+        await _userConfigService.SaveConfigAsync(new UserConfig
+        {
+            Provider = DatabaseProvider.MongoDb,
+            MongoDbConnectionString = request.ConnectionString,
+            MongoDbDatabaseName = databaseName,
+        });
 
-        if (success)
+        // If we're already on MongoDB, attempt a live reinitialize
+        if (currentProvider == DatabaseProvider.MongoDb)
         {
+            var success = await _dbContext.ReinitializeAsync(
+                request.ConnectionString,
+                databaseName);
+
             return Ok(new ConfigureResponse
             {
-                Success = true,
-                Message = "Configuration saved and connected successfully!"
+                Success = success,
+                Message = success
+                    ? "Configuration saved and connected successfully!"
+                    : "Configuration saved but failed to connect. Please verify the connection string.",
+                RestartRequired = false,
             });
         }
-        else
+
+        // Switching from Local → MongoDB requires restart
+        return Ok(new ConfigureResponse
         {
-            return Ok(new ConfigureResponse
-            {
-                Success = false,
-                Message = "Failed to connect with the provided configuration. Please verify the connection string and try again."
-            });
-        }
+            Success = true,
+            Message = "Configuration saved. Restart required to apply provider change.",
+            RestartRequired = true,
+        });
     }
 }
 
@@ -202,7 +243,8 @@ public class ServerInfo
 
 public class ConfigureRequest
 {
-    public string ConnectionString { get; set; } = null!;
+    public string? Provider { get; set; }
+    public string? ConnectionString { get; set; }
     public string? DatabaseName { get; set; }
 }
 
@@ -210,4 +252,5 @@ public class ConfigureResponse
 {
     public bool Success { get; set; }
     public string Message { get; set; } = null!;
+    public bool RestartRequired { get; set; }
 }

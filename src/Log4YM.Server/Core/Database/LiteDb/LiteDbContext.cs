@@ -60,7 +60,7 @@ public class LiteDbContext : IDbContext, IDisposable
         }
     }
 
-    public Task<bool> ReinitializeAsync(string connectionString, string databaseName)
+    public async Task<bool> ReinitializeAsync(string connectionString, string databaseName)
     {
         lock (_initLock)
         {
@@ -70,7 +70,12 @@ public class LiteDbContext : IDbContext, IDisposable
             _dbPath = null;
         }
 
-        return Task.FromResult(TryInitialize());
+        await _userConfigService.SaveConfigAsync(new UserConfig
+        {
+            Provider = DatabaseProvider.Local,
+        });
+
+        return TryInitialize();
     }
 
     internal LiteDatabase Database

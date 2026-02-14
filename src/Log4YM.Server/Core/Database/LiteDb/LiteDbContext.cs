@@ -9,6 +9,7 @@ public class LiteDbContext : IDbContext, IDisposable
 {
     private LiteDatabase? _database;
     private readonly IUserConfigService _userConfigService;
+    private readonly BsonMapper _mapper;
     private readonly object _initLock = new();
     private bool _isInitialized;
     private string? _dbPath;
@@ -16,6 +17,15 @@ public class LiteDbContext : IDbContext, IDisposable
     public LiteDbContext(IUserConfigService userConfigService)
     {
         _userConfigService = userConfigService;
+
+        // Create a dedicated mapper and pre-warm entity registrations to avoid
+        // concurrent first-access races during startup deserialization
+        _mapper = new BsonMapper();
+        _mapper.Entity<UserSettings>();
+        _mapper.Entity<Qso>();
+        _mapper.Entity<SmartUnlinkRadioEntity>();
+        _mapper.Entity<CallsignMapImage>();
+
         TryInitialize();
     }
 
@@ -42,7 +52,11 @@ public class LiteDbContext : IDbContext, IDisposable
 
                 Log.Information("LiteDB opening database at: {DbPath}", _dbPath);
 
-                _database = new LiteDatabase(_dbPath);
+                // Use Shared mode with WAL journal. Writes go to the WAL
+                // (durable on disk), then Checkpoint() in each repository
+                // merges them into the main file. This survives SIGKILL because
+                // WAL recovery replays committed transactions on next startup.
+                _database = new LiteDatabase($"Filename={_dbPath};Connection=shared", _mapper);
                 _isInitialized = true;
 
                 CreateIndexes();

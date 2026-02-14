@@ -27,6 +27,7 @@ public class LiteCallsignImageRepository : ICallsignImageRepository
             _context.CallsignMapImages.Insert(image);
         }
 
+        _context.Database.Checkpoint();
         return Task.CompletedTask;
     }
 

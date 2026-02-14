@@ -21,6 +21,7 @@ public class LiteSettingsRepository : ISettingsRepository
     {
         settings.UpdatedAt = DateTime.UtcNow;
         _context.Settings.Upsert(settings);
+        _context.Database.Checkpoint();
         return Task.FromResult(settings);
     }
 }

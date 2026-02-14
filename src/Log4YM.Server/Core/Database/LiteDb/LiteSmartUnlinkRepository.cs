@@ -26,12 +26,14 @@ public class LiteSmartUnlinkRepository : ISmartUnlinkRepository
         }
 
         _context.SmartUnlinkRadios.Insert(entity);
+        _context.Database.Checkpoint();
         return Task.CompletedTask;
     }
 
     public Task<bool> UpdateAsync(SmartUnlinkRadioEntity entity)
     {
         var success = _context.SmartUnlinkRadios.Update(entity);
+        _context.Database.Checkpoint();
         return Task.FromResult(success);
     }
 
@@ -47,12 +49,14 @@ public class LiteSmartUnlinkRepository : ISmartUnlinkRepository
         };
 
         var success = _context.SmartUnlinkRadios.Update(updated);
+        _context.Database.Checkpoint();
         return Task.FromResult(success);
     }
 
     public Task<bool> DeleteAsync(string id)
     {
         var success = _context.SmartUnlinkRadios.Delete(new BsonValue(id));
+        _context.Database.Checkpoint();
         return Task.FromResult(success);
     }
 }

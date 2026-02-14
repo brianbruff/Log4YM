@@ -109,6 +109,7 @@ public class LiteQsoRepository : IQsoRepository
         }
 
         _context.Qsos.Insert(qso);
+        _context.Database.Checkpoint();
         return Task.FromResult(qso);
     }
 
@@ -124,12 +125,14 @@ public class LiteQsoRepository : IQsoRepository
 
         qso.Id = id;
         var success = _context.Qsos.Update(qso);
+        _context.Database.Checkpoint();
         return Task.FromResult(success);
     }
 
     public Task<bool> DeleteAsync(string id)
     {
         var success = _context.Qsos.Delete(new BsonValue(id));
+        _context.Database.Checkpoint();
         return Task.FromResult(success);
     }
 
@@ -216,12 +219,14 @@ public class LiteQsoRepository : IQsoRepository
         qso.UpdatedAt = DateTime.UtcNow;
 
         var success = _context.Qsos.Update(qso);
+        _context.Database.Checkpoint();
         return Task.FromResult(success);
     }
 
     public Task<long> DeleteAllAsync()
     {
         var count = _context.Qsos.DeleteAll();
+        _context.Database.Checkpoint();
         return Task.FromResult((long)count);
     }
 }

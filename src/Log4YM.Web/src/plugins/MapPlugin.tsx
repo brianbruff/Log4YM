@@ -1,4 +1,4 @@
-import { useEffect, useRef, useCallback, useState, useMemo } from 'react';
+import React, { useEffect, useRef, useCallback, useState, useMemo } from 'react';
 import { Map as MapIcon, MapPin, Target, Maximize2, ZoomIn, ZoomOut, Layers, Satellite, Radio, Sun } from 'lucide-react';
 import { MapContainer, TileLayer, Marker, Popup, useMapEvents, Circle, Polyline, CircleMarker, Tooltip } from 'react-leaflet';
 import L from 'leaflet';
@@ -278,9 +278,10 @@ function getBandFromFrequency(freq: number): string {
 }
 
 // Generate intermediate great-circle path points between two coordinates
+// Returns array of path segments to handle antimeridian crossing
 function generateGreatCirclePoints(
   lat1: number, lon1: number, lat2: number, lon2: number, numPoints = 50
-): [number, number][] {
+): [number, number][][] {
   const points: [number, number][] = [];
   const toRad = Math.PI / 180;
   const toDeg = 180 / Math.PI;
@@ -296,7 +297,7 @@ function generateGreatCirclePoints(
     Math.cos(lat1Rad) * Math.cos(lat2Rad) * Math.pow(Math.sin((lon1Rad - lon2Rad) / 2), 2)
   ));
 
-  if (d === 0) return [[lat1, lon1]];
+  if (d === 0) return [[[lat1, lon1]]];
 
   for (let i = 0; i <= numPoints; i++) {
     const f = i / numPoints;
@@ -312,7 +313,32 @@ function generateGreatCirclePoints(
     points.push([lat, lon]);
   }
 
-  return points;
+  // Split path segments at antimeridian (±180° longitude) crossings
+  const segments: [number, number][][] = [];
+  let currentSegment: [number, number][] = [points[0]];
+
+  for (let i = 1; i < points.length; i++) {
+    const prevLon = points[i - 1][1];
+    const currLon = points[i][1];
+    const lonDiff = Math.abs(currLon - prevLon);
+
+    // Detect antimeridian crossing (longitude jump > 180°)
+    if (lonDiff > 180) {
+      // Finish current segment
+      segments.push(currentSegment);
+      // Start new segment
+      currentSegment = [points[i]];
+    } else {
+      currentSegment.push(points[i]);
+    }
+  }
+
+  // Add the last segment
+  if (currentSegment.length > 0) {
+    segments.push(currentSegment);
+  }
+
+  return segments;
 }
 
 // Custom DX spot marker (small diamond)
@@ -340,7 +366,7 @@ interface SpotPathData {
   color: string;
   targetLat: number;
   targetLon: number;
-  pathPoints: [number, number][];
+  pathPoints: [number, number][][]; // Array of path segments to handle antimeridian crossing
 }
 
 export function MapPlugin() {
@@ -570,18 +596,15 @@ export function MapPlugin() {
     beamLinePoints.push(getDestinationPoint(stationLat, stationLon, currentAzimuth, d));
   }
 
-  // Generate target heading line (amber) - separate from rotator beam
-  const targetBearing = focusedCallsignInfo?.bearing;
-  const targetLinePoints: [number, number][] = [];
-  if (targetBearing != null) {
-    for (let d = 0; d <= beamDistance; d += 100) {
-      targetLinePoints.push(getDestinationPoint(stationLat, stationLon, targetBearing, d));
-    }
-  }
-
   // Target location from focused callsign
   const targetLat = focusedCallsignInfo?.latitude;
   const targetLon = focusedCallsignInfo?.longitude;
+
+  // Generate great circle path from station to focused callsign (amber)
+  const targetPathSegments = useMemo<[number, number][][]>(() => {
+    if (targetLat == null || targetLon == null) return [];
+    return generateGreatCirclePoints(stationLat, stationLon, targetLat, targetLon);
+  }, [stationLat, stationLon, targetLat, targetLon]);
 
   // Fetch RBN spots periodically when enabled
   useEffect(() => {
@@ -746,10 +769,11 @@ export function MapPlugin() {
             />
           )}
 
-          {/* Target heading line - show when we have a focused callsign with bearing (amber) */}
-          {targetLinePoints.length > 0 && (
+          {/* Great circle path to focused callsign (amber) */}
+          {targetPathSegments.map((segment, segmentIndex) => (
             <Polyline
-              positions={targetLinePoints}
+              key={`target-path-${segmentIndex}`}
+              positions={segment}
               pathOptions={{
                 color: '#ffb432',
                 weight: 2,
@@ -757,7 +781,7 @@ export function MapPlugin() {
                 dashArray: '5, 10',
               }}
             />
-          )}
+          ))}
 
           {/* Target marker - show callsign image icon (2x) with image or placeholder, or standard dot if callsign images disabled */}
           {targetLat != null && targetLon != null && (
@@ -1018,15 +1042,19 @@ export function MapPlugin() {
           {dxClusterMapEnabled && spotPaths.map((sp) => {
             const isHovered = hoveredSpotId === sp.spot.id;
             return (
-              <Polyline
-                key={`path-${sp.spot.id}`}
-                positions={sp.pathPoints}
-                pathOptions={{
-                  color: sp.color,
-                  weight: isHovered ? 3 : 1.5,
-                  opacity: isHovered ? 1 : 0.5,
-                }}
-              />
+              <React.Fragment key={`path-${sp.spot.id}`}>
+                {sp.pathPoints.map((segment, segmentIndex) => (
+                  <Polyline
+                    key={`path-${sp.spot.id}-${segmentIndex}`}
+                    positions={segment}
+                    pathOptions={{
+                      color: sp.color,
+                      weight: isHovered ? 3 : 1.5,
+                      opacity: isHovered ? 1 : 0.5,
+                    }}
+                  />
+                ))}
+              </React.Fragment>
             );
           })}
 

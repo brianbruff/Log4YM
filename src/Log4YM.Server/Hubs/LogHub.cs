@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.SignalR;
-using MongoDB.Driver;
 using Log4YM.Contracts.Events;
 using Log4YM.Contracts.Models;
 using Log4YM.Server.Services;
@@ -76,7 +75,8 @@ public class LogHub : Hub<ILogHubClient>
     private readonly IQrzService _qrzService;
     private readonly ISettingsRepository _settingsRepository;
     private readonly CwKeyerService _cwKeyerService;
-    private readonly MongoDbContext _db;
+    private readonly ICallsignImageRepository _imageRepository;
+    private readonly IDbContext _dbContext;
 
     public LogHub(
         ILogger<LogHub> logger,
@@ -90,7 +90,8 @@ public class LogHub : Hub<ILogHubClient>
         IQrzService qrzService,
         ISettingsRepository settingsRepository,
         CwKeyerService cwKeyerService,
-        MongoDbContext db)
+        ICallsignImageRepository imageRepository,
+        IDbContext dbContext)
     {
         _logger = logger;
         _antennaGeniusService = antennaGeniusService;
@@ -103,7 +104,8 @@ public class LogHub : Hub<ILogHubClient>
         _qrzService = qrzService;
         _settingsRepository = settingsRepository;
         _cwKeyerService = cwKeyerService;
-        _db = db;
+        _imageRepository = imageRepository;
+        _dbContext = dbContext;
     }
 
     public override async Task OnConnectedAsync()
@@ -266,20 +268,19 @@ public class LogHub : Hub<ILogHubClient>
 
     private async Task SaveCallsignMapImageAsync(QrzCallsignInfo info)
     {
-        if (!_db.IsConnected) return;
+        if (!_dbContext.IsConnected) return;
 
-        var filter = Builders<CallsignMapImage>.Filter.Eq(i => i.Callsign, info.Callsign);
-        var update = Builders<CallsignMapImage>.Update
-            .Set(i => i.Callsign, info.Callsign)
-            .Set(i => i.ImageUrl, info.ImageUrl)
-            .Set(i => i.Latitude, info.Latitude!.Value)
-            .Set(i => i.Longitude, info.Longitude!.Value)
-            .Set(i => i.Name, BuildFullName(info.FirstName, info.Name))
-            .Set(i => i.Country, info.Country)
-            .Set(i => i.Grid, info.Grid)
-            .Set(i => i.SavedAt, DateTime.UtcNow);
-
-        await _db.CallsignMapImages.UpdateOneAsync(filter, update, new UpdateOptions { IsUpsert = true });
+        await _imageRepository.UpsertAsync(new CallsignMapImage
+        {
+            Callsign = info.Callsign,
+            ImageUrl = info.ImageUrl,
+            Latitude = info.Latitude!.Value,
+            Longitude = info.Longitude!.Value,
+            Name = BuildFullName(info.FirstName, info.Name),
+            Country = info.Country,
+            Grid = info.Grid,
+            SavedAt = DateTime.UtcNow
+        });
         _logger.LogDebug("Saved callsign map image for {Callsign}", info.Callsign);
     }
 
@@ -289,21 +290,10 @@ public class LogHub : Hub<ILogHubClient>
     /// </summary>
     public async Task PersistCallsignMapImage(CallsignMapImage image)
     {
-        if (!_db.IsConnected) return;
+        if (!_dbContext.IsConnected) return;
         if (string.IsNullOrEmpty(image.Callsign)) return;
 
-        var filter = Builders<CallsignMapImage>.Filter.Eq(i => i.Callsign, image.Callsign);
-        var update = Builders<CallsignMapImage>.Update
-            .Set(i => i.Callsign, image.Callsign)
-            .Set(i => i.ImageUrl, image.ImageUrl)
-            .Set(i => i.Latitude, image.Latitude)
-            .Set(i => i.Longitude, image.Longitude)
-            .Set(i => i.Name, image.Name)
-            .Set(i => i.Country, image.Country)
-            .Set(i => i.Grid, image.Grid)
-            .Set(i => i.SavedAt, DateTime.UtcNow);
-
-        await _db.CallsignMapImages.UpdateOneAsync(filter, update, new UpdateOptions { IsUpsert = true });
+        await _imageRepository.UpsertAsync(image);
         _logger.LogDebug("Persisted callsign map image for {Callsign} after QSO logged", image.Callsign);
     }
 

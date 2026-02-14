@@ -23,6 +23,7 @@ services:
     volumes:
       - ./src/Log4YM.Server:/app/src/Log4YM.Server:ro
       - ./src/Log4YM.Contracts:/app/src/Log4YM.Contracts:ro
+      - log4ym-config-dev:/root/.config/Log4YM
     depends_on:
       - mongodb
     networks:
@@ -57,6 +58,7 @@ services:
 
 volumes:
   mongodb-data-dev:
+  log4ym-config-dev:
 
 networks:
   log4ym-network:

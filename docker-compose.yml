@@ -11,6 +11,8 @@ services:
       - ASPNETCORE_ENVIRONMENT=Production
       - MongoDB__ConnectionString=mongodb://mongodb:27017
       - MongoDB__DatabaseName=log4ym
+    volumes:
+      - log4ym-config:/home/log4ym/.config/Log4YM
     depends_on:
       - mongodb
     networks:
@@ -29,6 +31,7 @@ services:
 
 volumes:
   mongodb-data:
+  log4ym-config:
 
 networks:
   log4ym-network:

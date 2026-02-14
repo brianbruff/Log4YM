@@ -4,6 +4,7 @@ import { X, Radio, Book, Zap, LayoutGrid, Antenna, Plus, Map, Compass, Gauge, Us
 import { StatusBar } from './components/StatusBar';
 import { SettingsPanel } from './components/SettingsPanel';
 import { ConnectionOverlay } from './components/ConnectionOverlay';
+import { SetupWizard } from './components/SetupWizard';
 import { useSignalRConnection } from './hooks/useSignalR';
 import { LogEntryPlugin, LogHistoryPlugin, ClusterPlugin, MapPlugin, RotatorPlugin, GlobePlugin, AntennaGeniusPlugin, PgxlPlugin, SmartUnlinkPlugin, RigPlugin, QrzProfilePlugin, ContestsPlugin, SolarPanelPlugin, AnalogClockPlugin, HeaderPlugin, DXpeditionsPlugin, ChatAiPlugin, POTAPlugin, PropagationPanelPlugin, CwKeyerPlugin } from './plugins';
 import { Globe as Globe3D } from 'lucide-react';
@@ -172,8 +173,8 @@ export function App() {
   const layoutRef = useRef<Layout>(null);
   const { layout, setLayout, resetLayout: resetLayoutStore, loadFromMongo: loadLayout, syncToMongoSync } = useLayoutStore();
   const { loadSettings, openSettings, settings } = useSettingsStore();
-  const { fetchStatus } = useSetupStore();
-  const { setStationInfo, setMongoDbConnected } = useAppStore();
+  const { fetchStatus, status: setupStatus, isLoading: setupLoading } = useSetupStore();
+  const { setStationInfo, setDatabaseConnected, setDatabaseProvider } = useAppStore();
   const [model, setModel] = useState<Model>(() => Model.fromJson(layout));
   const [showPanelPicker, setShowPanelPicker] = useState(false);
   const [targetTabSetId, setTargetTabSetId] = useState<string | null>(null);
@@ -187,28 +188,32 @@ export function App() {
     fetchStatus();
   }, [fetchStatus]);
 
-  // Poll MongoDB connection status periodically (every 10 seconds)
+  // Poll database connection status periodically (every 10 seconds)
   useEffect(() => {
-    const checkMongoHealth = async () => {
+    const checkDbHealth = async () => {
       try {
         const response = await fetch('/api/health');
         if (response.ok) {
           const data = await response.json();
-          setMongoDbConnected(data.mongoDbConnected);
+          // Support both old (mongoDbConnected) and new (databaseConnected) field names
+          setDatabaseConnected(data.databaseConnected ?? data.mongoDbConnected ?? false);
+          if (data.databaseProvider) {
+            setDatabaseProvider(data.databaseProvider);
+          }
         }
       } catch (error) {
-        console.error('Failed to check MongoDB health:', error);
+        console.error('Failed to check database health:', error);
       }
     };
 
     // Initial check
-    checkMongoHealth();
+    checkDbHealth();
 
     // Poll every 10 seconds
-    const interval = setInterval(checkMongoHealth, 10000);
+    const interval = setInterval(checkDbHealth, 10000);
 
     return () => clearInterval(interval);
-  }, [setMongoDbConnected]);
+  }, [setDatabaseConnected, setDatabaseProvider]);
 
   // Initialize SignalR connection (only called here, not in plugins)
   useSignalRConnection();
@@ -386,8 +391,15 @@ export function App() {
     resetLayoutStore();
   }, [resetLayoutStore]);
 
+  const showSetupWizard = !setupLoading && setupStatus !== null && !setupStatus.isConfigured;
+
   return (
     <div className="h-screen flex flex-col bg-dark-900 text-gray-100 crt-scanlines relative">
+      {/* Setup Wizard - blocks UI when not configured */}
+      {showSetupWizard && (
+        <SetupWizard onComplete={() => fetchStatus()} />
+      )}
+
       <main className="flex-1 relative overflow-hidden">
         <Layout
           ref={layoutRef}

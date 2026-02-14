@@ -1,5 +1,4 @@
 using Microsoft.AspNetCore.Mvc;
-using MongoDB.Driver;
 using Log4YM.Contracts.Models;
 using Log4YM.Server.Core.Database;
 
@@ -10,24 +9,22 @@ namespace Log4YM.Server.Controllers;
 [Produces("application/json")]
 public class CallsignImagesController : ControllerBase
 {
-    private readonly MongoDbContext _db;
+    private readonly ICallsignImageRepository _imageRepository;
+    private readonly IDbContext _dbContext;
 
-    public CallsignImagesController(MongoDbContext db)
+    public CallsignImagesController(ICallsignImageRepository imageRepository, IDbContext dbContext)
     {
-        _db = db;
+        _imageRepository = imageRepository;
+        _dbContext = dbContext;
     }
 
     [HttpGet]
     public async Task<IActionResult> GetImages([FromQuery] int limit = 100)
     {
-        if (!_db.IsConnected)
+        if (!_dbContext.IsConnected)
             return Ok(Array.Empty<object>());
 
-        var images = await _db.CallsignMapImages
-            .Find(_ => true)
-            .SortByDescending(i => i.SavedAt)
-            .Limit(Math.Min(limit, 500))
-            .ToListAsync();
+        var images = await _imageRepository.GetRecentAsync(Math.Min(limit, 500));
 
         return Ok(images.Select(i => new
         {

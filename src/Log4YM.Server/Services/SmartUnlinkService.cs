@@ -6,7 +6,6 @@ using System.Text;
 using Microsoft.AspNetCore.SignalR;
 using MongoDB.Bson;
 using MongoDB.Bson.Serialization.Attributes;
-using MongoDB.Driver;
 using Log4YM.Contracts.Events;
 using Log4YM.Server.Core.Database;
 using Log4YM.Server.Hubs;
@@ -17,7 +16,7 @@ public class SmartUnlinkService : BackgroundService
 {
     private readonly ILogger<SmartUnlinkService> _logger;
     private readonly IHubContext<LogHub, ILogHubClient> _hubContext;
-    private readonly MongoDbContext _mongoContext;
+    private readonly ISmartUnlinkRepository _repository;
     private readonly ConcurrentDictionary<string, SmartUnlinkRadioEntity> _radios = new();
     private readonly ConcurrentDictionary<string, DateTime> _lastBroadcast = new();
 
@@ -31,11 +30,11 @@ public class SmartUnlinkService : BackgroundService
     public SmartUnlinkService(
         ILogger<SmartUnlinkService> logger,
         IHubContext<LogHub, ILogHubClient> hubContext,
-        MongoDbContext mongoContext)
+        ISmartUnlinkRepository repository)
     {
         _logger = logger;
         _hubContext = hubContext;
-        _mongoContext = mongoContext;
+        _repository = repository;
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -60,7 +59,7 @@ public class SmartUnlinkService : BackgroundService
     {
         try
         {
-            var radios = await _mongoContext.SmartUnlinkRadios.Find(_ => true).ToListAsync();
+            var radios = await _repository.GetAllAsync();
 
             foreach (var radio in radios)
             {
@@ -324,7 +323,7 @@ public class SmartUnlinkService : BackgroundService
             UpdatedAt = DateTime.UtcNow
         };
 
-        await _mongoContext.SmartUnlinkRadios.InsertOneAsync(entity);
+        await _repository.InsertAsync(entity);
 
         _radios[entity.Id] = entity;
 
@@ -352,40 +351,29 @@ public class SmartUnlinkService : BackgroundService
         if (string.IsNullOrEmpty(dto.Id))
             return null;
 
-        var update = Builders<SmartUnlinkRadioEntity>.Update
-            .Set(r => r.Name, dto.Name)
-            .Set(r => r.IpAddress, dto.IpAddress)
-            .Set(r => r.Model, dto.Model)
-            .Set(r => r.SerialNumber, dto.SerialNumber)
-            .Set(r => r.Version, dto.Version)
-            .Set(r => r.Callsign, dto.Callsign)
-            .Set(r => r.Enabled, dto.Enabled)
-            .Set(r => r.UpdatedAt, DateTime.UtcNow);
+        _radios.TryGetValue(dto.Id, out var existing);
 
-        var result = await _mongoContext.SmartUnlinkRadios.UpdateOneAsync(
-            r => r.Id == dto.Id,
-            update
-        );
+        var updatedEntity = new SmartUnlinkRadioEntity
+        {
+            Id = dto.Id,
+            Name = dto.Name,
+            IpAddress = dto.IpAddress,
+            Model = dto.Model,
+            SerialNumber = dto.SerialNumber,
+            Callsign = dto.Callsign,
+            Enabled = dto.Enabled,
+            Version = dto.Version,
+            UpdatedAt = DateTime.UtcNow,
+            CreatedAt = existing?.CreatedAt ?? DateTime.UtcNow
+        };
 
-        if (result.ModifiedCount == 0)
+        var success = await _repository.UpdateAsync(updatedEntity);
+
+        if (!success)
             return null;
 
         // Update in-memory cache
-        if (_radios.TryGetValue(dto.Id, out var existing))
-        {
-            var updated = existing with
-            {
-                Name = dto.Name,
-                IpAddress = dto.IpAddress,
-                Model = dto.Model,
-                SerialNumber = dto.SerialNumber,
-                Callsign = dto.Callsign,
-                Enabled = dto.Enabled,
-                Version = dto.Version,
-                UpdatedAt = DateTime.UtcNow
-            };
-            _radios[dto.Id] = updated;
-        }
+        _radios[dto.Id] = updatedEntity;
 
         _logger.LogInformation("Updated SmartUnlink radio: {Name} ({Model}) at {Ip}",
             dto.Name, dto.Model, dto.IpAddress);
@@ -408,9 +396,9 @@ public class SmartUnlinkService : BackgroundService
 
     public async Task<bool> RemoveRadioAsync(string id)
     {
-        var result = await _mongoContext.SmartUnlinkRadios.DeleteOneAsync(r => r.Id == id);
+        var success = await _repository.DeleteAsync(id);
 
-        if (result.DeletedCount == 0)
+        if (!success)
             return false;
 
         _radios.TryRemove(id, out _);
@@ -425,13 +413,9 @@ public class SmartUnlinkService : BackgroundService
 
     public async Task<bool> SetRadioEnabledAsync(string id, bool enabled)
     {
-        var update = Builders<SmartUnlinkRadioEntity>.Update
-            .Set(r => r.Enabled, enabled)
-            .Set(r => r.UpdatedAt, DateTime.UtcNow);
+        var success = await _repository.SetEnabledAsync(id, enabled);
 
-        var result = await _mongoContext.SmartUnlinkRadios.UpdateOneAsync(r => r.Id == id, update);
-
-        if (result.ModifiedCount == 0)
+        if (!success)
             return false;
 
         if (_radios.TryGetValue(id, out var existing))

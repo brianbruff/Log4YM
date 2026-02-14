@@ -50,15 +50,35 @@ builder.Services.AddCors(options =>
     });
 });
 
-// Register user config service (must be before MongoDbContext)
+// Register user config service
 builder.Services.AddSingleton<IUserConfigService, UserConfigService>();
 
-// Register MongoDB context (now supports lazy initialization)
-builder.Services.AddSingleton<MongoDbContext>();
+// Resolve database provider: config.json > env vars > default (Local)
+var userConfigService = new UserConfigService(
+    LoggerFactory.Create(b => b.AddConsole()).CreateLogger<UserConfigService>());
+UserConfig userConfig;
+if (File.Exists(userConfigService.GetConfigPath()))
+{
+    userConfig = await userConfigService.GetConfigAsync();
+}
+else if (!string.IsNullOrEmpty(builder.Configuration["MongoDB:ConnectionString"]))
+{
+    // Docker/env var scenario: MongoDB configured but no config.json yet
+    userConfig = new UserConfig
+    {
+        Provider = DatabaseProvider.MongoDb,
+        MongoDbConnectionString = builder.Configuration["MongoDB:ConnectionString"],
+        MongoDbDatabaseName = builder.Configuration["MongoDB:DatabaseName"] ?? "log4ym"
+    };
+    Log.Information("No config.json found, using MongoDB from environment variables");
+}
+else
+{
+    userConfig = new UserConfig(); // defaults to Local
+}
 
-// Register repositories
-builder.Services.AddScoped<IQsoRepository, QsoRepository>();
-builder.Services.AddScoped<ISettingsRepository, SettingsRepository>();
+// Register database provider and repositories
+builder.Services.AddDatabase(userConfig);
 
 // Register services
 builder.Services.AddScoped<IQsoService, QsoService>();

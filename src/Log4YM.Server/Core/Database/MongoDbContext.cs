@@ -5,7 +5,7 @@ using Serilog;
 
 namespace Log4YM.Server.Core.Database;
 
-public class MongoDbContext
+public class MongoDbContext : IDbContext
 {
     private IMongoDatabase? _database;
     private MongoClient? _client;
@@ -150,16 +150,6 @@ public class MongoDbContext
     public IMongoCollection<UserSettings> Settings
     {
         get { EnsureConnected(); return _database!.GetCollection<UserSettings>("settings"); }
-    }
-
-    public IMongoCollection<PluginSettings> PluginSettings
-    {
-        get { EnsureConnected(); return _database!.GetCollection<PluginSettings>("pluginSettings"); }
-    }
-
-    public IMongoCollection<Layout> Layouts
-    {
-        get { EnsureConnected(); return _database!.GetCollection<Layout>("layouts"); }
     }
 
     public IMongoCollection<SmartUnlinkRadioEntity> SmartUnlinkRadios

@@ -1134,7 +1134,8 @@ function DatabaseSettingsSection() {
     fetchStatus();
   }, [fetchStatus]);
 
-  const activeProvider: DatabaseProvider = status?.provider ?? provider;
+  // Use the store's provider state (synced from status on load, updated by user selection)
+  const activeProvider: DatabaseProvider = provider;
 
   const handleProviderSwitch = (target: DatabaseProvider) => {
     if (target === activeProvider) return;

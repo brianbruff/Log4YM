@@ -82,9 +82,10 @@ public class UserConfigService : IUserConfigService
 
             // Legacy config migration: MongoDbConnectionString set but no Provider field
             if (config.Provider == DatabaseProvider.Local
-                && !string.IsNullOrEmpty(config.MongoDbConnectionString))
+                && !string.IsNullOrEmpty(config.MongoDbConnectionString)
+                && config.ConfiguredAt == null)
             {
-                return true; // Existing Atlas user
+                return true; // Existing Atlas user (legacy config)
             }
 
             return config.Provider == DatabaseProvider.Local ||
@@ -116,7 +117,8 @@ public class UserConfigService : IUserConfigService
             // but Provider is Local (the default), this is an existing Atlas user
             // whose config.json predates the Provider field. Infer MongoDb.
             if (_cachedConfig.Provider == DatabaseProvider.Local
-                && !string.IsNullOrEmpty(_cachedConfig.MongoDbConnectionString))
+                && !string.IsNullOrEmpty(_cachedConfig.MongoDbConnectionString)
+                && _cachedConfig.ConfiguredAt == null)
             {
                 _cachedConfig.Provider = DatabaseProvider.MongoDb;
                 _logger.LogInformation("Migrated legacy config to MongoDb provider");

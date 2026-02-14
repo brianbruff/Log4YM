@@ -1,5 +1,6 @@
 import { useState, useEffect, useRef } from 'react';
-import { Bot, Send, RefreshCw, Settings, Loader2, Key, Calendar } from 'lucide-react';
+import { Bot, Send, RefreshCw, Settings, Loader2, Key, Calendar, MessageCircleQuestion } from 'lucide-react';
+import Markdown from 'react-markdown';
 import { useAppStore } from '../store/appStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { GlassPanel } from '../components/GlassPanel';
@@ -304,6 +305,32 @@ export function ChatAiPlugin() {
             </div>
           )}
 
+          {/* Follow-up suggestions */}
+          {talkPointsData && talkPointsData.talkPoints.length > 0 && chatMessages.length === 0 && (
+            <div className="space-y-1.5">
+              <h3 className="text-sm font-semibold text-gray-400 mb-2 flex items-center gap-2">
+                <MessageCircleQuestion className="w-4 h-4" />
+                Ask a Follow-up
+              </h3>
+              {[
+                `What are the current propagation conditions to ${focusedCallsignInfo?.country || 'their location'}?`,
+                `What else can you tell me about ${callsign}'s station and interests?`,
+                `Any contest or award tips for working ${focusedCallsignInfo?.country || 'this region'}?`,
+              ].map((suggestion, idx) => (
+                <button
+                  key={idx}
+                  onClick={() => {
+                    setChatInput(suggestion);
+                  }}
+                  className="w-full text-left glass-panel p-2.5 text-sm text-gray-400 hover:text-gray-200 hover:bg-glass-100 transition-colors cursor-pointer flex items-start gap-2"
+                >
+                  <Send className="w-3.5 h-3.5 mt-0.5 shrink-0 text-accent-primary/60" />
+                  <span>{suggestion}</span>
+                </button>
+              ))}
+            </div>
+          )}
+
           {/* Chat messages */}
           {chatMessages.length > 0 && (
             <div>
@@ -321,7 +348,27 @@ export function ChatAiPlugin() {
                           : 'glass-panel text-gray-300'
                       }`}
                     >
-                      {msg.content}
+                      {msg.role === 'assistant' ? (
+                        <Markdown
+                          components={{
+                            h1: ({ children }) => <h1 className="text-lg font-bold text-gray-200 mt-3 mb-1 first:mt-0">{children}</h1>,
+                            h2: ({ children }) => <h2 className="text-base font-bold text-gray-200 mt-3 mb-1 first:mt-0">{children}</h2>,
+                            h3: ({ children }) => <h3 className="text-sm font-bold text-gray-200 mt-2 mb-1 first:mt-0">{children}</h3>,
+                            p: ({ children }) => <p className="mb-2 last:mb-0">{children}</p>,
+                            strong: ({ children }) => <strong className="font-semibold text-gray-200">{children}</strong>,
+                            em: ({ children }) => <em className="italic text-gray-400">{children}</em>,
+                            ul: ({ children }) => <ul className="list-disc list-inside mb-2 space-y-0.5">{children}</ul>,
+                            ol: ({ children }) => <ol className="list-decimal list-inside mb-2 space-y-0.5">{children}</ol>,
+                            li: ({ children }) => <li className="text-gray-300">{children}</li>,
+                            a: ({ href, children }) => <a href={href} target="_blank" rel="noopener noreferrer" className="text-accent-primary hover:underline">{children}</a>,
+                            code: ({ children }) => <code className="bg-glass-100 px-1 py-0.5 rounded text-accent-info text-xs">{children}</code>,
+                          }}
+                        >
+                          {msg.content}
+                        </Markdown>
+                      ) : (
+                        msg.content
+                      )}
                     </div>
                   </div>
                 ))}

@@ -1,3 +1,4 @@
+using System.Text.Json;
 using Microsoft.AspNetCore.Mvc;
 using Log4YM.Contracts.Api;
 using Log4YM.Server.Services;
@@ -68,6 +69,58 @@ public class AiController : ControllerBase
         {
             _logger.LogError(ex, "Error processing chat for {Callsign}", request.Callsign);
             return StatusCode(500, new { error = "Failed to process chat request" });
+        }
+    }
+
+    /// <summary>
+    /// Stream chat with AI about a callsign using Server-Sent Events
+    /// </summary>
+    [HttpPost("chat/stream")]
+    [Produces("text/event-stream")]
+    public async Task ChatStream([FromBody] ChatRequest request)
+    {
+        _logger.LogInformation("Starting chat stream for {Callsign}", request.Callsign);
+
+        // Disable response buffering for SSE
+        var bufferingFeature = HttpContext.Features.Get<Microsoft.AspNetCore.Http.Features.IHttpResponseBodyFeature>();
+        bufferingFeature?.DisableBuffering();
+
+        Response.ContentType = "text/event-stream";
+        Response.Headers.CacheControl = "no-cache";
+        Response.Headers["X-Accel-Buffering"] = "no";
+
+        try
+        {
+            await foreach (var token in _aiService.ChatStreamAsync(request, HttpContext.RequestAborted))
+            {
+                var json = JsonSerializer.Serialize(new { token });
+                await Response.WriteAsync($"data: {json}\n\n", HttpContext.RequestAborted);
+                await Response.Body.FlushAsync(HttpContext.RequestAborted);
+            }
+
+            await Response.WriteAsync("data: [DONE]\n\n", HttpContext.RequestAborted);
+            await Response.Body.FlushAsync(HttpContext.RequestAborted);
+            _logger.LogInformation("Chat stream completed for {Callsign}", request.Callsign);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "Invalid AI configuration for stream");
+            if (!Response.HasStarted)
+            {
+                Response.StatusCode = 400;
+                var errorJson = JsonSerializer.Serialize(new { error = ex.Message });
+                await Response.WriteAsync($"data: {errorJson}\n\n");
+            }
+        }
+        catch (Exception ex) when (ex is not OperationCanceledException)
+        {
+            _logger.LogError(ex, "Error streaming chat for {Callsign}", request.Callsign);
+            if (!Response.HasStarted)
+            {
+                Response.StatusCode = 500;
+                var errorJson = JsonSerializer.Serialize(new { error = ex.Message });
+                await Response.WriteAsync($"data: {errorJson}\n\n");
+            }
         }
     }
 

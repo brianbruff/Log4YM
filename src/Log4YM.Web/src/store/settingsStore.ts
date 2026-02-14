@@ -94,7 +94,6 @@ export interface MapSettings {
 
 export interface HeaderSettings {
   timeFormat: '12h' | '24h';
-  sizeMultiplier: number;  // 0.75, 1.0, 1.25, 1.5
   showWeather: boolean;
   weatherLocation: string;  // City name or coordinates for weather lookup
 }
@@ -254,7 +253,6 @@ const defaultSettings: Settings = {
   },
   header: {
     timeFormat: '24h',
-    sizeMultiplier: 1.0,
     showWeather: true,
     weatherLocation: '',
   },

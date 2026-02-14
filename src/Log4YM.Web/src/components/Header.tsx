@@ -9,7 +9,7 @@ export function Header() {
   const [spaceWeather, setSpaceWeather] = useState<SpaceWeatherData | null>(null);
   const [weather, setWeather] = useState<WeatherData | null>(null);
 
-  const { timeFormat, sizeMultiplier, showWeather } = settings.header;
+  const { timeFormat, showWeather } = settings.header;
   const { callsign } = settings.station;
 
   // Update time every second
@@ -116,13 +116,13 @@ export function Header() {
   };
 
   const utcTime = new Date(currentTime.toLocaleString('en-US', { timeZone: 'UTC' }));
-  const baseFontSize = 16 * sizeMultiplier;
+  const baseFontSize = 16;
 
   return (
     <header
       className="bg-dark-800/90 backdrop-blur-xl border-b border-glass-100 flex items-center justify-between px-4"
       style={{
-        minHeight: `${56 * sizeMultiplier}px`,
+        minHeight: '56px',
         fontSize: `${baseFontSize}px`
       }}
     >

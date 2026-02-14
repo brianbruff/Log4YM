@@ -17,6 +17,7 @@ describe('appStore', () => {
       potaSpots: [],
       dxClusterMapEnabled: false,
       hoveredSpotId: null,
+      callsignMapImages: [],
     });
   });
 
@@ -161,6 +162,154 @@ describe('appStore', () => {
 
       useAppStore.getState().setHoveredSpotId(null);
       expect(useAppStore.getState().hoveredSpotId).toBeNull();
+    });
+  });
+
+  describe('callsign map images', () => {
+    it('starts with empty array', () => {
+      expect(useAppStore.getState().callsignMapImages).toHaveLength(0);
+    });
+
+    it('sets callsign map images', () => {
+      const images = [
+        { callsign: 'W1AW', imageUrl: 'https://example.com/w1aw.jpg', latitude: 41.7, longitude: -72.7, savedAt: '2024-01-01T00:00:00Z' },
+        { callsign: 'EI2KC', imageUrl: 'https://example.com/ei2kc.jpg', latitude: 52.6, longitude: -8.6, savedAt: '2024-01-02T00:00:00Z' },
+      ];
+      useAppStore.getState().setCallsignMapImages(images);
+      expect(useAppStore.getState().callsignMapImages).toHaveLength(2);
+      expect(useAppStore.getState().callsignMapImages[0].callsign).toBe('W1AW');
+    });
+
+    it('adds callsign map image with imageUrl', () => {
+      useAppStore.getState().addCallsignMapImage({
+        callsign: 'W1AW',
+        imageUrl: 'https://example.com/w1aw.jpg',
+        latitude: 41.7,
+        longitude: -72.7,
+        savedAt: '2024-01-01T00:00:00Z',
+      });
+
+      const images = useAppStore.getState().callsignMapImages;
+      expect(images).toHaveLength(1);
+      expect(images[0].callsign).toBe('W1AW');
+      expect(images[0].imageUrl).toBe('https://example.com/w1aw.jpg');
+    });
+
+    it('adds callsign map image without imageUrl (placeholder)', () => {
+      useAppStore.getState().addCallsignMapImage({
+        callsign: 'JA1ABC',
+        latitude: 35.6,
+        longitude: 139.6,
+        savedAt: '2024-01-01T00:00:00Z',
+      });
+
+      const images = useAppStore.getState().callsignMapImages;
+      expect(images).toHaveLength(1);
+      expect(images[0].callsign).toBe('JA1ABC');
+      expect(images[0].imageUrl).toBeUndefined();
+    });
+
+    it('replaces existing entry for same callsign (case-insensitive)', () => {
+      useAppStore.getState().addCallsignMapImage({
+        callsign: 'W1AW',
+        imageUrl: 'https://example.com/old.jpg',
+        latitude: 41.7,
+        longitude: -72.7,
+        savedAt: '2024-01-01T00:00:00Z',
+      });
+
+      useAppStore.getState().addCallsignMapImage({
+        callsign: 'w1aw',
+        imageUrl: 'https://example.com/new.jpg',
+        latitude: 41.7,
+        longitude: -72.7,
+        savedAt: '2024-01-02T00:00:00Z',
+      });
+
+      const images = useAppStore.getState().callsignMapImages;
+      expect(images).toHaveLength(1);
+      expect(images[0].callsign).toBe('w1aw');
+      expect(images[0].imageUrl).toBe('https://example.com/new.jpg');
+    });
+
+    it('prepends new entry to beginning of list', () => {
+      useAppStore.getState().addCallsignMapImage({
+        callsign: 'W1AW',
+        imageUrl: 'https://example.com/w1aw.jpg',
+        latitude: 41.7,
+        longitude: -72.7,
+        savedAt: '2024-01-01T00:00:00Z',
+      });
+
+      useAppStore.getState().addCallsignMapImage({
+        callsign: 'EI2KC',
+        imageUrl: 'https://example.com/ei2kc.jpg',
+        latitude: 52.6,
+        longitude: -8.6,
+        savedAt: '2024-01-02T00:00:00Z',
+      });
+
+      const images = useAppStore.getState().callsignMapImages;
+      expect(images).toHaveLength(2);
+      expect(images[0].callsign).toBe('EI2KC');
+      expect(images[1].callsign).toBe('W1AW');
+    });
+
+    it('handles mixed image and no-image entries', () => {
+      useAppStore.getState().addCallsignMapImage({
+        callsign: 'W1AW',
+        imageUrl: 'https://example.com/w1aw.jpg',
+        latitude: 41.7,
+        longitude: -72.7,
+        savedAt: '2024-01-01T00:00:00Z',
+      });
+
+      useAppStore.getState().addCallsignMapImage({
+        callsign: 'JA1ABC',
+        latitude: 35.6,
+        longitude: 139.6,
+        savedAt: '2024-01-02T00:00:00Z',
+      });
+
+      useAppStore.getState().addCallsignMapImage({
+        callsign: 'VK3XYZ',
+        imageUrl: 'https://example.com/vk3xyz.jpg',
+        latitude: -37.8,
+        longitude: 144.9,
+        savedAt: '2024-01-03T00:00:00Z',
+      });
+
+      const images = useAppStore.getState().callsignMapImages;
+      expect(images).toHaveLength(3);
+
+      const withImage = images.filter(i => i.imageUrl);
+      const withoutImage = images.filter(i => !i.imageUrl);
+      expect(withImage).toHaveLength(2);
+      expect(withoutImage).toHaveLength(1);
+      expect(withoutImage[0].callsign).toBe('JA1ABC');
+    });
+
+    it('update from no-image to with-image replaces entry', () => {
+      useAppStore.getState().addCallsignMapImage({
+        callsign: 'W1AW',
+        latitude: 41.7,
+        longitude: -72.7,
+        savedAt: '2024-01-01T00:00:00Z',
+      });
+
+      expect(useAppStore.getState().callsignMapImages[0].imageUrl).toBeUndefined();
+
+      useAppStore.getState().addCallsignMapImage({
+        callsign: 'W1AW',
+        imageUrl: 'https://example.com/w1aw.jpg',
+        latitude: 41.7,
+        longitude: -72.7,
+        savedAt: '2024-01-02T00:00:00Z',
+      });
+
+      const images = useAppStore.getState().callsignMapImages;
+      expect(images).toHaveLength(1);
+      expect(images[0].imageUrl).toBe('https://example.com/w1aw.jpg');
     });
   });
 });

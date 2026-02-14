@@ -167,6 +167,11 @@ public class MongoDbContext
         get { EnsureConnected(); return _database!.GetCollection<SmartUnlinkRadioEntity>("smartunlink_radios"); }
     }
 
+    public IMongoCollection<CallsignMapImage> CallsignMapImages
+    {
+        get { EnsureConnected(); return _database!.GetCollection<CallsignMapImage>("callsign_images"); }
+    }
+
     private void CreateIndexes()
     {
         // QSO indexes
@@ -179,6 +184,16 @@ public class MongoDbContext
             new CreateIndexModel<Qso>(Builders<Qso>.IndexKeys.Ascending("station.grid")),
             // Index for efficient sync status queries (like QLog's upload status columns)
             new CreateIndexModel<Qso>(Builders<Qso>.IndexKeys.Ascending(q => q.QrzSyncStatus))
+        });
+
+        // Callsign map image indexes
+        CallsignMapImages.Indexes.CreateMany(new[]
+        {
+            new CreateIndexModel<CallsignMapImage>(
+                Builders<CallsignMapImage>.IndexKeys.Ascending(i => i.Callsign),
+                new CreateIndexOptions { Unique = true }),
+            new CreateIndexModel<CallsignMapImage>(
+                Builders<CallsignMapImage>.IndexKeys.Descending(i => i.SavedAt)),
         });
     }
 }

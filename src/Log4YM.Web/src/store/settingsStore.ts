@@ -88,6 +88,8 @@ export interface MapSettings {
   showMoonMarker: boolean;
   dayNightOpacity: number;
   grayLineOpacity: number;
+  showCallsignImages: boolean;
+  maxCallsignImages: number;
 }
 
 export interface HeaderSettings {
@@ -243,6 +245,8 @@ const defaultSettings: Settings = {
     showMoonMarker: true,
     dayNightOpacity: 0.5,
     grayLineOpacity: 0.6,
+    showCallsignImages: true,
+    maxCallsignImages: 50,
   },
   cluster: {
     connections: [],

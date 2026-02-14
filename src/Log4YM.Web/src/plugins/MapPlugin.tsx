@@ -93,6 +93,64 @@ const satelliteIcon = new L.DivIcon({
   iconAnchor: [9, 9],
 });
 
+// Create callsign image marker icon
+function createCallsignImageIcon(imageUrl: string | undefined | null, callsign: string, scale: '1x' | '2x') {
+  const size = scale === '2x' ? 56 : 44;
+  const borderWidth = scale === '2x' ? 3 : 2;
+  const borderColor = scale === '2x' ? '#ffb432' : '#00ddff';
+  const shadowSpread = scale === '2x' ? 8 : 5;
+  const fontSize = scale === '2x' ? 11 : 10;
+  // Escape HTML special chars in callsign to prevent XSS
+  const safeCallsign = callsign.replace(/&/g, '&amp;').replace(/</g, '&lt;').replace(/>/g, '&gt;');
+
+  const contentHtml = imageUrl
+    ? `<img
+            src="${imageUrl}"
+            alt="${safeCallsign}"
+            style="width: 100%; height: 100%; object-fit: cover; display: block;"
+            onerror="this.parentElement.innerHTML='<div style=\\'display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:${Math.round(size * 0.5)}px\\'>📻</div>'"
+          />`
+    : `<div style="display:flex;align-items:center;justify-content:center;width:100%;height:100%;font-size:${Math.round(size * 0.5)}px">📻</div>`;
+
+  return new L.DivIcon({
+    className: 'custom-callsign-image-marker',
+    html: `
+      <div style="
+        display: flex;
+        flex-direction: column;
+        align-items: center;
+        gap: 2px;
+        transform: translate(-50%, -50%);
+        pointer-events: auto;
+      ">
+        <div style="
+          width: ${size}px;
+          height: ${size}px;
+          border-radius: 50%;
+          border: ${borderWidth}px solid ${borderColor};
+          box-shadow: 0 0 ${shadowSpread}px ${borderColor}80;
+          overflow: hidden;
+          background: #1a1e26;
+          flex-shrink: 0;
+        ">
+          ${contentHtml}
+        </div>
+        <span style="
+          font-family: monospace;
+          font-size: ${fontSize}px;
+          font-weight: bold;
+          color: ${borderColor};
+          text-shadow: 0 0 4px rgba(0,0,0,0.8), 0 1px 2px rgba(0,0,0,0.9);
+          white-space: nowrap;
+          line-height: 1;
+        ">${safeCallsign}</span>
+      </div>
+    `,
+    iconSize: [0, 0],
+    iconAnchor: [0, 0],
+  });
+}
+
 // Tile layer options for different map styles
 const TILE_LAYERS = {
   osm: {
@@ -289,7 +347,7 @@ export function MapPlugin() {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const lastTargetCoordsRef = useRef<{ lat: number; lon: number } | null>(null);
-  const { stationGrid, rotatorPosition, focusedCallsignInfo, potaSpots, dxClusterMapEnabled, hoveredSpotId } = useAppStore();
+  const { stationGrid, rotatorPosition, focusedCallsignInfo, potaSpots, dxClusterMapEnabled, hoveredSpotId, callsignMapImages, setCallsignMapImages } = useAppStore();
   const { settings, updateMapSettings, saveSettings } = useSettingsStore();
   const { commandRotator } = useSignalR();
 
@@ -558,6 +616,31 @@ export function MapPlugin() {
     return () => clearInterval(interval);
   }, [rbnSettings.enabled, rbnSettings.timeWindowMinutes, settings.station.callsign]);
 
+  // Load callsign map images from MongoDB on mount
+  useEffect(() => {
+    if (!settings.map.showCallsignImages) return;
+
+    const loadImages = async () => {
+      try {
+        const images = await api.getCallsignMapImages(settings.map.maxCallsignImages);
+        setCallsignMapImages(images);
+      } catch (error) {
+        console.error('Failed to load callsign map images:', error);
+      }
+    };
+
+    loadImages();
+  }, [settings.map.showCallsignImages, settings.map.maxCallsignImages, setCallsignMapImages]);
+
+  // Callsign images to show on map (only logged QSOs, not browsed callsigns) (limited by maxCallsignImages, excluding the currently focused one)
+  const visibleCallsignImages = useMemo(() => {
+    if (!settings.map.showCallsignImages) return [];
+    const focusedCall = focusedCallsignInfo?.callsign?.toUpperCase();
+    return callsignMapImages
+      .filter(img => img.callsign.toUpperCase() !== focusedCall)
+      .slice(0, settings.map.maxCallsignImages);
+  }, [callsignMapImages, settings.map.showCallsignImages, settings.map.maxCallsignImages, focusedCallsignInfo?.callsign]);
+
   // Helper function to get SNR color
   const getSNRColor = (snr: number | undefined): string => {
     if (snr === null || snr === undefined) return '#888888';
@@ -676,28 +759,80 @@ export function MapPlugin() {
             />
           )}
 
-          {/* Target marker if we have focused callsign with coordinates */}
+          {/* Target marker - show callsign image icon (2x) with image or placeholder, or standard dot if callsign images disabled */}
           {targetLat != null && targetLon != null && (
-            <Marker position={[targetLat, targetLon]} icon={targetIcon}>
+            settings.map.showCallsignImages ? (
+              <Marker
+                position={[targetLat, targetLon]}
+                icon={createCallsignImageIcon(focusedCallsignInfo?.imageUrl, focusedCallsignInfo?.callsign ?? '', '2x')}
+              >
+                <Popup>
+                  <div className="text-center">
+                    <strong style={{ color: '#ffb432' }} className="font-mono">{focusedCallsignInfo?.callsign}</strong>
+                    <br />
+                    {focusedCallsignInfo?.name && (
+                      <><span className="text-xs" style={{ color: '#aabbcc' }}>{focusedCallsignInfo.name}</span><br /></>
+                    )}
+                    {focusedCallsignInfo?.grid && (
+                      <span className="text-xs font-mono" style={{ color: '#8899aa' }}>{focusedCallsignInfo.grid}</span>
+                    )}
+                    {focusedCallsignInfo?.bearing != null && (
+                      <>
+                        <br />
+                        <span className="text-xs font-mono" style={{ color: '#00ddff' }}>
+                          {focusedCallsignInfo.bearing.toFixed(0)}° / {Math.round(focusedCallsignInfo.distance ?? 0)} km
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </Popup>
+              </Marker>
+            ) : (
+              <Marker position={[targetLat, targetLon]} icon={targetIcon}>
+                <Popup>
+                  <div className="text-center">
+                    <strong style={{ color: '#ffb432' }} className="font-mono">{focusedCallsignInfo?.callsign}</strong>
+                    <br />
+                    {focusedCallsignInfo?.grid && (
+                      <span className="text-xs font-mono" style={{ color: '#8899aa' }}>{focusedCallsignInfo.grid}</span>
+                    )}
+                    {focusedCallsignInfo?.bearing != null && (
+                      <>
+                        <br />
+                        <span className="text-xs font-mono" style={{ color: '#00ddff' }}>
+                          {focusedCallsignInfo.bearing.toFixed(0)}° / {Math.round(focusedCallsignInfo.distance ?? 0)} km
+                        </span>
+                      </>
+                    )}
+                  </div>
+                </Popup>
+              </Marker>
+            )
+          )}
+
+          {/* Saved callsign image markers (1x) */}
+          {settings.map.showCallsignImages && visibleCallsignImages.map((img) => (
+            <Marker
+              key={`csimg-${img.callsign}`}
+              position={[img.latitude, img.longitude]}
+              icon={createCallsignImageIcon(img.imageUrl, img.callsign, '1x')}
+            >
               <Popup>
                 <div className="text-center">
-                  <strong style={{ color: '#ffb432' }} className="font-mono">{focusedCallsignInfo?.callsign}</strong>
-                  <br />
-                  {focusedCallsignInfo?.grid && (
-                    <span className="text-xs font-mono" style={{ color: '#8899aa' }}>{focusedCallsignInfo.grid}</span>
+                  <strong style={{ color: '#00ddff' }} className="font-mono">{img.callsign}</strong>
+                  {img.name && (
+                    <><br /><span className="text-xs" style={{ color: '#aabbcc' }}>{img.name}</span></>
                   )}
-                  {focusedCallsignInfo?.bearing != null && (
-                    <>
-                      <br />
-                      <span className="text-xs font-mono" style={{ color: '#00ddff' }}>
-                        {focusedCallsignInfo.bearing.toFixed(0)}° / {Math.round(focusedCallsignInfo.distance ?? 0)} km
-                      </span>
-                    </>
+                  {img.country && (
+                    <><br /><span className="text-xs" style={{ color: '#8899aa' }}>{img.country}</span></>
+                  )}
+                  {img.grid && (
+                    <><br /><span className="text-xs font-mono" style={{ color: '#8899aa' }}>{img.grid}</span></>
                   )}
                 </div>
               </Popup>
             </Marker>
-          )}
+          ))}
 
           {/* RBN Spots Overlay */}
           {rbnSettings.enabled && rbnSpots.map((spot, idx) => {
@@ -1142,6 +1277,46 @@ export function MapPlugin() {
 
                 <div className="mt-3 pt-2 border-t border-dark-600 text-xs text-dark-400">
                   Updates every 60 seconds
+                </div>
+
+                {/* Callsign Images on Map */}
+                <div className="mt-3 pt-2 border-t border-dark-600">
+                  <div className="text-xs font-ui text-dark-200 mb-2 font-semibold">Callsign Images</div>
+
+                  <label className="flex items-center gap-2 mb-2 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={settings.map.showCallsignImages}
+                      onChange={(e) => {
+                        e.stopPropagation();
+                        updateMapSettings({ showCallsignImages: e.target.checked });
+                        saveSettings();
+                      }}
+                      className="w-4 h-4"
+                    />
+                    <span className="text-sm font-ui text-dark-200">Show on Map</span>
+                  </label>
+
+                  {settings.map.showCallsignImages && (
+                    <div className="ml-6">
+                      <label className="flex items-center gap-2 text-xs text-dark-300">
+                        <span>Max:</span>
+                        <input
+                          type="range"
+                          min="5"
+                          max="200"
+                          step="5"
+                          value={settings.map.maxCallsignImages}
+                          onChange={(e) => {
+                            updateMapSettings({ maxCallsignImages: parseInt(e.target.value) });
+                          }}
+                          onMouseUp={() => saveSettings()}
+                          className="flex-1"
+                        />
+                        <span className="w-6 text-right">{settings.map.maxCallsignImages}</span>
+                      </label>
+                    </div>
+                  )}
                 </div>
               </div>
             )}

@@ -859,6 +859,10 @@ class SignalRService {
     await this.connection?.invoke('SelectSpot', evt);
   }
 
+  async persistCallsignMapImage(image: { callsign: string; imageUrl?: string; latitude: number; longitude: number; name?: string; country?: string; grid?: string }): Promise<void> {
+    await this.connection?.invoke('PersistCallsignMapImage', image);
+  }
+
   async commandRotator(evt: RotatorCommandEvent): Promise<void> {
     await this.connection?.invoke('CommandRotator', evt);
   }

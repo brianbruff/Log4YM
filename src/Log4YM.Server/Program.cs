@@ -161,6 +161,10 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<RbnService>());
 // Register CW Keyer service
 builder.Services.AddSingleton<CwKeyerService>();
 
+// Register UDP Provider services
+builder.Services.AddSingleton<Log4YM.Server.Services.UdpProviders.WsjtxUdpService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<Log4YM.Server.Services.UdpProviders.WsjtxUdpService>());
+
 var app = builder.Build();
 
 // Configure middleware

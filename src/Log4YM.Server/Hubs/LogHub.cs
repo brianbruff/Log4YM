@@ -60,6 +60,12 @@ public interface ILogHubClient
 
     // RBN events
     Task OnRbnSpot(RbnSpot spot);
+
+    // UDP Provider events
+    Task OnUdpProviderStatusChanged(UdpProviderStatusChangedEvent evt);
+    Task OnWsjtxStatusReceived(WsjtxStatusReceivedEvent evt);
+    Task OnWsjtxDecodeReceived(WsjtxDecodeReceivedEvent evt);
+    Task OnWsjtxQsoLogged(WsjtxQsoLoggedEvent evt);
 }
 
 public class LogHub : Hub<ILogHubClient>

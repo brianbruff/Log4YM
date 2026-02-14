@@ -122,6 +122,25 @@ export interface AiSettings {
   includeSpotComments: boolean;
 }
 
+export interface UdpProviderConfig {
+  id: string;
+  name: string;
+  enabled: boolean;
+  port: number;
+  supportsMulticast: boolean;
+  multicastEnabled: boolean;
+  multicastAddress: string;
+  multicastTtl: number;
+  forwardingEnabled: boolean;
+  forwardingAddresses: string[];
+  description: string;
+  customSettings: Record<string, string>;
+}
+
+export interface UdpProviderSettings {
+  providers: UdpProviderConfig[];
+}
+
 export interface Settings {
   station: StationSettings;
   qrz: QrzSettings;
@@ -132,9 +151,10 @@ export interface Settings {
   cluster: ClusterSettings;
   header: HeaderSettings;
   ai: AiSettings;
+  udpProviders: UdpProviderSettings;
 }
 
-export type SettingsSection = 'station' | 'qrz' | 'rotator' | 'database' | 'appearance' | 'map' | 'header' | 'ai' | 'about';
+export type SettingsSection = 'station' | 'qrz' | 'rotator' | 'database' | 'appearance' | 'map' | 'header' | 'ai' | 'udp' | 'about';
 
 interface SettingsState {
   // Settings data
@@ -164,6 +184,8 @@ interface SettingsState {
   updateClusterConnection: (connectionId: string, connection: Partial<ClusterConnection>) => void;
   updateHeaderSettings: (header: Partial<HeaderSettings>) => void;
   updateAiSettings: (ai: Partial<AiSettings>) => void;
+  updateUdpProviderSettings: (udpProviders: Partial<UdpProviderSettings>) => void;
+  updateUdpProvider: (providerId: string, provider: Partial<UdpProviderConfig>) => void;
   addClusterConnection: () => void;
   removeClusterConnection: (connectionId: string) => void;
 
@@ -264,6 +286,24 @@ const defaultSettings: Settings = {
     includeQrzProfile: true,
     includeQsoHistory: true,
     includeSpotComments: false,
+  },
+  udpProviders: {
+    providers: [
+      {
+        id: 'wsjtx',
+        name: 'WSJT-X / JTDX / MSHV',
+        enabled: false,
+        port: 2237,
+        supportsMulticast: true,
+        multicastEnabled: false,
+        multicastAddress: '224.0.0.73',
+        multicastTtl: 1,
+        forwardingEnabled: false,
+        forwardingAddresses: [],
+        description: 'Digital mode applications (FT8, FT4, JT65, etc.)',
+        customSettings: {},
+      },
+    ],
   },
 };
 
@@ -375,6 +415,30 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
       },
       isDirty: true,
     })),
+
+  // UDP Provider settings
+  updateUdpProviderSettings: (udpProviders) =>
+    set((state) => ({
+      settings: {
+        ...state.settings,
+        udpProviders: { ...state.settings.udpProviders, ...udpProviders },
+      },
+      isDirty: true,
+    })),
+
+  updateUdpProvider: (providerId, provider) =>
+    set((state) => {
+      const updatedProviders = state.settings.udpProviders.providers.map((p) =>
+        p.id === providerId ? { ...p, ...provider } : p
+      );
+      return {
+        settings: {
+          ...state.settings,
+          udpProviders: { ...state.settings.udpProviders, providers: updatedProviders },
+        },
+        isDirty: true,
+      };
+    }),
 
   // Cluster settings
   updateClusterSettings: (cluster) =>
@@ -497,6 +561,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
           cluster: { ...defaultSettings.cluster, ...settings.cluster },
           header: { ...defaultSettings.header, ...settings.header },
           ai: { ...defaultSettings.ai, ...settings.ai },
+          udpProviders: { ...defaultSettings.udpProviders, ...settings.udpProviders },
         };
         set({ settings: mergedSettings, isDirty: false, isLoaded: true });
       } else {

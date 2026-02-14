@@ -321,6 +321,18 @@ export function ChatAiPlugin() {
                   key={idx}
                   onClick={() => {
                     setChatInput(suggestion);
+                    // Auto-send after setting input
+                    const userMessage: ChatMessageType = { role: 'user', content: suggestion };
+                    setChatMessages((prev) => [...prev, userMessage]);
+                    setIsSendingChat(true);
+                    setError(null);
+                    api.chat({ callsign: callsign!, question: suggestion, conversationHistory: chatMessages })
+                      .then((response) => {
+                        const assistantMessage: ChatMessageType = { role: 'assistant', content: response.answer };
+                        setChatMessages((prev) => [...prev, assistantMessage]);
+                      })
+                      .catch(() => setError('Failed to get response. Check your API key and try again.'))
+                      .finally(() => { setIsSendingChat(false); setChatInput(''); });
                   }}
                   className="w-full text-left glass-panel p-2.5 text-sm text-gray-400 hover:text-gray-200 hover:bg-glass-100 transition-colors cursor-pointer flex items-start gap-2"
                 >

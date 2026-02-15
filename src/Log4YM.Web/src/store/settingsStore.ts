@@ -146,11 +146,13 @@ interface SettingsState {
   isDirty: boolean;
   isSaving: boolean;
   isLoaded: boolean;
+  error: string | null;
 
   // Actions
   openSettings: () => void;
   closeSettings: () => void;
   setActiveSection: (section: SettingsSection) => void;
+  clearError: () => void;
 
   // Settings updates
   updateStationSettings: (station: Partial<StationSettings>) => void;
@@ -277,11 +279,13 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   isDirty: false,
   isSaving: false,
   isLoaded: false,
+  error: null,
 
   // UI actions
-  openSettings: () => set({ isOpen: true }),
-  closeSettings: () => set({ isOpen: false, isDirty: false }),
+  openSettings: () => set({ isOpen: true, error: null }),
+  closeSettings: () => set({ isOpen: false, isDirty: false, error: null }),
   setActiveSection: (section) => set({ activeSection: section }),
+  clearError: () => set({ error: null }),
 
   // Station settings
   updateStationSettings: (station) =>
@@ -444,10 +448,12 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
   saveSettings: async () => {
     const { isLoaded } = get();
     if (!isLoaded) {
-      console.warn('Settings not loaded yet, refusing to save to prevent data loss');
+      const errorMsg = 'Settings not loaded yet, cannot save';
+      console.warn(errorMsg);
+      set({ error: errorMsg });
       return;
     }
-    set({ isSaving: true });
+    set({ isSaving: true, error: null });
     try {
       const { settings } = get();
       const response = await fetch('/api/settings', {
@@ -457,12 +463,15 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
       });
 
       if (!response.ok) {
-        throw new Error('Failed to save settings');
+        const errorText = await response.text().catch(() => 'Unknown error');
+        throw new Error(`Failed to save settings: ${response.status} - ${errorText}`);
       }
 
-      set({ isDirty: false });
+      set({ isDirty: false, error: null });
     } catch (error) {
+      const errorMsg = error instanceof Error ? error.message : 'Failed to save settings';
       console.error('Failed to save settings:', error);
+      set({ error: errorMsg });
       throw error;
     } finally {
       set({ isSaving: false });
@@ -500,10 +509,15 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
         };
         set({ settings: mergedSettings, isDirty: false, isLoaded: true });
       } else {
+        // Non-OK response (e.g., 404, 500) - database might not be available
+        // Still mark as loaded so user can configure initial settings
+        console.warn('Settings API returned non-OK status:', response.status);
         set({ isLoaded: true });
       }
     } catch (error) {
-      console.error('Failed to load settings:', error);
+      // Network error or database not connected
+      // Still mark as loaded so user can configure initial settings
+      console.warn('Failed to load settings (database may not be connected):', error);
       set({ isLoaded: true });
     }
   },

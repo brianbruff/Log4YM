@@ -463,8 +463,17 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
       });
 
       if (!response.ok) {
-        const errorText = await response.text().catch(() => 'Unknown error');
-        throw new Error(`Failed to save settings: ${response.status} - ${errorText}`);
+        // Try to get error message from response body
+        let errorMsg = `Failed to save settings (HTTP ${response.status})`;
+        try {
+          const errorData = await response.json();
+          if (errorData.error) {
+            errorMsg = errorData.error;
+          }
+        } catch {
+          // If JSON parsing fails, use default error message
+        }
+        throw new Error(errorMsg);
       }
 
       set({ isDirty: false, error: null });

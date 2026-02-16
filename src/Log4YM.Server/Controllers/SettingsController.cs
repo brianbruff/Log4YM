@@ -22,10 +22,30 @@ public class SettingsController : ControllerBase
     /// </summary>
     [HttpGet]
     [ProducesResponseType(typeof(UserSettings), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
     public async Task<ActionResult<UserSettings>> GetSettings()
     {
-        var settings = await _settingsService.GetSettingsAsync();
-        return Ok(settings);
+        try
+        {
+            var settings = await _settingsService.GetSettingsAsync();
+            return Ok(settings);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "Database not available when retrieving settings");
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+            {
+                error = "Database not connected. Please configure your database connection in Settings > Database."
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to retrieve settings");
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                error = "Failed to retrieve settings: " + ex.Message
+            });
+        }
     }
 
     /// <summary>
@@ -34,6 +54,7 @@ public class SettingsController : ControllerBase
     [HttpPost]
     [ProducesResponseType(typeof(UserSettings), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
+    [ProducesResponseType(StatusCodes.Status503ServiceUnavailable)]
     public async Task<ActionResult<UserSettings>> SaveSettings([FromBody] UserSettings settings)
     {
         if (settings == null)
@@ -43,8 +64,27 @@ public class SettingsController : ControllerBase
 
         _logger.LogInformation("Saving settings for station: {Callsign}", settings.Station?.Callsign);
 
-        var saved = await _settingsService.SaveSettingsAsync(settings);
-        return Ok(saved);
+        try
+        {
+            var saved = await _settingsService.SaveSettingsAsync(settings);
+            return Ok(saved);
+        }
+        catch (InvalidOperationException ex)
+        {
+            _logger.LogWarning(ex, "Database not available when saving settings");
+            return StatusCode(StatusCodes.Status503ServiceUnavailable, new
+            {
+                error = "Database not connected. Please configure your database connection in Settings > Database."
+            });
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Failed to save settings");
+            return StatusCode(StatusCodes.Status500InternalServerError, new
+            {
+                error = "Failed to save settings: " + ex.Message
+            });
+        }
     }
 
     /// <summary>

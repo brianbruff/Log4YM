@@ -57,6 +57,16 @@ UserConfig userConfig;
 if (File.Exists(userConfigService.GetConfigPath()))
 {
     userConfig = await userConfigService.GetConfigAsync();
+
+    // Guard against stale config: if provider is MongoDb but no connection string
+    // is saved (e.g. app was uninstalled and reinstalled, config.json persisted),
+    // fall back to Local so the user isn't stuck waiting for a dead connection.
+    if (userConfig.Provider == DatabaseProvider.MongoDb
+        && string.IsNullOrEmpty(userConfig.MongoDbConnectionString))
+    {
+        Log.Warning("Config says MongoDb but no connection string found — falling back to Local provider");
+        userConfig.Provider = DatabaseProvider.Local;
+    }
 }
 else if (!string.IsNullOrEmpty(builder.Configuration["MongoDB:ConnectionString"]))
 {

@@ -109,6 +109,8 @@ async function startBackend() {
     return;
   }
 
+  const backendDir = path.dirname(backendPath);
+
   // Make executable on Unix and remove macOS quarantine attribute
   if (process.platform !== 'win32') {
     try {
@@ -130,8 +132,6 @@ async function startBackend() {
       log.warn(`Could not remove quarantine attribute: ${err.message}`);
     }
   }
-
-  const backendDir = path.dirname(backendPath);
   backendProcess = spawn(backendPath, [], {
     cwd: backendDir,
     env: {

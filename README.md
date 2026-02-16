@@ -19,8 +19,8 @@ Grab the latest release from the **[Releases page](https://github.com/brianbruff
 | Platform | File | Notes |
 |----------|------| ------ |
 | Windows | `.exe` installer ||
-| macOS (Apple Silicon) | `.dmg` (arm64) | see quick start wiki |
-| macOS (Intel) | `.dmg` (x64) | see quick start wiki|
+| macOS (Apple Silicon) | `.dmg` (arm64) | [see quick start wiki](https://github.com/brianbruff/Log4YM/wiki/Getting-Started#macos-installation) |
+| macOS (Intel) | `.dmg` (x64) | [see quick start wiki](https://github.com/brianbruff/Log4YM/wiki/Getting-Started#macos-installation)|
 | Linux | `.AppImage` ||
 
 ## License

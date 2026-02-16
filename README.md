@@ -23,6 +23,16 @@ Grab the latest release from the **[Releases page](https://github.com/brianbruff
 | macOS (Intel) | `.dmg` (x64) |
 | Linux | `.AppImage` |
 
+### macOS — Removing Gatekeeper Warning
+
+Log4YM is not signed with an Apple Developer certificate, so macOS will block it on first launch. To fix this, open Terminal and run:
+
+```bash
+xattr -cr /Applications/Log4YM.app
+```
+
+If you still see a security warning, go to **System Settings → Privacy & Security** and click **Open Anyway**.
+
 ## License
 
 MIT

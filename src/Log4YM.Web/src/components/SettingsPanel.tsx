@@ -1967,6 +1967,8 @@ export function SettingsPanel() {
     isSaving,
     saveSettings,
     resetSettings,
+    error,
+    clearError,
   } = useSettingsStore();
 
   if (!isOpen) return null;
@@ -2083,8 +2085,21 @@ export function SettingsPanel() {
           {/* Content */}
           <div className="flex-1 p-6 overflow-auto">{renderSection()}</div>
 
+          {/* Error indicator */}
+          {error && (
+            <div className="px-4 py-2 bg-accent-danger/10 border-t border-accent-danger/30 text-accent-danger text-sm flex items-center justify-between gap-2">
+              <div className="flex items-center gap-2">
+                <AlertCircle className="w-4 h-4" />
+                <span>{error}</span>
+              </div>
+              <button onClick={clearError} className="p-1 hover:bg-accent-danger/20 rounded transition-colors">
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          )}
+
           {/* Dirty indicator */}
-          {isDirty && (
+          {isDirty && !error && (
             <div className="px-4 py-2 bg-accent-primary/10 border-t border-accent-primary/30 text-accent-primary text-sm flex items-center gap-2">
               <AlertCircle className="w-4 h-4" />
               <span>You have unsaved changes</span>

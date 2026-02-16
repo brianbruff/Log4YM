@@ -16,12 +16,12 @@ Everything you need — quick start, feature guides, hardware setup, and develop
 
 Grab the latest release from the **[Releases page](https://github.com/brianbruff/Log4YM/releases/latest)**.
 
-| Platform | File |
-|----------|------|
-| Windows | `.exe` installer |
-| macOS (Apple Silicon) | `.dmg` (arm64) |
-| macOS (Intel) | `.dmg` (x64) |
-| Linux | `.AppImage` |
+| Platform | File | Notes |
+|----------|------| ------ |
+| Windows | `.exe` installer ||
+| macOS (Apple Silicon) | `.dmg` (arm64) | see quick start wiki |
+| macOS (Intel) | `.dmg` (x64) | see quick start wiki |
+| Linux | `.AppImage` ||
 
 ### macOS — Removing Gatekeeper Warning
 

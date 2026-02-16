@@ -47,13 +47,13 @@ public class UserSettings
 public class StationSettings
 {
     [BsonElement("callsign")]
-    public string Callsign { get; set; } = string.Empty;
+    public string? Callsign { get; set; } = string.Empty;
 
     [BsonElement("operatorName")]
-    public string OperatorName { get; set; } = string.Empty;
+    public string? OperatorName { get; set; } = string.Empty;
 
     [BsonElement("gridSquare")]
-    public string GridSquare { get; set; } = string.Empty;
+    public string? GridSquare { get; set; } = string.Empty;
 
     [BsonElement("latitude")]
     public double? Latitude { get; set; }
@@ -62,26 +62,26 @@ public class StationSettings
     public double? Longitude { get; set; }
 
     [BsonElement("city")]
-    public string City { get; set; } = string.Empty;
+    public string? City { get; set; } = string.Empty;
 
     [BsonElement("country")]
-    public string Country { get; set; } = string.Empty;
+    public string? Country { get; set; } = string.Empty;
 }
 
 [BsonIgnoreExtraElements]
 public class QrzSettings
 {
     [BsonElement("username")]
-    public string Username { get; set; } = string.Empty;
+    public string? Username { get; set; } = string.Empty;
 
     [BsonElement("password")]
-    public string Password { get; set; } = string.Empty; // Stored obfuscated
+    public string? Password { get; set; } = string.Empty; // Stored obfuscated
 
     [BsonElement("enabled")]
     public bool Enabled { get; set; }
 
     [BsonElement("apiKey")]
-    public string ApiKey { get; set; } = string.Empty; // QRZ API key for logbook uploads
+    public string? ApiKey { get; set; } = string.Empty; // QRZ API key for logbook uploads
 
     [BsonElement("hasXmlSubscription")]
     public bool? HasXmlSubscription { get; set; } // Cached subscription status
@@ -94,7 +94,7 @@ public class QrzSettings
 public class AppearanceSettings
 {
     [BsonElement("theme")]
-    public string Theme { get; set; } = "dark";
+    public string? Theme { get; set; } = "dark";
 
     [BsonElement("compactMode")]
     public bool CompactMode { get; set; }
@@ -104,7 +104,7 @@ public class AppearanceSettings
 public class RotatorPreset
 {
     [BsonElement("name")]
-    public string Name { get; set; } = string.Empty;
+    public string? Name { get; set; } = string.Empty;
 
     [BsonElement("azimuth")]
     public int Azimuth { get; set; }
@@ -117,16 +117,16 @@ public class RotatorSettings
     public bool Enabled { get; set; }
 
     [BsonElement("connectionType")]
-    public string ConnectionType { get; set; } = "network";  // "network" | "serial"
+    public string? ConnectionType { get; set; } = "network";  // "network" | "serial"
 
     [BsonElement("ipAddress")]
-    public string IpAddress { get; set; } = "127.0.0.1";
+    public string? IpAddress { get; set; } = "127.0.0.1";
 
     [BsonElement("port")]
     public int Port { get; set; } = 4533;  // Default hamlib rotctld port
 
     [BsonElement("serialPort")]
-    public string SerialPort { get; set; } = string.Empty;  // e.g., 'COM3' or '/dev/ttyUSB0'
+    public string? SerialPort { get; set; } = string.Empty;  // e.g., 'COM3' or '/dev/ttyUSB0'
 
     [BsonElement("baudRate")]
     public int BaudRate { get; set; } = 9600;
@@ -135,13 +135,13 @@ public class RotatorSettings
     public int? HamlibModelId { get; set; }  // Hamlib rotator model ID
 
     [BsonElement("hamlibModelName")]
-    public string HamlibModelName { get; set; } = string.Empty;
+    public string? HamlibModelName { get; set; } = string.Empty;
 
     [BsonElement("pollingIntervalMs")]
     public int PollingIntervalMs { get; set; } = 500;
 
     [BsonElement("rotatorId")]
-    public string RotatorId { get; set; } = "default";
+    public string? RotatorId { get; set; } = "default";
 
     [BsonElement("presets")]
     public List<RotatorPreset> Presets { get; set; } = new()
@@ -176,13 +176,13 @@ public class RadioSettings
 public class TciSettings
 {
     [BsonElement("host")]
-    public string Host { get; set; } = "localhost";
+    public string? Host { get; set; } = "localhost";
 
     [BsonElement("port")]
     public int Port { get; set; } = 50001;
 
     [BsonElement("name")]
-    public string Name { get; set; } = string.Empty;
+    public string? Name { get; set; } = string.Empty;
 
     [BsonElement("autoConnect")]
     public bool AutoConnect { get; set; }
@@ -192,7 +192,7 @@ public class TciSettings
 public class MapSettings
 {
     [BsonElement("tileLayer")]
-    public string TileLayer { get; set; } = "dark";
+    public string? TileLayer { get; set; } = "dark";
 
     [BsonElement("showSatellites")]
     public bool ShowSatellites { get; set; }
@@ -267,13 +267,13 @@ public class ClusterSettings
 public class ClusterConnection
 {
     [BsonElement("id")]
-    public string Id { get; set; } = Guid.NewGuid().ToString();
+    public string? Id { get; set; } = Guid.NewGuid().ToString();
 
     [BsonElement("name")]
-    public string Name { get; set; } = string.Empty;
+    public string? Name { get; set; } = string.Empty;
 
     [BsonElement("host")]
-    public string Host { get; set; } = string.Empty;
+    public string? Host { get; set; } = string.Empty;
 
     [BsonElement("port")]
     public int Port { get; set; } = 23;
@@ -292,26 +292,26 @@ public class ClusterConnection
 public class HeaderSettings
 {
     [BsonElement("timeFormat")]
-    public string TimeFormat { get; set; } = "24h";  // "12h" | "24h"
+    public string? TimeFormat { get; set; } = "24h";  // "12h" | "24h"
 
     [BsonElement("showWeather")]
     public bool ShowWeather { get; set; } = true;
 
     [BsonElement("weatherLocation")]
-    public string WeatherLocation { get; set; } = string.Empty;
+    public string? WeatherLocation { get; set; } = string.Empty;
 }
 
 [BsonIgnoreExtraElements]
 public class AiSettings
 {
     [BsonElement("provider")]
-    public string Provider { get; set; } = "anthropic"; // "anthropic" | "openai"
+    public string? Provider { get; set; } = "anthropic"; // "anthropic" | "openai"
 
     [BsonElement("apiKey")]
-    public string ApiKey { get; set; } = string.Empty; // Stored obfuscated
+    public string? ApiKey { get; set; } = string.Empty; // Stored obfuscated
 
     [BsonElement("model")]
-    public string Model { get; set; } = "claude-sonnet-4-5-20250929"; // Provider-specific model name
+    public string? Model { get; set; } = "claude-sonnet-4-5-20250929"; // Provider-specific model name
 
     [BsonElement("autoGenerateTalkPoints")]
     public bool AutoGenerateTalkPoints { get; set; } = true;

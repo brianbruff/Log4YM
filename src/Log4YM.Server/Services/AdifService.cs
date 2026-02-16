@@ -360,7 +360,9 @@ public partial class AdifService : IAdifService
         {
             if (!mappedFields.Contains(kvp.Key))
             {
-                extraFields[kvp.Key] = BsonValue.Create(kvp.Value);
+                // Convert ADIF boolean strings (Y/N, true/false) to BsonBoolean
+                var bsonValue = ConvertToBsonValue(kvp.Value);
+                extraFields[kvp.Key] = bsonValue;
             }
         }
 
@@ -574,5 +576,31 @@ public partial class AdifService : IAdifService
             >= 420.0 and < 450.0 => "70cm",
             _ => "20m"
         };
+    }
+
+    /// <summary>
+    /// Converts a value to appropriate BsonValue type.
+    /// Handles ADIF boolean strings (Y/N, true/false) by converting them to BsonBoolean.
+    /// </summary>
+    private static BsonValue ConvertToBsonValue(object value)
+    {
+        // Handle string values that represent booleans in ADIF
+        if (value is string str)
+        {
+            // ADIF uses "Y" for true and "N" for false
+            if (str.Equals("Y", StringComparison.OrdinalIgnoreCase))
+                return BsonBoolean.True;
+            if (str.Equals("N", StringComparison.OrdinalIgnoreCase))
+                return BsonBoolean.False;
+
+            // Also handle explicit "true"/"false" strings
+            if (str.Equals("true", StringComparison.OrdinalIgnoreCase))
+                return BsonBoolean.True;
+            if (str.Equals("false", StringComparison.OrdinalIgnoreCase))
+                return BsonBoolean.False;
+        }
+
+        // For all other values, use the default BsonValue.Create behavior
+        return BsonValue.Create(value);
     }
 }

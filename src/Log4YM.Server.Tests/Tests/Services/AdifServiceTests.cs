@@ -267,6 +267,55 @@ public class AdifServiceTests
         qsos[0].AdifExtra!.Contains("my_antenna").Should().BeTrue();
     }
 
+    [Fact]
+    public void ParseAdif_BooleanFieldsInExtra_ConvertedToBsonBoolean()
+    {
+        // Test that ADIF boolean fields (Y/N, true/false) are converted to BsonBoolean
+        var adif = "<CALL:5>W1AW <QSO_DATE:8>20240101 <TIME_ON:4>1234 <BAND:3>20m <MODE:3>SSB " +
+                   "<APP_CUSTOM_FLAG1:1>Y <APP_CUSTOM_FLAG2:1>N " +
+                   "<APP_CUSTOM_FLAG3:4>true <APP_CUSTOM_FLAG4:5>false <EOR>";
+
+        var qsos = _service.ParseAdif(adif).ToList();
+
+        qsos.Should().HaveCount(1);
+        qsos[0].AdifExtra.Should().NotBeNull();
+
+        // Verify that Y/N are stored as BsonBoolean, not BsonString
+        qsos[0].AdifExtra!["app_custom_flag1"].Should().BeOfType<MongoDB.Bson.BsonBoolean>();
+        qsos[0].AdifExtra["app_custom_flag1"].AsBoolean.Should().BeTrue();
+
+        qsos[0].AdifExtra["app_custom_flag2"].Should().BeOfType<MongoDB.Bson.BsonBoolean>();
+        qsos[0].AdifExtra["app_custom_flag2"].AsBoolean.Should().BeFalse();
+
+        // Verify that true/false strings are also converted
+        qsos[0].AdifExtra["app_custom_flag3"].Should().BeOfType<MongoDB.Bson.BsonBoolean>();
+        qsos[0].AdifExtra["app_custom_flag3"].AsBoolean.Should().BeTrue();
+
+        qsos[0].AdifExtra["app_custom_flag4"].Should().BeOfType<MongoDB.Bson.BsonBoolean>();
+        qsos[0].AdifExtra["app_custom_flag4"].AsBoolean.Should().BeFalse();
+    }
+
+    [Fact]
+    public void ParseAdif_NonBooleanFieldsInExtra_RemainAsStrings()
+    {
+        // Verify that regular string fields are NOT converted to booleans
+        var adif = "<CALL:5>W1AW <QSO_DATE:8>20240101 <TIME_ON:4>1234 <BAND:3>20m <MODE:3>SSB " +
+                   "<MY_ANTENNA:6>Dipole <MY_NOTES:10>Yes it was <EOR>";
+
+        var qsos = _service.ParseAdif(adif).ToList();
+
+        qsos.Should().HaveCount(1);
+        qsos[0].AdifExtra.Should().NotBeNull();
+
+        // Regular strings should remain as BsonString
+        qsos[0].AdifExtra!["my_antenna"].Should().BeOfType<MongoDB.Bson.BsonString>();
+        qsos[0].AdifExtra["my_antenna"].AsString.Should().Be("Dipole");
+
+        // "Yes it was" should NOT be interpreted as a boolean
+        qsos[0].AdifExtra["my_notes"].Should().BeOfType<MongoDB.Bson.BsonString>();
+        qsos[0].AdifExtra["my_notes"].AsString.Should().Be("Yes it was");
+    }
+
     #endregion
 
     #region ExportToAdif

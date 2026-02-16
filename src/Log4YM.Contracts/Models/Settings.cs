@@ -3,6 +3,7 @@ using MongoDB.Bson.Serialization.Attributes;
 
 namespace Log4YM.Contracts.Models;
 
+[BsonIgnoreExtraElements]
 public class UserSettings
 {
     [BsonId]
@@ -29,6 +30,9 @@ public class UserSettings
     [BsonElement("cluster")]
     public ClusterSettings Cluster { get; set; } = new();
 
+    [BsonElement("header")]
+    public HeaderSettings Header { get; set; } = new();
+
     [BsonElement("ai")]
     public AiSettings Ai { get; set; } = new();
 
@@ -39,6 +43,7 @@ public class UserSettings
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }
 
+[BsonIgnoreExtraElements]
 public class StationSettings
 {
     [BsonElement("callsign")]
@@ -63,6 +68,7 @@ public class StationSettings
     public string Country { get; set; } = string.Empty;
 }
 
+[BsonIgnoreExtraElements]
 public class QrzSettings
 {
     [BsonElement("username")]
@@ -84,6 +90,7 @@ public class QrzSettings
     public DateTime? SubscriptionCheckedAt { get; set; }
 }
 
+[BsonIgnoreExtraElements]
 public class AppearanceSettings
 {
     [BsonElement("theme")]
@@ -93,6 +100,7 @@ public class AppearanceSettings
     public bool CompactMode { get; set; }
 }
 
+[BsonIgnoreExtraElements]
 public class RotatorPreset
 {
     [BsonElement("name")]
@@ -102,16 +110,32 @@ public class RotatorPreset
     public int Azimuth { get; set; }
 }
 
+[BsonIgnoreExtraElements]
 public class RotatorSettings
 {
     [BsonElement("enabled")]
     public bool Enabled { get; set; }
+
+    [BsonElement("connectionType")]
+    public string ConnectionType { get; set; } = "network";  // "network" | "serial"
 
     [BsonElement("ipAddress")]
     public string IpAddress { get; set; } = "127.0.0.1";
 
     [BsonElement("port")]
     public int Port { get; set; } = 4533;  // Default hamlib rotctld port
+
+    [BsonElement("serialPort")]
+    public string SerialPort { get; set; } = string.Empty;  // e.g., 'COM3' or '/dev/ttyUSB0'
+
+    [BsonElement("baudRate")]
+    public int BaudRate { get; set; } = 9600;
+
+    [BsonElement("hamlibModelId")]
+    public int? HamlibModelId { get; set; }  // Hamlib rotator model ID
+
+    [BsonElement("hamlibModelName")]
+    public string HamlibModelName { get; set; } = string.Empty;
 
     [BsonElement("pollingIntervalMs")]
     public int PollingIntervalMs { get; set; } = 500;
@@ -159,17 +183,55 @@ public class TciSettings
 
     [BsonElement("name")]
     public string Name { get; set; } = string.Empty;
+
+    [BsonElement("autoConnect")]
+    public bool AutoConnect { get; set; }
 }
 
+[BsonIgnoreExtraElements]
 public class MapSettings
 {
     [BsonElement("tileLayer")]
     public string TileLayer { get; set; } = "dark";
 
+    [BsonElement("showSatellites")]
+    public bool ShowSatellites { get; set; }
+
+    [BsonElement("selectedSatellites")]
+    public List<string> SelectedSatellites { get; set; } = new() { "ISS", "AO-91", "SO-50" };
+
     [BsonElement("rbn")]
     public RbnSettings Rbn { get; set; } = new();
+
+    [BsonElement("showPotaOverlay")]
+    public bool ShowPotaOverlay { get; set; }
+
+    [BsonElement("showDayNightOverlay")]
+    public bool ShowDayNightOverlay { get; set; }
+
+    [BsonElement("showGrayLine")]
+    public bool ShowGrayLine { get; set; }
+
+    [BsonElement("showSunMarker")]
+    public bool ShowSunMarker { get; set; } = true;
+
+    [BsonElement("showMoonMarker")]
+    public bool ShowMoonMarker { get; set; } = true;
+
+    [BsonElement("dayNightOpacity")]
+    public double DayNightOpacity { get; set; } = 0.5;
+
+    [BsonElement("grayLineOpacity")]
+    public double GrayLineOpacity { get; set; } = 0.6;
+
+    [BsonElement("showCallsignImages")]
+    public bool ShowCallsignImages { get; set; } = true;
+
+    [BsonElement("maxCallsignImages")]
+    public int MaxCallsignImages { get; set; } = 50;
 }
 
+[BsonIgnoreExtraElements]
 public class RbnSettings
 {
     [BsonElement("enabled")]
@@ -194,12 +256,14 @@ public class RbnSettings
     public List<string> Modes { get; set; } = new() { "CW", "RTTY" };
 }
 
+[BsonIgnoreExtraElements]
 public class ClusterSettings
 {
     [BsonElement("connections")]
     public List<ClusterConnection> Connections { get; set; } = new();
 }
 
+[BsonIgnoreExtraElements]
 public class ClusterConnection
 {
     [BsonElement("id")]
@@ -224,6 +288,20 @@ public class ClusterConnection
     public bool AutoReconnect { get; set; } = false;
 }
 
+[BsonIgnoreExtraElements]
+public class HeaderSettings
+{
+    [BsonElement("timeFormat")]
+    public string TimeFormat { get; set; } = "24h";  // "12h" | "24h"
+
+    [BsonElement("showWeather")]
+    public bool ShowWeather { get; set; } = true;
+
+    [BsonElement("weatherLocation")]
+    public string WeatherLocation { get; set; } = string.Empty;
+}
+
+[BsonIgnoreExtraElements]
 public class AiSettings
 {
     [BsonElement("provider")]

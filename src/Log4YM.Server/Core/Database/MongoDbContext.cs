@@ -121,7 +121,9 @@ public class MongoDbContext : IDbContext
 
     private string? GetConnectionString()
     {
-        // Priority: 1) User config file, 2) appsettings.json
+        // Use the connection string from config.json (or env var via IConfiguration fallback).
+        // The appsettings.json default was removed to prevent fresh desktop installs
+        // from accidentally defaulting to MongoDB.
         var config = _userConfigService.GetConfigAsync().GetAwaiter().GetResult();
         if (!string.IsNullOrEmpty(config.MongoDbConnectionString))
         {

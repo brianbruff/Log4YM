@@ -171,6 +171,11 @@ public class MongoDbContext : IDbContext
         get { EnsureConnected(); return _database!.GetCollection<CallsignMapImage>("callsign_images"); }
     }
 
+    public IMongoCollection<RadioConfigEntity> RadioConfigs
+    {
+        get { EnsureConnected(); return _database!.GetCollection<RadioConfigEntity>("radio_configs"); }
+    }
+
     private void CreateIndexes()
     {
         // QSO indexes
@@ -193,6 +198,16 @@ public class MongoDbContext : IDbContext
                 new CreateIndexOptions { Unique = true }),
             new CreateIndexModel<CallsignMapImage>(
                 Builders<CallsignMapImage>.IndexKeys.Descending(i => i.SavedAt)),
+        });
+
+        // Radio config indexes
+        RadioConfigs.Indexes.CreateMany(new[]
+        {
+            new CreateIndexModel<RadioConfigEntity>(
+                Builders<RadioConfigEntity>.IndexKeys.Ascending(r => r.RadioId),
+                new CreateIndexOptions { Unique = true }),
+            new CreateIndexModel<RadioConfigEntity>(
+                Builders<RadioConfigEntity>.IndexKeys.Ascending(r => r.RadioType)),
         });
     }
 }

@@ -63,6 +63,7 @@ export function RigPlugin() {
     disconnectHamlibRig,
     deleteHamlibConfig,
     disconnectTci,
+    saveTciConfig,
     deleteTciConfig,
   } = useSignalR();
 
@@ -295,7 +296,7 @@ export function RigPlugin() {
         setHamlibConfig(defaultHamlibConfig);
         setRigSearch("");
       } else if (isTci) {
-        await deleteTciConfig();
+        await deleteTciConfig(radioId);
         updateTciSettings({ host: "localhost", port: 50001, name: "" });
       }
 
@@ -339,8 +340,7 @@ export function RigPlugin() {
     setShowTciForm(false);
 
     try {
-      await saveSettings();
-      await signalRService.requestRadioStatus();
+      await saveTciConfig(host, port, tciSettings.name || undefined);
     } catch (error) {
       console.error('Failed to save TCI config:', error);
     }

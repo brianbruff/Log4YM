@@ -77,6 +77,7 @@ public class LogHub : Hub<ILogHubClient>
     private readonly CwKeyerService _cwKeyerService;
     private readonly ICallsignImageRepository _imageRepository;
     private readonly IDbContext _dbContext;
+    private readonly IRadioConfigRepository _radioConfigRepository;
 
     public LogHub(
         ILogger<LogHub> logger,
@@ -91,7 +92,8 @@ public class LogHub : Hub<ILogHubClient>
         ISettingsRepository settingsRepository,
         CwKeyerService cwKeyerService,
         ICallsignImageRepository imageRepository,
-        IDbContext dbContext)
+        IDbContext dbContext,
+        IRadioConfigRepository radioConfigRepository)
     {
         _logger = logger;
         _antennaGeniusService = antennaGeniusService;
@@ -106,6 +108,7 @@ public class LogHub : Hub<ILogHubClient>
         _cwKeyerService = cwKeyerService;
         _imageRepository = imageRepository;
         _dbContext = dbContext;
+        _radioConfigRepository = radioConfigRepository;
     }
 
     public override async Task OnConnectedAsync()
@@ -459,9 +462,9 @@ public class LogHub : Hub<ILogHubClient>
             var host = parts[0];
             var port = parts.Length > 1 && int.TryParse(parts[1], out var p) ? p : 50001;
 
-            // Load saved name from settings
-            var settings = await _settingsRepository.GetAsync();
-            var name = settings?.Radio?.Tci?.Name;
+            // Load saved name from radio_configs repo
+            var savedConfig = await _radioConfigRepository.GetByRadioIdAsync(cmd.RadioId);
+            var name = savedConfig?.TciName;
 
             await _tciRadioService.ConnectDirectAsync(host, port, !string.IsNullOrEmpty(name) ? name : null);
         }
@@ -752,30 +755,38 @@ public class LogHub : Hub<ILogHubClient>
     }
 
     /// <summary>
+    /// Save TCI configuration to the radio_configs collection
+    /// </summary>
+    public async Task SaveTciConfig(string host, int port, string? name)
+    {
+        _logger.LogInformation("Saving TCI config: {Host}:{Port}", host, port);
+        await _tciRadioService.SaveTciConfigAsync(host, port, name);
+        await RequestRadioStatus();
+    }
+
+    /// <summary>
     /// Delete saved TCI configuration
     /// </summary>
-    public async Task DeleteTciConfig()
+    public async Task DeleteTciConfig(string? radioId = null)
     {
-        _logger.LogInformation("Deleting saved TCI configuration");
+        _logger.LogInformation("Deleting saved TCI configuration: {RadioId}", radioId ?? "(auto-detect)");
 
-        // Load settings to determine which TCI radio to remove
-        var settings = await _settingsRepository.GetAsync();
-        var tciSettings = settings?.Radio?.Tci;
-
-        // Remove TCI radio from discovered radios if it exists
-        if (tciSettings != null && !string.IsNullOrEmpty(tciSettings.Host))
+        if (!string.IsNullOrEmpty(radioId))
         {
-            var radioId = $"tci-{tciSettings.Host}:{tciSettings.Port}";
+            // Delete from radio_configs and remove from discovered
+            await _tciRadioService.DeleteTciConfigAsync(radioId);
             await _tciRadioService.RemoveRadioAsync(radioId);
         }
-
-        // Clear TCI settings to defaults
-        settings ??= new Log4YM.Contracts.Models.UserSettings();
-        settings.Radio.Tci = new Log4YM.Contracts.Models.TciSettings();
-        settings.Radio.ActiveRigType = null;
-        settings.Radio.AutoReconnect = false;
-
-        await _settingsRepository.UpsertAsync(settings);
+        else
+        {
+            // Fallback: delete all TCI configs from the repo
+            var tciConfigs = await _radioConfigRepository.GetByTypeAsync("tci");
+            foreach (var config in tciConfigs)
+            {
+                await _radioConfigRepository.DeleteByRadioIdAsync(config.RadioId);
+                await _tciRadioService.RemoveRadioAsync(config.RadioId);
+            }
+        }
 
         // Request updated radio status to reflect the removal
         await RequestRadioStatus();

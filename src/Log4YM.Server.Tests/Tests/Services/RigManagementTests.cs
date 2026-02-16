@@ -1,6 +1,7 @@
 using FluentAssertions;
 using Log4YM.Contracts.Models;
 using Log4YM.Server.Native.Hamlib;
+using Log4YM.Server.Services;
 using Xunit;
 
 namespace Log4YM.Server.Tests.Tests.Services;
@@ -170,7 +171,7 @@ public class RigManagementTests
     }
 
     [Fact]
-    public void HamlibRigConfig_WithId_Creates_New_Record_With_Updated_Id()
+    public void HamlibRigConfig_MapFromHamlibConfig_Creates_RadioConfigEntity()
     {
         var config = new HamlibRigConfig
         {
@@ -181,13 +182,13 @@ public class RigManagementTests
             NetworkPort = 4532
         };
 
-        // SaveConfigAsync uses `config with { Id = ConfigDocId }`
-        var saved = config with { Id = "hamlib_config" };
+        var entity = HamlibService.MapFromHamlibConfig(config);
 
-        saved.Id.Should().Be("hamlib_config");
-        saved.ModelId.Should().Be(1);
-        saved.ModelName.Should().Be("Dummy");
-        saved.Hostname.Should().Be("localhost");
+        entity.RadioId.Should().Be("hamlib-1");
+        entity.RadioType.Should().Be("hamlib");
+        entity.DisplayName.Should().Be("Dummy");
+        entity.Hostname.Should().Be("localhost");
+        entity.NetworkPort.Should().Be(4532);
     }
 
     // ──────────────────────────────────────────────────────────

@@ -465,7 +465,7 @@ internal class FlexRadioConnection
                 var modeMatch = Regex.Match(line, @"mode=(\w+)");
                 if (modeMatch.Success)
                 {
-                    sliceState.Mode = modeMatch.Groups[1].Value.ToUpper();
+                    sliceState.Mode = MapFlexModeToStandard(modeMatch.Groups[1].Value);
                 }
 
                 // Parse TX state for this slice - this identifies the CAT slice
@@ -528,6 +528,20 @@ internal class FlexRadioConnection
         {
             await _hubContext.BroadcastRadioStateChanged(state);
         }
+    }
+
+    /// <summary>
+    /// Map FlexRadio mode names to standard logging/Hamlib mode names
+    /// FlexRadio uses DIGU/DIGL while logging standards use PKTUSB/PKTLSB
+    /// </summary>
+    private static string MapFlexModeToStandard(string flexMode)
+    {
+        return flexMode.ToUpper() switch
+        {
+            "DIGU" => "PKTUSB",
+            "DIGL" => "PKTLSB",
+            _ => flexMode.ToUpper()
+        };
     }
 }
 

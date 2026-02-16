@@ -24,6 +24,7 @@ public static class DbServiceRegistration
                 services.AddScoped<ISettingsRepository, LiteSettingsRepository>();
                 services.AddScoped<ISmartUnlinkRepository, LiteSmartUnlinkRepository>();
                 services.AddScoped<ICallsignImageRepository, LiteCallsignImageRepository>();
+                services.AddScoped<IRadioConfigRepository, LiteRadioConfigRepository>();
                 break;
 
             case DatabaseProvider.MongoDb:
@@ -33,6 +34,7 @@ public static class DbServiceRegistration
                 services.AddScoped<ISettingsRepository, SettingsRepository>();
                 services.AddScoped<ISmartUnlinkRepository, SmartUnlinkRepository>();
                 services.AddScoped<ICallsignImageRepository, CallsignImageRepository>();
+                services.AddScoped<IRadioConfigRepository, RadioConfigRepository>();
                 break;
         }
 

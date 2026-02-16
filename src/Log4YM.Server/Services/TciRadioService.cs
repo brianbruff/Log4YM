@@ -6,6 +6,7 @@ using System.Text;
 using System.Text.RegularExpressions;
 using Microsoft.AspNetCore.SignalR;
 using Log4YM.Contracts.Events;
+using Log4YM.Contracts.Models;
 using Log4YM.Server.Core.Database;
 using Log4YM.Server.Hubs;
 
@@ -64,19 +65,35 @@ public class TciRadioService : BackgroundService
     {
         try
         {
+            // Migrate old TCI config from settings if needed
+            await MigrateOldTciConfigAsync();
+
             using var scope = _scopeFactory.CreateScope();
             var settingsRepository = scope.ServiceProvider.GetRequiredService<ISettingsRepository>();
             var settings = await settingsRepository.GetAsync();
             var radioSettings = settings?.Radio;
-            var tciSettings = radioSettings?.Tci;
 
-            // Check unified autoReconnect flag and activeRigType
-            if (radioSettings is { AutoReconnect: true, ActiveRigType: "tci" }
-                && tciSettings != null
-                && !string.IsNullOrEmpty(tciSettings.Host))
+            if (radioSettings is not { AutoReconnect: true, ActiveRigType: "tci" })
             {
-                _logger.LogInformation("Auto-reconnecting to TCI at {Host}:{Port}", tciSettings.Host, tciSettings.Port);
-                await ConnectDirectAsync(tciSettings.Host, tciSettings.Port, tciSettings.Name);
+                _logger.LogInformation("TCI auto-reconnect not enabled - skipping");
+                return;
+            }
+
+            // Load TCI config from radio_configs repo
+            var repo = scope.ServiceProvider.GetRequiredService<IRadioConfigRepository>();
+
+            RadioConfigEntity? tciConfig = null;
+            if (!string.IsNullOrEmpty(radioSettings.AutoConnectRigId))
+            {
+                tciConfig = await repo.GetByRadioIdAsync(radioSettings.AutoConnectRigId);
+            }
+
+            tciConfig ??= (await repo.GetByTypeAsync("tci")).FirstOrDefault();
+
+            if (tciConfig != null && !string.IsNullOrEmpty(tciConfig.TciHost))
+            {
+                _logger.LogInformation("Auto-reconnecting to TCI at {Host}:{Port}", tciConfig.TciHost, tciConfig.TciPort);
+                await ConnectDirectAsync(tciConfig.TciHost, tciConfig.TciPort ?? 50001, tciConfig.TciName);
             }
         }
         catch (Exception ex)
@@ -118,6 +135,26 @@ public class TciRadioService : BackgroundService
         _isDiscovering = false;
 
         return Task.CompletedTask;
+    }
+
+    /// <summary>
+    /// Remove a TCI radio from the discovered radios list and disconnect if connected
+    /// </summary>
+    public async Task RemoveRadioAsync(string radioId)
+    {
+        // Disconnect if currently connected
+        if (_connections.TryRemove(radioId, out var connection))
+        {
+            await connection.DisconnectAsync();
+            _logger.LogInformation("Disconnected TCI radio {RadioId} during removal", radioId);
+        }
+
+        // Remove from discovered radios
+        if (_discoveredRadios.TryRemove(radioId, out _))
+        {
+            _logger.LogInformation("Removed TCI radio {RadioId} from discovered radios", radioId);
+            await _hubContext.BroadcastRadioRemoved(new RadioRemovedEvent(radioId));
+        }
     }
 
     private async Task RunDiscoveryAsync(CancellationToken ct)
@@ -264,6 +301,7 @@ public class TciRadioService : BackgroundService
         var staleRadios = _discoveredRadios.Values
             .Where(r => r.LastSeen < cutoff)
             .Where(r => !_connections.ContainsKey(r.Id)) // Don't remove connected radios
+            .Where(r => !r.IsDirect) // Don't remove manually-added/saved radios
             .ToList();
 
         foreach (var radio in staleRadios)
@@ -300,7 +338,8 @@ public class TciRadioService : BackgroundService
             IpAddress = host,
             TciPort = port,
             Instances = 1,
-            LastSeen = DateTime.UtcNow
+            LastSeen = DateTime.UtcNow,
+            IsDirect = true
         };
 
         _discoveredRadios[radioId] = device;
@@ -416,40 +455,38 @@ public class TciRadioService : BackgroundService
     }
 
     /// <summary>
-    /// Get discovered radios including saved TCI config from settings when no active connections exist
+    /// Get discovered radios — merges live discovery with saved TCI configs from the radio_configs repo
     /// </summary>
     public async Task<IEnumerable<RadioDiscoveredEvent>> GetDiscoveredRadiosAsync()
     {
         var radios = GetDiscoveredRadios().ToList();
 
-        // If we already have discovered/connected TCI radios, no need to load from settings
-        if (radios.Count > 0) return radios;
-
-        // Load saved TCI config from settings
+        // Merge saved TCI configs from the radio_configs repo
         try
         {
             using var scope = _scopeFactory.CreateScope();
-            var settingsRepository = scope.ServiceProvider.GetRequiredService<ISettingsRepository>();
-            var settings = await settingsRepository.GetAsync();
-            var tciSettings = settings?.Radio?.Tci;
+            var repo = scope.ServiceProvider.GetRequiredService<IRadioConfigRepository>();
+            var savedConfigs = await repo.GetByTypeAsync("tci");
 
-            if (tciSettings != null && !string.IsNullOrEmpty(tciSettings.Host))
+            foreach (var entity in savedConfigs)
             {
-                var radioId = $"tci-{tciSettings.Host}:{tciSettings.Port}";
-                radios.Add(new RadioDiscoveredEvent(
-                    radioId,
-                    RadioType.Tci,
-                    !string.IsNullOrEmpty(tciSettings.Name) ? tciSettings.Name : $"TCI ({tciSettings.Host})",
-                    tciSettings.Host,
-                    tciSettings.Port,
-                    null,
-                    null
-                ));
+                if (!radios.Any(r => r.Id == entity.RadioId))
+                {
+                    radios.Add(new RadioDiscoveredEvent(
+                        entity.RadioId,
+                        RadioType.Tci,
+                        entity.DisplayName,
+                        entity.TciHost ?? "",
+                        entity.TciPort ?? 50001,
+                        null,
+                        null
+                    ));
+                }
             }
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to load saved TCI config from settings");
+            _logger.LogWarning(ex, "Failed to load saved TCI configs from database");
         }
 
         return radios;
@@ -469,6 +506,97 @@ public class TciRadioService : BackgroundService
             kvp.Key,
             kvp.Value.IsConnected ? RadioConnectionState.Connected : RadioConnectionState.Disconnected
         ));
+    }
+
+    /// <summary>
+    /// Save a TCI radio config to the radio_configs collection
+    /// </summary>
+    public async Task SaveTciConfigAsync(string host, int port, string? name)
+    {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var repo = scope.ServiceProvider.GetRequiredService<IRadioConfigRepository>();
+            var radioId = $"tci-{host}:{port}";
+            var entity = new RadioConfigEntity
+            {
+                RadioId = radioId,
+                RadioType = "tci",
+                DisplayName = !string.IsNullOrEmpty(name) ? name : $"TCI ({host})",
+                TciHost = host,
+                TciPort = port,
+                TciName = name,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+            };
+            await repo.UpsertByRadioIdAsync(entity);
+            _logger.LogInformation("Saved TCI config: {Host}:{Port}", host, port);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to save TCI config to database");
+        }
+    }
+
+    /// <summary>
+    /// Delete a TCI radio config from the radio_configs collection
+    /// </summary>
+    public async Task DeleteTciConfigAsync(string radioId)
+    {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var repo = scope.ServiceProvider.GetRequiredService<IRadioConfigRepository>();
+            await repo.DeleteByRadioIdAsync(radioId);
+            _logger.LogInformation("Deleted TCI config: {RadioId}", radioId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to delete TCI config from database");
+        }
+    }
+
+    /// <summary>
+    /// One-time migration: if settings.Radio.Tci has a host, migrate to radio_configs
+    /// </summary>
+    private async Task MigrateOldTciConfigAsync()
+    {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var repo = scope.ServiceProvider.GetRequiredService<IRadioConfigRepository>();
+
+            // Skip if radio_configs already has TCI entries
+            var existing = await repo.GetByTypeAsync("tci");
+            if (existing.Count > 0) return;
+
+            var settingsRepository = scope.ServiceProvider.GetRequiredService<ISettingsRepository>();
+            var settings = await settingsRepository.GetAsync();
+            var tciSettings = settings?.Radio?.Tci;
+
+            if (tciSettings == null || string.IsNullOrEmpty(tciSettings.Host)) return;
+
+            _logger.LogInformation("Migrating old TCI config from settings: {Host}:{Port}", tciSettings.Host, tciSettings.Port);
+
+            var radioId = $"tci-{tciSettings.Host}:{tciSettings.Port}";
+            var entity = new RadioConfigEntity
+            {
+                RadioId = radioId,
+                RadioType = "tci",
+                DisplayName = !string.IsNullOrEmpty(tciSettings.Name) ? tciSettings.Name : $"TCI ({tciSettings.Host})",
+                TciHost = tciSettings.Host,
+                TciPort = tciSettings.Port,
+                TciName = tciSettings.Name,
+                CreatedAt = DateTime.UtcNow,
+                UpdatedAt = DateTime.UtcNow,
+            };
+            await repo.UpsertByRadioIdAsync(entity);
+            _logger.LogInformation("Migrated TCI config to radio_configs: {RadioId}", radioId);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to migrate old TCI config");
+        }
     }
 
     private static Dictionary<string, string> ParseKeyValuePairs(string text)
@@ -505,6 +633,11 @@ internal class TciRadioDevice
     public string? Version { get; set; }
     public int Instances { get; set; } = 1;
     public DateTime LastSeen { get; set; }
+    /// <summary>
+    /// True for radios added via direct connection (not UDP discovery).
+    /// These are not subject to stale cleanup.
+    /// </summary>
+    public bool IsDirect { get; set; }
 }
 
 internal class TciRadioConnection

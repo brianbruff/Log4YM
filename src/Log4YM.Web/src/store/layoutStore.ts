@@ -65,6 +65,11 @@ export const defaultLayout: IJsonModel = {
                         name: 'Log History',
                         component: 'log-history',
                       },
+                      {
+                        type: 'tab',
+                        name: 'Rig',
+                        component: 'rig',
+                      },
                     ],
                   },
                   {

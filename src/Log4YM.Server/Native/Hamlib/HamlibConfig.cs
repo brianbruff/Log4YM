@@ -69,11 +69,6 @@ public enum HamlibPttType
 public record HamlibRigConfig
 {
     /// <summary>
-    /// MongoDB document ID (always "hamlib_config" for singleton)
-    /// </summary>
-    public string Id { get; init; } = "hamlib_config";
-
-    /// <summary>
     /// Hamlib rig model ID
     /// </summary>
     public int ModelId { get; init; }

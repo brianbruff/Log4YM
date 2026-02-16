@@ -25,6 +25,7 @@ public class LiteDbContext : IDbContext, IDisposable
         _mapper.Entity<Qso>();
         _mapper.Entity<SmartUnlinkRadioEntity>();
         _mapper.Entity<CallsignMapImage>();
+        _mapper.Entity<RadioConfigEntity>();
 
         TryInitialize();
     }
@@ -121,6 +122,11 @@ public class LiteDbContext : IDbContext, IDisposable
         get { EnsureConnected(); return _database!.GetCollection<CallsignMapImage>("callsign_images"); }
     }
 
+    internal ILiteCollection<RadioConfigEntity> RadioConfigs
+    {
+        get { EnsureConnected(); return _database!.GetCollection<RadioConfigEntity>("radio_configs"); }
+    }
+
     private void EnsureConnected()
     {
         if (!_isInitialized || _database == null)
@@ -149,6 +155,10 @@ public class LiteDbContext : IDbContext, IDisposable
         // Callsign map image indexes
         CallsignMapImages.EnsureIndex(i => i.Callsign, true);
         CallsignMapImages.EnsureIndex(i => i.SavedAt);
+
+        // Radio config indexes
+        RadioConfigs.EnsureIndex(r => r.RadioId, true);
+        RadioConfigs.EnsureIndex(r => r.RadioType);
     }
 
     public void Dispose()

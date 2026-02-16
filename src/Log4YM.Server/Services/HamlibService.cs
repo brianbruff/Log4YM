@@ -442,6 +442,16 @@ public class HamlibService : BackgroundService
     }
 
     /// <summary>
+    /// Save configuration without connecting to the rig.
+    /// The rig will appear in GetDiscoveredRadiosAsync() but won't be connected.
+    /// </summary>
+    public async Task SaveConfigOnlyAsync(HamlibRigConfig config)
+    {
+        _config = config;
+        await SaveConfigAsync(config);
+    }
+
+    /// <summary>
     /// Delete saved configuration from MongoDB
     /// </summary>
     public async Task DeleteConfigAsync()

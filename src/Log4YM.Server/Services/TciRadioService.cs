@@ -455,7 +455,7 @@ public class TciRadioService : BackgroundService
                 var radioId = $"tci-{tciSettings.Host}:{tciSettings.Port}";
 
                 // Only add if not already in the discovered list
-                if (!radios.Any(r => r.RadioId == radioId))
+                if (!radios.Any(r => r.Id == radioId))
                 {
                     radios.Add(new RadioDiscoveredEvent(
                         radioId,

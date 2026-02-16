@@ -693,6 +693,44 @@ public class LogHub : Hub<ILogHubClient>
     }
 
     /// <summary>
+    /// Save Hamlib rig configuration without connecting.
+    /// The rig will appear in the saved list but won't be connected.
+    /// </summary>
+    public async Task SaveHamlibConfig(HamlibRigConfigDto configDto)
+    {
+        _logger.LogInformation("Saving Hamlib config (no connect): {ModelName}", configDto.ModelName);
+
+        var config = new HamlibRigConfig
+        {
+            ModelId = configDto.ModelId,
+            ModelName = configDto.ModelName,
+            ConnectionType = (Native.Hamlib.HamlibConnectionType)(int)configDto.ConnectionType,
+            SerialPort = configDto.SerialPort,
+            BaudRate = configDto.BaudRate,
+            DataBits = (Native.Hamlib.HamlibDataBits)(int)configDto.DataBits,
+            StopBits = (Native.Hamlib.HamlibStopBits)(int)configDto.StopBits,
+            FlowControl = (Native.Hamlib.HamlibFlowControl)(int)configDto.FlowControl,
+            Parity = (Native.Hamlib.HamlibParity)(int)configDto.Parity,
+            Hostname = configDto.Hostname,
+            NetworkPort = configDto.NetworkPort,
+            PttType = (Native.Hamlib.HamlibPttType)(int)configDto.PttType,
+            PttPort = configDto.PttPort,
+            GetFrequency = configDto.GetFrequency,
+            GetMode = configDto.GetMode,
+            GetVfo = configDto.GetVfo,
+            GetPtt = configDto.GetPtt,
+            GetPower = configDto.GetPower,
+            GetRit = configDto.GetRit,
+            GetXit = configDto.GetXit,
+            GetKeySpeed = configDto.GetKeySpeed,
+            PollIntervalMs = configDto.PollIntervalMs
+        };
+
+        await _hamlibService.SaveConfigOnlyAsync(config);
+        await RequestRadioStatus();
+    }
+
+    /// <summary>
     /// Disconnect from the Hamlib rig
     /// </summary>
     public async Task DisconnectHamlibRig()

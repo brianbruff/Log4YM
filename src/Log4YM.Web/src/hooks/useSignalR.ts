@@ -422,6 +422,10 @@ export function useSignalR() {
     await signalRService.connectHamlibRig(config);
   }, []);
 
+  const saveHamlibConfig = useCallback(async (config: HamlibRigConfigDto) => {
+    await signalRService.saveHamlibConfig(config);
+  }, []);
+
   const disconnectHamlibRig = useCallback(async () => {
     await signalRService.disconnectHamlibRig();
   }, []);
@@ -530,6 +534,7 @@ export function useSignalR() {
     getHamlibConfig,
     getHamlibStatus,
     connectHamlibRig,
+    saveHamlibConfig,
     disconnectHamlibRig,
     deleteHamlibConfig,
     // Hamlib (legacy rigctld compatibility)

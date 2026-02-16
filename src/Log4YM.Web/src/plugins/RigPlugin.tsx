@@ -59,10 +59,9 @@ export function RigPlugin() {
     getHamlibRigCaps,
     getHamlibSerialPorts,
     getHamlibConfig,
-    connectHamlibRig,
+    saveHamlibConfig,
     disconnectHamlibRig,
     deleteHamlibConfig,
-    connectTci,
     disconnectTci,
     deleteTciConfig,
   } = useSignalR();
@@ -312,7 +311,7 @@ export function RigPlugin() {
     }
   };
 
-  const handleConnectHamlib = async () => {
+  const handleAddHamlib = async () => {
     if (!hamlibConfig.modelId) return;
 
     // Validate based on connection type
@@ -323,41 +322,27 @@ export function RigPlugin() {
       return;
     }
 
-    const radioId = `hamlib-${hamlibConfig.modelId}`;
-    setSelectedRadio(radioId);
-    setIsConnectingHamlib(true);
     setShowHamlibForm(false);
 
     try {
-      // Set activeRigType and save settings
-      updateRadioSettings({ activeRigType: 'hamlib' });
-      await saveSettings();
-      await connectHamlibRig(hamlibConfig);
+      await saveHamlibConfig(hamlibConfig);
     } catch (error) {
-      console.error('Failed to connect Hamlib rig:', error);
-      setSelectedRadio(null);
-      setIsConnectingHamlib(false);
+      console.error('Failed to save Hamlib config:', error);
     }
   };
 
-  const handleConnectTci = async () => {
+  const handleAddTci = async () => {
     const port = tciSettings.port;
     const host = tciSettings.host;
     if (!host || !port) return;
 
-    const radioId = `tci-${host}:${port}`;
-    setSelectedRadio(radioId);
-    setIsConnectingTci(true);
     setShowTciForm(false);
 
     try {
-      // Set activeRigType and save settings to database before connecting
-      updateRadioSettings({ activeRigType: 'tci' });
       await saveSettings();
-      await connectTci(host, port, tciSettings.name || undefined);
+      await signalRService.requestRadioStatus();
     } catch (error) {
-      setSelectedRadio(null);
-      setIsConnectingTci(false);
+      console.error('Failed to save TCI config:', error);
     }
   };
 
@@ -880,21 +865,12 @@ export function RigPlugin() {
             {/* Action Buttons */}
             <div className="flex gap-2 pt-2">
               <button
-                onClick={handleConnectHamlib}
-                disabled={isConnectingHamlib || !hamlibConfig.modelId || (hamlibConfig.connectionType === "Serial" && !hamlibConfig.serialPort) || (hamlibConfig.connectionType === "Network" && !hamlibConfig.hostname)}
+                onClick={handleAddHamlib}
+                disabled={!hamlibConfig.modelId || (hamlibConfig.connectionType === "Serial" && !hamlibConfig.serialPort) || (hamlibConfig.connectionType === "Network" && !hamlibConfig.hostname)}
                 className="flex-1 px-4 py-2 text-sm font-medium font-ui flex items-center justify-center gap-2 bg-accent-primary/20 text-accent-primary rounded-lg hover:bg-accent-primary/30 transition-all disabled:opacity-50"
               >
-                {isConnectingHamlib ? (
-                  <>
-                    <Wifi className="w-4 h-4 animate-pulse" />
-                    Connecting...
-                  </>
-                ) : (
-                  <>
-                    <Plus className="w-4 h-4" />
-                    Connect
-                  </>
-                )}
+                <Plus className="w-4 h-4" />
+                Add
               </button>
               <button
                 onClick={() => setShowHamlibForm(false)}
@@ -946,21 +922,12 @@ export function RigPlugin() {
             </div>
             <div className="flex gap-2 pt-2">
               <button
-                onClick={handleConnectTci}
-                disabled={isConnectingTci || !tciSettings.host}
+                onClick={handleAddTci}
+                disabled={!tciSettings.host}
                 className="flex-1 px-4 py-2 text-sm font-medium font-ui flex items-center justify-center gap-2 bg-accent-secondary/20 text-accent-secondary rounded-lg hover:bg-accent-secondary/30 transition-all disabled:opacity-50"
               >
-                {isConnectingTci ? (
-                  <>
-                    <Wifi className="w-4 h-4 animate-pulse" />
-                    Connecting...
-                  </>
-                ) : (
-                  <>
-                    <Plus className="w-4 h-4" />
-                    Connect
-                  </>
-                )}
+                <Plus className="w-4 h-4" />
+                Add
               </button>
               <button
                 onClick={() => setShowTciForm(false)}

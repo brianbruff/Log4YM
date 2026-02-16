@@ -977,6 +977,10 @@ class SignalRService {
     await this.connection?.invoke('ConnectHamlibRig', config);
   }
 
+  async saveHamlibConfig(config: HamlibRigConfigDto): Promise<void> {
+    await this.connection?.invoke('SaveHamlibConfig', config);
+  }
+
   async disconnectHamlibRig(): Promise<void> {
     await this.connection?.invoke('DisconnectHamlibRig');
   }

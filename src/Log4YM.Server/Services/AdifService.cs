@@ -360,7 +360,9 @@ public partial class AdifService : IAdifService
         {
             if (!mappedFields.Contains(kvp.Key))
             {
-                extraFields[kvp.Key] = BsonValue.Create(kvp.Value);
+                // Convert all extra fields to strings to avoid BSON type conflicts
+                // (e.g., when importing "Y"/"N" values that might be stored as BsonBoolean elsewhere)
+                extraFields[kvp.Key] = kvp.Value?.ToString() ?? string.Empty;
             }
         }
 

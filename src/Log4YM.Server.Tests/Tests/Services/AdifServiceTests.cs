@@ -267,6 +267,23 @@ public class AdifServiceTests
         qsos[0].AdifExtra!.Contains("my_antenna").Should().BeTrue();
     }
 
+    [Fact]
+    public void ParseAdif_BooleanLikeExtraFields_StoredAsStrings()
+    {
+        var adif = "<CALL:5>W1AW <QSO_DATE:8>20240101 <TIME_ON:4>1234 <BAND:3>20m <MODE:3>SSB " +
+                   "<DIGI:1>Y <SOTA:1>N <POTA_REF:10>K-0817 <EOR>";
+
+        var qsos = _service.ParseAdif(adif).ToList();
+
+        qsos.Should().HaveCount(1);
+        qsos[0].AdifExtra.Should().NotBeNull();
+        qsos[0].AdifExtra!.Contains("digi").Should().BeTrue();
+        qsos[0].AdifExtra!["digi"].BsonType.Should().Be(MongoDB.Bson.BsonType.String);
+        qsos[0].AdifExtra!["digi"].AsString.Should().Be("Y");
+        qsos[0].AdifExtra!["sota"].AsString.Should().Be("N");
+        qsos[0].AdifExtra!["pota_ref"].AsString.Should().Be("K-0817");
+    }
+
     #endregion
 
     #region ExportToAdif

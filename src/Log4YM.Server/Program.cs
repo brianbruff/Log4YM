@@ -1,4 +1,5 @@
 using Serilog;
+using MongoDB.Driver;
 using Log4YM.Server.Core.Database;
 using Log4YM.Server.Core.Events;
 using Log4YM.Server.Services;
@@ -66,6 +67,36 @@ if (File.Exists(userConfigService.GetConfigPath()))
     {
         Log.Warning("Config says MongoDb but no connection string found — falling back to Local provider");
         userConfig.Provider = DatabaseProvider.Local;
+    }
+
+    // Validate MongoDB is reachable before committing to it as the provider.
+    // On macOS, uninstalling (drag to Trash) does not remove ~/Library/Application Support/,
+    // so config.json may have a stale Atlas connection string from a previous installation.
+    if (userConfig.Provider == DatabaseProvider.MongoDb
+        && !string.IsNullOrEmpty(userConfig.MongoDbConnectionString))
+    {
+        try
+        {
+            var clientSettings = MongoClientSettings.FromConnectionString(userConfig.MongoDbConnectionString);
+            clientSettings.ConnectTimeout = TimeSpan.FromSeconds(3);
+            clientSettings.ServerSelectionTimeout = TimeSpan.FromSeconds(3);
+            clientSettings.SocketTimeout = TimeSpan.FromSeconds(3);
+
+            var testClient = new MongoClient(clientSettings);
+            var testDb = testClient.GetDatabase(userConfig.MongoDbDatabaseName ?? "log4ym");
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(5));
+            testDb.RunCommand<MongoDB.Bson.BsonDocument>(
+                new MongoDB.Bson.BsonDocument("ping", 1),
+                cancellationToken: cts.Token);
+
+            Log.Information("MongoDB connection validated successfully");
+        }
+        catch (Exception ex)
+        {
+            Log.Warning(ex, "MongoDB not reachable at startup — falling back to Local provider. " +
+                "You can reconfigure the database in Settings > Database");
+            userConfig.Provider = DatabaseProvider.Local;
+        }
     }
 }
 else if (!string.IsNullOrEmpty(builder.Configuration["MongoDB:ConnectionString"]))

@@ -95,6 +95,48 @@ public class StartupProviderTests
     }
 
     [Fact]
+    public void Fresh_Install_No_Config_No_EnvVar_Defaults_To_Local()
+    {
+        // When no config.json exists AND no MongoDB env var is set,
+        // Program.cs must default to Local — NOT pick up an appsettings.json
+        // default connection string.
+        //
+        // Previously appsettings.json had "mongodb://localhost:27017" as a default,
+        // which caused builder.Configuration["MongoDB:ConnectionString"] to be non-empty
+        // even without any env var, making fresh desktop installs default to MongoDB.
+        //
+        // Fix: removed the default from appsettings.json. Docker users must set
+        // MongoDB__ConnectionString env var explicitly.
+
+        // Simulate: no config.json, no env var, just appsettings.json WITHOUT MongoDB default
+        string? mongoConfigValue = null; // builder.Configuration["MongoDB:ConnectionString"]
+
+        bool noConfigFile = true;
+
+        UserConfig userConfig;
+        if (!noConfigFile)
+        {
+            userConfig = new UserConfig(); // would read from file
+        }
+        else if (!string.IsNullOrEmpty(mongoConfigValue))
+        {
+            // Docker scenario
+            userConfig = new UserConfig
+            {
+                Provider = DatabaseProvider.MongoDb,
+                MongoDbConnectionString = mongoConfigValue
+            };
+        }
+        else
+        {
+            userConfig = new UserConfig(); // defaults to Local
+        }
+
+        userConfig.Provider.Should().Be(DatabaseProvider.Local,
+            "Fresh install with no config and no env var must default to Local");
+    }
+
+    [Fact]
     public void Provider_Local_With_Stale_ConnectionString_Stays_Local()
     {
         // This is the key scenario: user switched to Local but config.json

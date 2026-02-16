@@ -50,11 +50,16 @@ public class HamlibService : BackgroundService
         _hubContext = hubContext;
         _scopeFactory = scopeFactory;
 
-        // Get MongoDB connection from user config (same as MongoDbContext)
+        // Only connect to MongoDB when the provider is explicitly set to MongoDb.
+        // Previously this only checked whether a connection string existed, which
+        // meant a stale Atlas URI left over in config.json after switching to
+        // Local provider would still trigger a MongoClient construction — blocking
+        // the constructor on DNS SRV resolution for an unreachable cluster.
         try
         {
             var config = userConfigService.GetConfigAsync().GetAwaiter().GetResult();
-            if (!string.IsNullOrEmpty(config.MongoDbConnectionString))
+            if (config.Provider == DatabaseProvider.MongoDb
+                && !string.IsNullOrEmpty(config.MongoDbConnectionString))
             {
                 var client = new MongoClient(config.MongoDbConnectionString);
                 var databaseName = config.MongoDbDatabaseName ?? "Log4YM";

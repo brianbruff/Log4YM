@@ -422,6 +422,10 @@ export function useSignalR() {
     await signalRService.connectHamlibRig(config);
   }, []);
 
+  const saveHamlibConfig = useCallback(async (config: HamlibRigConfigDto) => {
+    await signalRService.saveHamlibConfig(config);
+  }, []);
+
   const disconnectHamlibRig = useCallback(async () => {
     await signalRService.disconnectHamlibRig();
   }, []);
@@ -462,8 +466,12 @@ export function useSignalR() {
     await signalRService.disconnectHamlibRig();
   }, []);
 
-  const deleteTciConfig = useCallback(async () => {
-    await signalRService.deleteTciConfig();
+  const saveTciConfig = useCallback(async (host: string, port: number, name?: string) => {
+    await signalRService.saveTciConfig(host, port, name);
+  }, []);
+
+  const deleteTciConfig = useCallback(async (radioId?: string) => {
+    await signalRService.deleteTciConfig(radioId);
   }, []);
 
   // TCI direct connection methods
@@ -530,6 +538,7 @@ export function useSignalR() {
     getHamlibConfig,
     getHamlibStatus,
     connectHamlibRig,
+    saveHamlibConfig,
     disconnectHamlibRig,
     deleteHamlibConfig,
     // Hamlib (legacy rigctld compatibility)
@@ -538,6 +547,7 @@ export function useSignalR() {
     // TCI direct connection
     connectTci,
     disconnectTci,
+    saveTciConfig,
     deleteTciConfig,
     // SmartUnlink
     addSmartUnlinkRadio: addSmartUnlinkRadioFn,

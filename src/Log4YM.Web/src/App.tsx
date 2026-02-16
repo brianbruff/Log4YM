@@ -6,6 +6,7 @@ import { SettingsPanel } from './components/SettingsPanel';
 import { ConnectionOverlay } from './components/ConnectionOverlay';
 import { SetupWizard } from './components/SetupWizard';
 import { SplashScreen } from './components/SplashScreen';
+import { PluginErrorBoundary } from './components/PluginErrorBoundary';
 import { useSignalRConnection } from './hooks/useSignalR';
 import { LogEntryPlugin, LogHistoryPlugin, ClusterPlugin, MapPlugin, RotatorPlugin, GlobePlugin, AntennaGeniusPlugin, PgxlPlugin, SmartUnlinkPlugin, RigPlugin, QrzProfilePlugin, ContestsPlugin, SolarPanelPlugin, AnalogClockPlugin, HeaderPlugin, DXpeditionsPlugin, ChatAiPlugin, POTAPlugin, PropagationPanelPlugin, CwKeyerPlugin } from './plugins';
 import { Globe as Globe3D } from 'lucide-react';
@@ -321,7 +322,11 @@ export function App() {
 
     if (plugin) {
       const Component = plugin.component;
-      return <Component />;
+      return (
+        <PluginErrorBoundary pluginId={component || 'unknown'}>
+          <Component />
+        </PluginErrorBoundary>
+      );
     }
 
     return (

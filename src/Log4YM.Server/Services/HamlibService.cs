@@ -1,10 +1,10 @@
 using System.IO.Ports;
 using Microsoft.AspNetCore.SignalR;
 using Log4YM.Contracts.Events;
+using Log4YM.Contracts.Models;
 using Log4YM.Server.Core.Database;
 using Log4YM.Server.Hubs;
 using Log4YM.Server.Native.Hamlib;
-using MongoDB.Driver;
 
 namespace Log4YM.Server.Services;
 
@@ -17,7 +17,6 @@ public class HamlibService : BackgroundService
     private readonly ILogger<HamlibService> _logger;
     private readonly IHubContext<LogHub, ILogHubClient> _hubContext;
     private readonly IServiceScopeFactory _scopeFactory;
-    private readonly IMongoDatabase? _database;
 
     private HamlibRig? _rig;
     private HamlibRigConfig? _config;
@@ -37,40 +36,14 @@ public class HamlibService : BackgroundService
     private int _consecutiveErrors;
     private const int MaxConsecutiveErrors = 3;
 
-    private const string CollectionName = "settings";
-    private const string ConfigDocId = "hamlib_config";
-
     public HamlibService(
         ILogger<HamlibService> logger,
         IHubContext<LogHub, ILogHubClient> hubContext,
-        IServiceScopeFactory scopeFactory,
-        IUserConfigService userConfigService)
+        IServiceScopeFactory scopeFactory)
     {
         _logger = logger;
         _hubContext = hubContext;
         _scopeFactory = scopeFactory;
-
-        // Only connect to MongoDB when the provider is explicitly set to MongoDb.
-        // Previously this only checked whether a connection string existed, which
-        // meant a stale Atlas URI left over in config.json after switching to
-        // Local provider would still trigger a MongoClient construction — blocking
-        // the constructor on DNS SRV resolution for an unreachable cluster.
-        try
-        {
-            var config = userConfigService.GetConfigAsync().GetAwaiter().GetResult();
-            if (config.Provider == DatabaseProvider.MongoDb
-                && !string.IsNullOrEmpty(config.MongoDbConnectionString))
-            {
-                var client = new MongoClient(config.MongoDbConnectionString);
-                var databaseName = config.MongoDbDatabaseName ?? "Log4YM";
-                _database = client.GetDatabase(databaseName);
-                _logger.LogInformation("HamlibService connected to MongoDB database: {DatabaseName}", databaseName);
-            }
-        }
-        catch (Exception ex)
-        {
-            _logger.LogWarning(ex, "Failed to connect to MongoDB for Hamlib config storage");
-        }
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -89,6 +62,12 @@ public class HamlibService : BackgroundService
             _logger.LogError(ex, "Failed to initialize Hamlib library - native library may not be available");
             return;
         }
+
+        // Self-heal: fix any radio_configs docs with null _id from a previous bug
+        await FixNullIdsAsync();
+
+        // Migrate old hamlib_config from settings collection to radio_configs
+        await MigrateOldHamlibConfigAsync();
 
         // Try to load and auto-connect saved config if autoReconnect is enabled
         await TryAutoConnectAsync();
@@ -139,6 +118,44 @@ public class HamlibService : BackgroundService
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to auto-connect to Hamlib rig");
+        }
+    }
+
+    /// <summary>
+    /// Self-heal: fix radio_configs docs with _id: null from a previous serialization bug
+    /// </summary>
+    private async Task FixNullIdsAsync()
+    {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var repo = scope.ServiceProvider.GetRequiredService<IRadioConfigRepository>();
+            await repo.FixNullIdsAsync();
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to fix null IDs in radio_configs");
+        }
+    }
+
+    /// <summary>
+    /// One-time migration: move old hamlib_config from settings collection to radio_configs
+    /// </summary>
+    private async Task MigrateOldHamlibConfigAsync()
+    {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var repo = scope.ServiceProvider.GetRequiredService<IRadioConfigRepository>();
+            var migrated = await repo.MigrateOldHamlibConfigAsync();
+            if (migrated)
+            {
+                _logger.LogInformation("Migrated old Hamlib config from settings collection to radio_configs");
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to migrate old Hamlib config");
         }
     }
 
@@ -401,112 +418,119 @@ public class HamlibService : BackgroundService
     }
 
     /// <summary>
-    /// Get current saved configuration
+    /// Get current saved configuration from the radio_configs collection
     /// </summary>
     public async Task<HamlibRigConfig?> LoadConfigAsync()
     {
-        if (_database == null) return null;
-
         try
         {
-            var collection = _database.GetCollection<HamlibRigConfig>(CollectionName);
-            return await collection.Find(c => c.Id == ConfigDocId).FirstOrDefaultAsync();
+            using var scope = _scopeFactory.CreateScope();
+            var repo = scope.ServiceProvider.GetRequiredService<IRadioConfigRepository>();
+            var configs = await repo.GetByTypeAsync("hamlib");
+            var entity = configs.FirstOrDefault();
+            return entity != null ? MapToHamlibConfig(entity) : null;
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to load Hamlib config from MongoDB");
+            _logger.LogWarning(ex, "Failed to load Hamlib config from database");
             return null;
         }
     }
 
     /// <summary>
-    /// Save configuration to MongoDB
+    /// Save configuration to the radio_configs collection
     /// </summary>
     private async Task SaveConfigAsync(HamlibRigConfig config)
     {
-        if (_database == null) return;
-
         try
         {
-            var collection = _database.GetCollection<HamlibRigConfig>(CollectionName);
-            await collection.ReplaceOneAsync(
-                c => c.Id == ConfigDocId,
-                config with { Id = ConfigDocId },
-                new ReplaceOptions { IsUpsert = true });
-            _logger.LogInformation("Saved Hamlib config to MongoDB: {ModelName} ({ModelId})", config.ModelName, config.ModelId);
+            using var scope = _scopeFactory.CreateScope();
+            var repo = scope.ServiceProvider.GetRequiredService<IRadioConfigRepository>();
+            var entity = MapFromHamlibConfig(config);
+            await repo.UpsertByRadioIdAsync(entity);
+            _logger.LogInformation("Saved Hamlib config: {ModelName} ({ModelId})", config.ModelName, config.ModelId);
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to save Hamlib config to MongoDB");
+            _logger.LogWarning(ex, "Failed to save Hamlib config to database");
         }
     }
 
     /// <summary>
-    /// Delete saved configuration from MongoDB
+    /// Save configuration without connecting to the rig.
+    /// The rig will appear in GetDiscoveredRadiosAsync() but won't be connected.
+    /// </summary>
+    public async Task SaveConfigOnlyAsync(HamlibRigConfig config)
+    {
+        _config = config;
+        await SaveConfigAsync(config);
+    }
+
+    /// <summary>
+    /// Delete saved configuration from the radio_configs collection
     /// </summary>
     public async Task DeleteConfigAsync()
     {
-        if (_database == null) return;
-
         try
         {
-            var collection = _database.GetCollection<HamlibRigConfig>(CollectionName);
-            await collection.DeleteOneAsync(c => c.Id == ConfigDocId);
-            _logger.LogInformation("Deleted Hamlib config from MongoDB");
+            using var scope = _scopeFactory.CreateScope();
+            var repo = scope.ServiceProvider.GetRequiredService<IRadioConfigRepository>();
+            var configs = await repo.GetByTypeAsync("hamlib");
+            foreach (var config in configs)
+            {
+                await repo.DeleteByRadioIdAsync(config.RadioId);
+            }
+            _config = null;
+            _logger.LogInformation("Deleted Hamlib config from database");
         }
         catch (Exception ex)
         {
-            _logger.LogWarning(ex, "Failed to delete Hamlib config from MongoDB");
+            _logger.LogWarning(ex, "Failed to delete Hamlib config from database");
         }
     }
 
     /// <summary>
-    /// Get discovered radios (includes saved configuration even if not connected)
+    /// Get discovered radios — reads all hamlib configs from the repo.
+    /// Falls back to in-memory config if DB is unreachable.
     /// </summary>
     public async Task<IEnumerable<RadioDiscoveredEvent>> GetDiscoveredRadiosAsync()
     {
         var radios = new List<RadioDiscoveredEvent>();
 
-        // If we're currently connected, return the active connection
-        if (_radioId != null && _config != null)
+        try
         {
-            radios.Add(new RadioDiscoveredEvent(
-                _radioId,
-                RadioType.Hamlib,
-                _config.ModelName,
-                _config.ConnectionType == Native.Hamlib.HamlibConnectionType.Network ? _config.Hostname ?? "" : _config.SerialPort ?? "",
-                _config.ConnectionType == Native.Hamlib.HamlibConnectionType.Network ? _config.NetworkPort : 0,
-                null,
-                null
-            ));
-        }
-        // If not connected but we have an in-memory config (disconnect keeps it alive), use that
-        else if (_config != null)
-        {
-            var radioId = $"hamlib-{_config.ModelId}";
-            radios.Add(new RadioDiscoveredEvent(
-                radioId,
-                RadioType.Hamlib,
-                _config.ModelName,
-                _config.ConnectionType == Native.Hamlib.HamlibConnectionType.Network ? _config.Hostname ?? "" : _config.SerialPort ?? "",
-                _config.ConnectionType == Native.Hamlib.HamlibConnectionType.Network ? _config.NetworkPort : 0,
-                null,
-                null
-            ));
-        }
-        // Fall back to saved config from database
-        else
-        {
-            var savedConfig = await LoadConfigAsync();
-            if (savedConfig != null)
+            using var scope = _scopeFactory.CreateScope();
+            var repo = scope.ServiceProvider.GetRequiredService<IRadioConfigRepository>();
+            var configs = await repo.GetByTypeAsync("hamlib");
+
+            foreach (var entity in configs)
             {
-                var radioId = $"hamlib-{savedConfig.ModelId}";
+                var isNetwork = entity.ConnectionType == "Network";
+                radios.Add(new RadioDiscoveredEvent(
+                    entity.RadioId,
+                    RadioType.Hamlib,
+                    entity.DisplayName,
+                    isNetwork ? entity.Hostname ?? "" : entity.SerialPort ?? "",
+                    isNetwork ? entity.NetworkPort ?? 0 : 0,
+                    null,
+                    null
+                ));
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to load Hamlib configs from database, falling back to in-memory");
+
+            // In-memory fallback
+            if (_config != null)
+            {
+                var radioId = _radioId ?? $"hamlib-{_config.ModelId}";
                 radios.Add(new RadioDiscoveredEvent(
                     radioId,
                     RadioType.Hamlib,
-                    savedConfig.ModelName,
-                    savedConfig.ConnectionType == Native.Hamlib.HamlibConnectionType.Network ? savedConfig.Hostname ?? "" : savedConfig.SerialPort ?? "",
-                    savedConfig.ConnectionType == Native.Hamlib.HamlibConnectionType.Network ? savedConfig.NetworkPort : 0,
+                    _config.ModelName,
+                    _config.ConnectionType == Native.Hamlib.HamlibConnectionType.Network ? _config.Hostname ?? "" : _config.SerialPort ?? "",
+                    _config.ConnectionType == Native.Hamlib.HamlibConnectionType.Network ? _config.NetworkPort : 0,
                     null,
                     null
                 ));
@@ -514,6 +538,75 @@ public class HamlibService : BackgroundService
         }
 
         return radios;
+    }
+
+    /// <summary>
+    /// Map a HamlibRigConfig to a RadioConfigEntity for storage
+    /// </summary>
+    public static RadioConfigEntity MapFromHamlibConfig(HamlibRigConfig config)
+    {
+        return new RadioConfigEntity
+        {
+            RadioId = $"hamlib-{config.ModelId}",
+            RadioType = "hamlib",
+            DisplayName = config.ModelName,
+            HamlibModelId = config.ModelId,
+            HamlibModelName = config.ModelName,
+            ConnectionType = config.ConnectionType.ToString(),
+            SerialPort = config.SerialPort,
+            BaudRate = config.BaudRate,
+            DataBits = (int)config.DataBits,
+            StopBits = (int)config.StopBits,
+            FlowControl = config.FlowControl.ToString(),
+            Parity = config.Parity.ToString(),
+            Hostname = config.Hostname,
+            NetworkPort = config.NetworkPort,
+            PttType = config.PttType.ToString(),
+            PttPort = config.PttPort,
+            GetFrequency = config.GetFrequency,
+            GetMode = config.GetMode,
+            GetVfo = config.GetVfo,
+            GetPtt = config.GetPtt,
+            GetPower = config.GetPower,
+            GetRit = config.GetRit,
+            GetXit = config.GetXit,
+            GetKeySpeed = config.GetKeySpeed,
+            PollIntervalMs = config.PollIntervalMs,
+            CreatedAt = DateTime.UtcNow,
+            UpdatedAt = DateTime.UtcNow,
+        };
+    }
+
+    /// <summary>
+    /// Map a RadioConfigEntity back to a HamlibRigConfig
+    /// </summary>
+    public static HamlibRigConfig MapToHamlibConfig(RadioConfigEntity entity)
+    {
+        return new HamlibRigConfig
+        {
+            ModelId = entity.HamlibModelId ?? 0,
+            ModelName = entity.HamlibModelName ?? entity.DisplayName,
+            ConnectionType = Enum.TryParse<Native.Hamlib.HamlibConnectionType>(entity.ConnectionType, out var ct) ? ct : Native.Hamlib.HamlibConnectionType.Serial,
+            SerialPort = entity.SerialPort,
+            BaudRate = entity.BaudRate ?? 9600,
+            DataBits = entity.DataBits.HasValue ? (Native.Hamlib.HamlibDataBits)entity.DataBits.Value : Native.Hamlib.HamlibDataBits.Eight,
+            StopBits = entity.StopBits.HasValue ? (Native.Hamlib.HamlibStopBits)entity.StopBits.Value : Native.Hamlib.HamlibStopBits.One,
+            FlowControl = Enum.TryParse<Native.Hamlib.HamlibFlowControl>(entity.FlowControl, out var fc) ? fc : Native.Hamlib.HamlibFlowControl.None,
+            Parity = Enum.TryParse<Native.Hamlib.HamlibParity>(entity.Parity, out var par) ? par : Native.Hamlib.HamlibParity.None,
+            Hostname = entity.Hostname,
+            NetworkPort = entity.NetworkPort ?? 4532,
+            PttType = Enum.TryParse<Native.Hamlib.HamlibPttType>(entity.PttType, out var ptt) ? ptt : Native.Hamlib.HamlibPttType.Rig,
+            PttPort = entity.PttPort,
+            GetFrequency = entity.GetFrequency ?? true,
+            GetMode = entity.GetMode ?? true,
+            GetVfo = entity.GetVfo ?? true,
+            GetPtt = entity.GetPtt ?? true,
+            GetPower = entity.GetPower ?? false,
+            GetRit = entity.GetRit ?? false,
+            GetXit = entity.GetXit ?? false,
+            GetKeySpeed = entity.GetKeySpeed ?? false,
+            PollIntervalMs = entity.PollIntervalMs ?? 250,
+        };
     }
 
     /// <summary>

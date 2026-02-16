@@ -2,6 +2,7 @@ import { useEffect, useRef } from 'react';
 import { useMap } from 'react-leaflet';
 import L from 'leaflet';
 import { computeTerminatorLine } from '../utils/solarCalculations';
+import { unwrapLongitudes } from '../utils/geoUtils';
 
 interface GrayLineOverlayProps {
   opacity?: number;
@@ -36,16 +37,17 @@ export function GrayLineOverlay({
 
       // Enhanced DX zone polygon (between +5° and -5° solar altitude)
       if (dxZoneUpper.length > 0 && dxZoneLower.length > 0) {
+        // Build closed ring: forward upper + reversed lower, then unwrap
+        const baseRing: [number, number][] = [
+          ...dxZoneUpper,
+          ...dxZoneLower.slice().reverse(),
+        ];
+        const unwrapped = unwrapLongitudes(baseRing);
+
         for (const offset of [-360, 0, 360]) {
-          const polygonPoints: L.LatLngExpression[] = [];
-          // Forward through upper boundary (day side)
-          for (const [lat, lon] of dxZoneUpper) {
-            polygonPoints.push([lat, lon + offset]);
-          }
-          // Backward through lower boundary (night side) to close the band
-          for (let i = dxZoneLower.length - 1; i >= 0; i--) {
-            polygonPoints.push([dxZoneLower[i][0], dxZoneLower[i][1] + offset]);
-          }
+          const polygonPoints: L.LatLngExpression[] = unwrapped.map(
+            ([lat, lon]) => [lat, lon + offset]
+          );
           L.polygon(polygonPoints, {
             color: '#ffaa00',
             fillColor: '#ffaa00',
@@ -91,8 +93,9 @@ export function GrayLineOverlay({
     }
 
     function addPolyline(points: [number, number][], style: L.PolylineOptions) {
+      const unwrapped = unwrapLongitudes(points);
       for (const offset of [-360, 0, 360]) {
-        const offsetPoints: L.LatLngExpression[] = points.map(
+        const offsetPoints: L.LatLngExpression[] = unwrapped.map(
           ([lat, lon]) => [lat, lon + offset]
         );
         L.polyline(offsetPoints, { ...style, interactive: false }).addTo(layerGroup);

@@ -129,10 +129,11 @@ export function RigPlugin() {
     }
   }, [hamlibConfig.modelId, getHamlibRigCaps]);
 
-  // Auto-select connection type based on capabilities and set default hostname
+  // Auto-select connection type based on capabilities only when caps are first loaded
+  // This prevents overriding user's manual connection type selection
   useEffect(() => {
-    if (hamlibCaps) {
-      // If current selection is not supported, switch to supported type
+    if (hamlibCaps && hamlibConfig.modelId > 0) {
+      // Only auto-adjust if current selection is not supported
       if (hamlibConfig.connectionType === "Serial" && !hamlibCaps.supportsSerial && hamlibCaps.supportsNetwork) {
         updateHamlibConfig({ connectionType: "Network", hostname: hamlibConfig.hostname || "localhost" });
       } else if (hamlibConfig.connectionType === "Network" && !hamlibCaps.supportsNetwork && hamlibCaps.supportsSerial) {
@@ -142,7 +143,9 @@ export function RigPlugin() {
         updateHamlibConfig({ hostname: "localhost" });
       }
     }
-  }, [hamlibCaps, hamlibConfig.connectionType, hamlibConfig.hostname]);
+    // Only run when caps change (i.e., when a new model is selected), not on every connection type change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hamlibCaps]);
 
   // Filter rigs by search term
   const filteredRigs = useMemo(() => {

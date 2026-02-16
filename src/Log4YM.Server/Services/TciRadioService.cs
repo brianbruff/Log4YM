@@ -120,6 +120,26 @@ public class TciRadioService : BackgroundService
         return Task.CompletedTask;
     }
 
+    /// <summary>
+    /// Remove a TCI radio from the discovered radios list and disconnect if connected
+    /// </summary>
+    public async Task RemoveRadioAsync(string radioId)
+    {
+        // Disconnect if currently connected
+        if (_connections.TryRemove(radioId, out var connection))
+        {
+            await connection.DisconnectAsync();
+            _logger.LogInformation("Disconnected TCI radio {RadioId} during removal", radioId);
+        }
+
+        // Remove from discovered radios
+        if (_discoveredRadios.TryRemove(radioId, out _))
+        {
+            _logger.LogInformation("Removed TCI radio {RadioId} from discovered radios", radioId);
+            await _hubContext.BroadcastRadioRemoved(new RadioRemovedEvent(radioId));
+        }
+    }
+
     private async Task RunDiscoveryAsync(CancellationToken ct)
     {
         try
@@ -416,16 +436,13 @@ public class TciRadioService : BackgroundService
     }
 
     /// <summary>
-    /// Get discovered radios including saved TCI config from settings when no active connections exist
+    /// Get discovered radios including saved TCI config from settings when not already in discovered list
     /// </summary>
     public async Task<IEnumerable<RadioDiscoveredEvent>> GetDiscoveredRadiosAsync()
     {
         var radios = GetDiscoveredRadios().ToList();
 
-        // If we already have discovered/connected TCI radios, no need to load from settings
-        if (radios.Count > 0) return radios;
-
-        // Load saved TCI config from settings
+        // Load saved TCI config from settings if not already in the discovered list
         try
         {
             using var scope = _scopeFactory.CreateScope();
@@ -436,15 +453,20 @@ public class TciRadioService : BackgroundService
             if (tciSettings != null && !string.IsNullOrEmpty(tciSettings.Host))
             {
                 var radioId = $"tci-{tciSettings.Host}:{tciSettings.Port}";
-                radios.Add(new RadioDiscoveredEvent(
-                    radioId,
-                    RadioType.Tci,
-                    !string.IsNullOrEmpty(tciSettings.Name) ? tciSettings.Name : $"TCI ({tciSettings.Host})",
-                    tciSettings.Host,
-                    tciSettings.Port,
-                    null,
-                    null
-                ));
+
+                // Only add if not already in the discovered list
+                if (!radios.Any(r => r.RadioId == radioId))
+                {
+                    radios.Add(new RadioDiscoveredEvent(
+                        radioId,
+                        RadioType.Tci,
+                        !string.IsNullOrEmpty(tciSettings.Name) ? tciSettings.Name : $"TCI ({tciSettings.Host})",
+                        tciSettings.Host,
+                        tciSettings.Port,
+                        null,
+                        null
+                    ));
+                }
             }
         }
         catch (Exception ex)

@@ -720,8 +720,19 @@ public class LogHub : Hub<ILogHubClient>
     {
         _logger.LogInformation("Deleting saved TCI configuration");
 
+        // Load settings to determine which TCI radio to remove
+        var settings = await _settingsRepository.GetAsync();
+        var tciSettings = settings?.Radio?.Tci;
+
+        // Remove TCI radio from discovered radios if it exists
+        if (tciSettings != null && !string.IsNullOrEmpty(tciSettings.Host))
+        {
+            var radioId = $"tci-{tciSettings.Host}:{tciSettings.Port}";
+            await _tciRadioService.RemoveRadioAsync(radioId);
+        }
+
         // Clear TCI settings to defaults
-        var settings = await _settingsRepository.GetAsync() ?? new Log4YM.Contracts.Models.UserSettings();
+        settings ??= new Log4YM.Contracts.Models.UserSettings();
         settings.Radio.Tci = new Log4YM.Contracts.Models.TciSettings();
         settings.Radio.ActiveRigType = null;
         settings.Radio.AutoReconnect = false;

@@ -61,8 +61,20 @@ export function useSignalRConnection() {
     // This callback is responsible for loading ALL data and then setting state to 'connected'
     signalRService.setOnConnectedCallback(async () => {
       console.log('Connection established, rehydrating application state...');
+
+      // Hard timeout: if rehydration takes longer than 15 seconds, bail out and
+      // show the UI anyway. This prevents the "Loading Data..." overlay from
+      // hanging indefinitely if the backend database is slow or unreachable.
+      const REHYDRATION_TIMEOUT_MS = 15_000;
+      let rehydrationTimedOut = false;
+      const timeoutId = setTimeout(() => {
+        rehydrationTimedOut = true;
+        console.warn(`Rehydration timed out after ${REHYDRATION_TIMEOUT_MS / 1000}s — proceeding to connected state`);
+        setConnectionState('connected', 0);
+      }, REHYDRATION_TIMEOUT_MS);
+
       try {
-        // 1. Reload settings from MongoDB
+        // 1. Reload settings from database
         console.log('Reloading settings from database...');
         await useSettingsStore.getState().loadSettings();
 
@@ -105,12 +117,14 @@ export function useSignalRConnection() {
         ]);
 
         console.log('Rehydration complete');
-        // 5. Now we can set state to fully connected
-        setConnectionState('connected', 0);
       } catch (err) {
         console.error('Error during rehydration:', err);
-        // Still set connected even if some things failed - user can manually refresh
-        setConnectionState('connected', 0);
+      } finally {
+        clearTimeout(timeoutId);
+        // Only set connected if the timeout didn't already do it
+        if (!rehydrationTimedOut) {
+          setConnectionState('connected', 0);
+        }
       }
     });
 

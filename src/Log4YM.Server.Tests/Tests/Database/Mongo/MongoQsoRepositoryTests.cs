@@ -146,7 +146,18 @@ public class MongoQsoRepositoryContractTests
         _repoMock.Setup(r => r.UpdateQrzSyncStatusAsync("507f1f77bcf86cd799439011", "qrz-123"))
             .ReturnsAsync(true);
         _repoMock.Setup(r => r.GetByIdAsync("507f1f77bcf86cd799439011"))
-            .ReturnsAsync(qso with { QrzSyncStatus = SyncStatus.Synced, QrzLogId = "qrz-123" });
+            .ReturnsAsync(new Qso
+            {
+                Id = qso.Id,
+                Callsign = qso.Callsign,
+                QsoDate = qso.QsoDate,
+                TimeOn = qso.TimeOn,
+                Band = qso.Band,
+                Mode = qso.Mode,
+                Station = qso.Station,
+                QrzSyncStatus = SyncStatus.Synced,
+                QrzLogId = "qrz-123"
+            });
 
         await _repoMock.Object.UpdateQrzSyncStatusAsync("507f1f77bcf86cd799439011", "qrz-123");
         var updated = await _repoMock.Object.GetByIdAsync("507f1f77bcf86cd799439011");

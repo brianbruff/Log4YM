@@ -1,3 +1,4 @@
+using LiteDB;
 using Log4YM.Contracts.Models;
 
 namespace Log4YM.Server.Core.Database.LiteDb;
@@ -24,6 +25,10 @@ public class LiteCallsignImageRepository : ICallsignImageRepository
         else
         {
             image.SavedAt = DateTime.UtcNow;
+            if (string.IsNullOrEmpty(image.Id))
+            {
+                image.Id = ObjectId.NewObjectId().ToString();
+            }
             _context.CallsignMapImages.Insert(image);
         }
 

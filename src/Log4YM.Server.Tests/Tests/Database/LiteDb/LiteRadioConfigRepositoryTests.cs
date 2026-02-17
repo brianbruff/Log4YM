@@ -207,13 +207,14 @@ public class LiteRadioConfigRepositoryTests : IDisposable
     }
 
     [Fact]
-    public async Task FixNullIdsAsync_AssignsIdsToDocumentsWithNullIds()
+    public async Task FixNullIdsAsync_AssignsIdsToDocumentsWithEmptyStringIds()
     {
-        // Insert a raw document with null _id to simulate the bug
+        // LiteDB v5 rejects _id = null, but empty string IDs are possible.
+        // Insert a document with an empty string _id to simulate the bug.
         var rawCollection = _fixture.Context.Database.GetCollection("radio_configs");
         var doc = new BsonDocument
         {
-            ["_id"] = BsonValue.Null,
+            ["_id"] = "",
             ["RadioId"] = "hamlib-buggy",
             ["RadioType"] = "hamlib",
             ["DisplayName"] = "Buggy Config"
@@ -286,7 +287,7 @@ public class LiteRadioConfigRepositoryTests : IDisposable
 
         // Old config should be removed from settings
         var oldStillExists = settingsCollection.FindById("hamlib_config");
-        oldStillExists.Should().BeNull();
+        ((object?)oldStillExists).Should().BeNull();
     }
 
     [Fact]

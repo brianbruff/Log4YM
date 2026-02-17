@@ -419,6 +419,17 @@ public class TciRadioService : BackgroundService
         return await connection.SetFrequencyAsync(frequencyHz);
     }
 
+    public async Task<bool> SetModeAsync(string radioId, string mode)
+    {
+        if (!_connections.TryGetValue(radioId, out var connection))
+        {
+            _logger.LogWarning("Cannot set mode: TCI radio {RadioId} not connected", radioId);
+            return false;
+        }
+
+        return await connection.SetModeAsync(mode);
+    }
+
     public async Task<bool> SendCwAsync(string radioId, string message, int speedWpm)
     {
         if (!_connections.TryGetValue(radioId, out var connection))
@@ -745,6 +756,17 @@ internal class TciRadioConnection
 
         // TCI protocol: vfo:rx,channel,frequency; (rx=0/1, channel=0 for VFO-A)
         var command = $"vfo:{_selectedInstance},0,{frequencyHz};";
+        _logger.LogDebug("Sending TCI command: {Command}", command);
+        await SendCommandAsync(command);
+        return true;
+    }
+
+    public async Task<bool> SetModeAsync(string mode)
+    {
+        if (!IsConnected) return false;
+
+        // TCI protocol: modulation:rx,MODE;
+        var command = $"modulation:{_selectedInstance},{mode};";
         _logger.LogDebug("Sending TCI command: {Command}", command);
         await SendCommandAsync(command);
         return true;

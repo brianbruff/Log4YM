@@ -328,6 +328,16 @@ public class LogHub : Hub<ILogHubClient>
             if (tuned)
             {
                 _logger.LogInformation("Tuned TCI radio {RadioId} to {FrequencyMHz} MHz", radioId, evt.Frequency / 1000.0);
+
+                // Also set mode if provided
+                if (!string.IsNullOrEmpty(evt.Mode))
+                {
+                    var modeSet = await _tciRadioService.SetModeAsync(radioId, evt.Mode);
+                    if (modeSet)
+                    {
+                        _logger.LogInformation("Set TCI radio {RadioId} mode to {Mode}", radioId, evt.Mode);
+                    }
+                }
             }
         }
         else if (_hamlibService.IsConnected)

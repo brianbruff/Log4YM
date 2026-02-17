@@ -335,7 +335,7 @@ public class LogHub : Hub<ILogHubClient>
                 // Also set mode if provided
                 if (!string.IsNullOrEmpty(evt.Mode))
                 {
-                    var modeSet = await _tciRadioService.SetModeAsync(radioId, evt.Mode);
+                    var modeSet = await _tciRadioService.SetModeAsync(radioId, evt.Mode, frequencyHz);
                     if (modeSet)
                     {
                         _logger.LogInformation("Set TCI radio {RadioId} mode to {Mode}", radioId, evt.Mode);

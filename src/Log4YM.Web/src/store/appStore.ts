@@ -320,7 +320,7 @@ export const useAppStore = create<AppState>((set) => ({
         freqAMhz: evt.portId === 1 ? evt.frequencyMhz : device.freqAMhz,
         freqBMhz: evt.portId === 2 ? evt.frequencyMhz : device.freqBMhz,
         portA: evt.portId === 1 ? portStatus : device.portA,
-        portB: evt.portId === 2 && device.portB ? portStatus : device.portB,
+        portB: evt.portId === 2 ? portStatus : device.portB,
       };
 
       devices.set(evt.deviceSerial, updatedDevice);

@@ -114,6 +114,10 @@ interface AppState {
   qrzSyncProgress: QrzSyncProgress | null;
   setQrzSyncProgress: (progress: QrzSyncProgress | null) => void;
 
+  // ADIF Import
+  adifImportProgress: AdifImportProgress | null;
+  setAdifImportProgress: (progress: AdifImportProgress | null) => void;
+
   // Log History Callsign Filter (shared between LogEntry and LogHistory)
   logHistoryCallsignFilter: string | null;
   setLogHistoryCallsignFilter: (callsign: string | null) => void;
@@ -176,6 +180,17 @@ export interface QrzSyncProgress {
   total: number;
   completed: number;
   successful: number;
+  failed: number;
+  isComplete: boolean;
+  currentCallsign: string | null;
+  message: string | null;
+}
+
+export interface AdifImportProgress {
+  total: number;
+  processed: number;
+  imported: number;
+  skipped: number;
   failed: number;
   isComplete: boolean;
   currentCallsign: string | null;
@@ -434,6 +449,10 @@ export const useAppStore = create<AppState>((set) => ({
   // QRZ Sync
   qrzSyncProgress: null,
   setQrzSyncProgress: (progress) => set({ qrzSyncProgress: progress }),
+
+  // ADIF Import
+  adifImportProgress: null,
+  setAdifImportProgress: (progress) => set({ adifImportProgress: progress }),
 
   // Log History Callsign Filter
   logHistoryCallsignFilter: null,

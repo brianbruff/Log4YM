@@ -108,7 +108,7 @@ export function LogHistoryPlugin() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const queryClient = useQueryClient();
-  const { qrzSyncProgress, setQrzSyncProgress, logHistoryCallsignFilter } = useAppStore();
+  const { qrzSyncProgress, setQrzSyncProgress, adifImportProgress, setAdifImportProgress, logHistoryCallsignFilter } = useAppStore();
 
   const handleSyncToQrz = useCallback(async () => {
     if (isSyncing) return;
@@ -131,6 +131,14 @@ export function LogHistoryPlugin() {
     }
   }, []);
 
+  const handleCancelImport = useCallback(async () => {
+    try {
+      await api.cancelImport();
+    } catch (error) {
+      console.error('Failed to cancel import:', error);
+    }
+  }, []);
+
   // Sync callsign filter from LogEntryPlugin
   useEffect(() => {
     setCallsignSearch(logHistoryCallsignFilter || '');
@@ -139,8 +147,11 @@ export function LogHistoryPlugin() {
 
   // ADIF Import mutation
   const importMutation = useMutation({
-    mutationFn: (file: File) =>
-      api.importAdif(file, { skipDuplicates, markAsSyncedToQrz, clearExistingLogs }),
+    mutationFn: (file: File) => {
+      // Clear any previous progress state
+      setAdifImportProgress(null);
+      return api.importAdif(file, { skipDuplicates, markAsSyncedToQrz, clearExistingLogs });
+    },
     onSuccess: (data) => {
       setImportResult(data);
       setShowImportModal(false);
@@ -478,6 +489,101 @@ export function LogHistoryPlugin() {
               </div>
               <button
                 onClick={() => setQrzSyncProgress(null)}
+                className="text-dark-300 hover:text-dark-200"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ADIF Import Starting (before first progress event) */}
+        {importMutation.isPending && !adifImportProgress && (
+          <div className="bg-dark-700/80 rounded-lg p-3 border border-accent-success/30">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 text-accent-success animate-spin" />
+                <span className="text-sm text-dark-200 font-ui">
+                  Starting import...
+                </span>
+              </div>
+              <button
+                onClick={handleCancelImport}
+                className="text-xs text-accent-danger hover:text-accent-danger/80 flex items-center gap-1 px-2 py-1 rounded hover:bg-accent-danger/10 transition-colors"
+                title="Cancel import"
+              >
+                <X className="w-3 h-3" />
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* ADIF Import Progress */}
+        {adifImportProgress && !adifImportProgress.isComplete && adifImportProgress.total > 0 && (
+          <div className="bg-dark-700/80 rounded-lg p-3 border border-accent-success/30">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 text-accent-success animate-spin" />
+                <span className="text-sm text-dark-200 font-ui">
+                  {adifImportProgress.message || `Importing ADIF...`}
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-dark-300 font-mono">
+                  {adifImportProgress.processed} / {adifImportProgress.total}
+                </span>
+                <button
+                  onClick={handleCancelImport}
+                  className="text-xs text-accent-danger hover:text-accent-danger/80 flex items-center gap-1 px-2 py-1 rounded hover:bg-accent-danger/10 transition-colors"
+                  title="Cancel import"
+                >
+                  <X className="w-3 h-3" />
+                  Cancel
+                </button>
+              </div>
+            </div>
+            <div className="w-full bg-dark-600 rounded-full h-2 overflow-hidden">
+              <div
+                className="bg-accent-success h-full transition-all duration-300 ease-out"
+                style={{ width: `${(adifImportProgress.processed / adifImportProgress.total) * 100}%` }}
+              />
+            </div>
+            <div className="flex justify-between text-xs text-dark-300 mt-1 font-mono">
+              <span className="text-accent-success">{adifImportProgress.imported} imported</span>
+              <span className="text-accent-primary">{adifImportProgress.skipped} skipped</span>
+              {adifImportProgress.failed > 0 && (
+                <span className="text-accent-danger">{adifImportProgress.failed} failed</span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* ADIF Import Complete */}
+        {adifImportProgress?.isComplete && (
+          <div className={`bg-dark-700/80 rounded-lg p-3 border ${
+            adifImportProgress.message?.includes('cancelled')
+              ? 'border-accent-primary/30'
+              : 'border-accent-success/30'
+          }`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Upload className={`w-4 h-4 ${
+                  adifImportProgress.message?.includes('cancelled')
+                    ? 'text-accent-primary'
+                    : 'text-accent-success'
+                }`} />
+                <span className="text-sm text-dark-200 font-ui">
+                  {adifImportProgress.message?.includes('cancelled')
+                    ? `Import cancelled: ${adifImportProgress.imported} of ${adifImportProgress.total} imported`
+                    : adifImportProgress.total === 0
+                      ? 'No records to import'
+                      : `Import Complete: ${adifImportProgress.imported} imported${adifImportProgress.skipped > 0 ? `, ${adifImportProgress.skipped} skipped` : ''}${adifImportProgress.failed > 0 ? `, ${adifImportProgress.failed} failed` : ''}`
+                  }
+                </span>
+              </div>
+              <button
+                onClick={() => setAdifImportProgress(null)}
                 className="text-dark-300 hover:text-dark-200"
               >
                 <X className="w-4 h-4" />

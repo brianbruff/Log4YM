@@ -750,3 +750,132 @@ public record QrzSyncProgressEvent(
     string? CurrentCallsign,
     string? Message
 );
+
+// ===== Tuner Genius Events =====
+
+/// <summary>
+/// Tuner Genius device discovered on network
+/// </summary>
+public record TunerGeniusDiscoveredEvent(
+    string IpAddress,
+    int Port,
+    string Version,
+    string Serial,
+    string Name,
+    string Model,
+    int Uptime
+);
+
+/// <summary>
+/// Tuner Genius device disconnected
+/// </summary>
+public record TunerGeniusDisconnectedEvent(
+    string Serial
+);
+
+/// <summary>
+/// Full status update from Tuner Genius XL.
+/// The TGXL is a single tuner with one L/C network serving up to two radios.
+/// Swr, Power, L/C positions and bypass/operate state are tuner-level (not per-radio).
+/// FreqAMhz / FreqBMhz are the frequencies reported by the two radio inputs.
+/// </summary>
+public record TunerGeniusStatusEvent(
+    string DeviceSerial,
+    string DeviceName,
+    string IpAddress,
+    string Version,
+    string Model,
+    bool IsConnected,
+    // Tuner state
+    bool IsOperating,          // true = Operate, false = Standby
+    bool IsBypassed,           // true = tuner bypassed (out of circuit)
+    bool IsTuning,             // true = tune cycle in progress
+    int ActiveRadio,           // 1 or 2
+    // Metering
+    double ForwardPowerWatts,
+    double Swr,                // e.g. 1.5
+    // Matching network positions (0-255)
+    int L,
+    int C1,
+    int C2,
+    // Per-radio frequency inputs
+    double FreqAMhz,
+    double FreqBMhz,
+    // Legacy port wrappers (PortA = Radio 1, PortB = Radio 2)
+    TunerGeniusPortStatus PortA,
+    TunerGeniusPortStatus? PortB
+);
+
+/// <summary>
+/// Per-radio input status (frequency and band).
+/// L/C/SWR/power are tuner-level — see TunerGeniusStatusEvent.
+/// </summary>
+public record TunerGeniusPortStatus(
+    int PortId,
+    bool Auto,
+    string Band,
+    double FrequencyMhz,
+    int Swr,               // SWR * 10 (e.g. 15 = 1.5:1) — kept for UI compat
+    bool IsTuning,
+    bool IsTransmitting,
+    int? SelectedAntenna,
+    string TuneResult      // "OK", "HighSWR", "Timeout", "Error"
+);
+
+/// <summary>
+/// Fired on every status poll — carries full tuner + radio state.
+/// </summary>
+public record TunerGeniusPortChangedEvent(
+    string DeviceSerial,
+    int PortId,
+    bool Auto,
+    string Band,
+    double FrequencyMhz,
+    int Swr,
+    bool IsTuning,
+    bool IsTransmitting,
+    int? SelectedAntenna,
+    string TuneResult,
+    // Tuner-level additions
+    bool IsBypassed,
+    bool IsOperating,
+    double ForwardPowerWatts,
+    double SwrDecimal,     // SWR as double e.g. 1.5
+    int L,
+    int C1,
+    int C2,
+    int ActiveRadio
+);
+
+/// <summary>
+/// Command to initiate auto-tune (client to server)
+/// </summary>
+public record TuneTunerGeniusCommand(
+    string DeviceSerial,
+    int PortId
+);
+
+/// <summary>
+/// Command to toggle bypass state (client to server)
+/// </summary>
+public record BypassTunerGeniusCommand(
+    string DeviceSerial,
+    int PortId,
+    bool Bypass
+);
+
+/// <summary>
+/// Command to set Operate / Standby mode (client to server)
+/// </summary>
+public record OperateTunerGeniusCommand(
+    string DeviceSerial,
+    bool Operate
+);
+
+/// <summary>
+/// Command to activate a radio channel (client to server)
+/// </summary>
+public record ActivateChannelTunerGeniusCommand(
+    string DeviceSerial,
+    int Channel   // 1 or 2
+);

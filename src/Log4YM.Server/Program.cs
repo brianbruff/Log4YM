@@ -165,6 +165,10 @@ builder.Services.AddSingleton<IEventBus, EventBus>();
 builder.Services.AddSingleton<AntennaGeniusService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<AntennaGeniusService>());
 
+// Register Tuner Genius service
+builder.Services.AddSingleton<TunerGeniusService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<TunerGeniusService>());
+
 // Register PGXL Amplifier service
 builder.Services.AddSingleton<PgxlService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<PgxlService>());

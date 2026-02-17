@@ -29,6 +29,12 @@ public interface ILogHubClient
     Task OnPgxlDisconnected(PgxlDisconnectedEvent evt);
     Task OnPgxlStatus(PgxlStatusEvent evt);
 
+    // Tuner Genius events
+    Task OnTunerGeniusDiscovered(TunerGeniusDiscoveredEvent evt);
+    Task OnTunerGeniusDisconnected(TunerGeniusDisconnectedEvent evt);
+    Task OnTunerGeniusStatus(TunerGeniusStatusEvent evt);
+    Task OnTunerGeniusPortChanged(TunerGeniusPortChangedEvent evt);
+
     // Radio CAT Control events
     Task OnRadioDiscovered(RadioDiscoveredEvent evt);
     Task OnRadioRemoved(RadioRemovedEvent evt);
@@ -67,6 +73,7 @@ public class LogHub : Hub<ILogHubClient>
     private readonly ILogger<LogHub> _logger;
     private readonly AntennaGeniusService _antennaGeniusService;
     private readonly PgxlService _pgxlService;
+    private readonly TunerGeniusService _tunerGeniusService;
     private readonly FlexRadioService _flexRadioService;
     private readonly TciRadioService _tciRadioService;
     private readonly HamlibService _hamlibService;
@@ -83,6 +90,7 @@ public class LogHub : Hub<ILogHubClient>
         ILogger<LogHub> logger,
         AntennaGeniusService antennaGeniusService,
         PgxlService pgxlService,
+        TunerGeniusService tunerGeniusService,
         FlexRadioService flexRadioService,
         TciRadioService tciRadioService,
         HamlibService hamlibService,
@@ -98,6 +106,7 @@ public class LogHub : Hub<ILogHubClient>
         _logger = logger;
         _antennaGeniusService = antennaGeniusService;
         _pgxlService = pgxlService;
+        _tunerGeniusService = tunerGeniusService;
         _flexRadioService = flexRadioService;
         _tciRadioService = tciRadioService;
         _hamlibService = hamlibService;
@@ -409,6 +418,50 @@ public class LogHub : Hub<ILogHubClient>
     {
         _logger.LogInformation("Disabling FlexRadio pairing for PGXL {Serial} slice {Slice}", cmd.Serial, cmd.Slice);
         await _pgxlService.DisableFlexRadioPairingAsync(cmd.Serial, cmd.Slice);
+    }
+
+    // Tuner Genius methods
+
+    public async Task TuneTunerGenius(TuneTunerGeniusCommand cmd)
+    {
+        _logger.LogInformation("Tuning port {PortId} on Tuner Genius {Serial}",
+            cmd.PortId, cmd.DeviceSerial);
+
+        await _tunerGeniusService.TuneAsync(cmd.DeviceSerial, cmd.PortId);
+    }
+
+    public async Task BypassTunerGenius(BypassTunerGeniusCommand cmd)
+    {
+        _logger.LogInformation("Setting bypass={Bypass} for port {PortId} on Tuner Genius {Serial}",
+            cmd.Bypass, cmd.PortId, cmd.DeviceSerial);
+
+        await _tunerGeniusService.SetBypassAsync(cmd.DeviceSerial, cmd.PortId, cmd.Bypass);
+    }
+
+    public async Task OperateTunerGenius(OperateTunerGeniusCommand cmd)
+    {
+        _logger.LogInformation("Setting operate={Operate} on Tuner Genius {Serial}",
+            cmd.Operate, cmd.DeviceSerial);
+
+        await _tunerGeniusService.SetOperateAsync(cmd.DeviceSerial, cmd.Operate);
+    }
+
+    public async Task ActivateChannelTunerGenius(ActivateChannelTunerGeniusCommand cmd)
+    {
+        _logger.LogInformation("Activating channel {Channel} on Tuner Genius {Serial}",
+            cmd.Channel, cmd.DeviceSerial);
+
+        await _tunerGeniusService.ActivateChannelAsync(cmd.DeviceSerial, cmd.Channel);
+    }
+
+    public async Task RequestTunerGeniusStatus()
+    {
+        _logger.LogDebug("Client requested Tuner Genius status");
+
+        foreach (var status in _tunerGeniusService.GetAllDeviceStatuses())
+        {
+            await Clients.Caller.OnTunerGeniusStatus(status);
+        }
     }
 
     // Radio CAT Control methods

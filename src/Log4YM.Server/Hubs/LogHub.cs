@@ -61,6 +61,9 @@ public interface ILogHubClient
     // QRZ Sync events
     Task OnQrzSyncProgress(QrzSyncProgressEvent evt);
 
+    // ADIF Import events
+    Task OnAdifImportProgress(AdifImportProgressEvent evt);
+
     // DX Cluster events
     Task OnClusterStatusChanged(ClusterStatusChangedEvent evt);
 
@@ -328,6 +331,16 @@ public class LogHub : Hub<ILogHubClient>
             if (tuned)
             {
                 _logger.LogInformation("Tuned TCI radio {RadioId} to {FrequencyMHz} MHz", radioId, evt.Frequency / 1000.0);
+
+                // Also set mode if provided
+                if (!string.IsNullOrEmpty(evt.Mode))
+                {
+                    var modeSet = await _tciRadioService.SetModeAsync(radioId, evt.Mode, frequencyHz);
+                    if (modeSet)
+                    {
+                        _logger.LogInformation("Set TCI radio {RadioId} mode to {Mode}", radioId, evt.Mode);
+                    }
+                }
             }
         }
         else if (_hamlibService.IsConnected)
@@ -1040,6 +1053,11 @@ public static class LogHubExtensions
     public static async Task BroadcastQrzSyncProgress(this IHubContext<LogHub, ILogHubClient> hub, QrzSyncProgressEvent evt)
     {
         await hub.Clients.All.OnQrzSyncProgress(evt);
+    }
+
+    public static async Task BroadcastAdifImportProgress(this IHubContext<LogHub, ILogHubClient> hub, AdifImportProgressEvent evt)
+    {
+        await hub.Clients.All.OnAdifImportProgress(evt);
     }
 
     public static async Task BroadcastClusterStatusChanged(this IHubContext<LogHub, ILogHubClient> hub, ClusterStatusChangedEvent evt)

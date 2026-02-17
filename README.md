@@ -16,12 +16,22 @@ Everything you need — quick start, feature guides, hardware setup, and develop
 
 Grab the latest release from the **[Releases page](https://github.com/brianbruff/Log4YM/releases/latest)**.
 
-| Platform | File |
-|----------|------|
-| Windows | `.exe` installer |
-| macOS (Apple Silicon) | `.dmg` (arm64) |
-| macOS (Intel) | `.dmg` (x64) |
-| Linux | `.AppImage` |
+| Platform | File | Notes |
+|----------|------| ------ |
+| Windows | `.exe` installer ||
+| macOS (Apple Silicon) | `.dmg` (arm64) | see quick start wiki |
+| macOS (Intel) | `.dmg` (x64) | see quick start wiki |
+| Linux | `.AppImage` ||
+
+### macOS — Removing Gatekeeper Warning
+
+Log4YM is not signed with an Apple Developer certificate, so macOS will block it on first launch. To fix this, open Terminal and run:
+
+```bash
+xattr -cr /Applications/Log4YM.app
+```
+
+If you still see a security warning, go to **System Settings → Privacy & Security** and click **Open Anyway**.
 
 ## License
 

@@ -59,11 +59,11 @@ export function RigPlugin() {
     getHamlibRigCaps,
     getHamlibSerialPorts,
     getHamlibConfig,
-    connectHamlibRig,
+    saveHamlibConfig,
     disconnectHamlibRig,
     deleteHamlibConfig,
-    connectTci,
     disconnectTci,
+    saveTciConfig,
     deleteTciConfig,
   } = useSignalR();
 
@@ -129,10 +129,11 @@ export function RigPlugin() {
     }
   }, [hamlibConfig.modelId, getHamlibRigCaps]);
 
-  // Auto-select connection type based on capabilities and set default hostname
+  // Auto-select connection type based on capabilities only when caps are first loaded
+  // This prevents overriding user's manual connection type selection
   useEffect(() => {
-    if (hamlibCaps) {
-      // If current selection is not supported, switch to supported type
+    if (hamlibCaps && hamlibConfig.modelId > 0) {
+      // Only auto-adjust if current selection is not supported
       if (hamlibConfig.connectionType === "Serial" && !hamlibCaps.supportsSerial && hamlibCaps.supportsNetwork) {
         updateHamlibConfig({ connectionType: "Network", hostname: hamlibConfig.hostname || "localhost" });
       } else if (hamlibConfig.connectionType === "Network" && !hamlibCaps.supportsNetwork && hamlibCaps.supportsSerial) {
@@ -142,7 +143,9 @@ export function RigPlugin() {
         updateHamlibConfig({ hostname: "localhost" });
       }
     }
-  }, [hamlibCaps, hamlibConfig.connectionType, hamlibConfig.hostname]);
+    // Only run when caps change (i.e., when a new model is selected), not on every connection type change
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [hamlibCaps]);
 
   // Filter rigs by search term
   const filteredRigs = useMemo(() => {
@@ -293,7 +296,7 @@ export function RigPlugin() {
         setHamlibConfig(defaultHamlibConfig);
         setRigSearch("");
       } else if (isTci) {
-        await deleteTciConfig();
+        await deleteTciConfig(radioId);
         updateTciSettings({ host: "localhost", port: 50001, name: "" });
       }
 
@@ -309,7 +312,7 @@ export function RigPlugin() {
     }
   };
 
-  const handleConnectHamlib = async () => {
+  const handleAddHamlib = async () => {
     if (!hamlibConfig.modelId) return;
 
     // Validate based on connection type
@@ -320,41 +323,26 @@ export function RigPlugin() {
       return;
     }
 
-    const radioId = `hamlib-${hamlibConfig.modelId}`;
-    setSelectedRadio(radioId);
-    setIsConnectingHamlib(true);
     setShowHamlibForm(false);
 
     try {
-      // Set activeRigType and save settings
-      updateRadioSettings({ activeRigType: 'hamlib' });
-      await saveSettings();
-      await connectHamlibRig(hamlibConfig);
+      await saveHamlibConfig(hamlibConfig);
     } catch (error) {
-      console.error('Failed to connect Hamlib rig:', error);
-      setSelectedRadio(null);
-      setIsConnectingHamlib(false);
+      console.error('Failed to save Hamlib config:', error);
     }
   };
 
-  const handleConnectTci = async () => {
+  const handleAddTci = async () => {
     const port = tciSettings.port;
     const host = tciSettings.host;
     if (!host || !port) return;
 
-    const radioId = `tci-${host}:${port}`;
-    setSelectedRadio(radioId);
-    setIsConnectingTci(true);
     setShowTciForm(false);
 
     try {
-      // Set activeRigType and save settings to database before connecting
-      updateRadioSettings({ activeRigType: 'tci' });
-      await saveSettings();
-      await connectTci(host, port, tciSettings.name || undefined);
+      await saveTciConfig(host, port, tciSettings.name || undefined);
     } catch (error) {
-      setSelectedRadio(null);
-      setIsConnectingTci(false);
+      console.error('Failed to save TCI config:', error);
     }
   };
 
@@ -877,21 +865,12 @@ export function RigPlugin() {
             {/* Action Buttons */}
             <div className="flex gap-2 pt-2">
               <button
-                onClick={handleConnectHamlib}
-                disabled={isConnectingHamlib || !hamlibConfig.modelId || (hamlibConfig.connectionType === "Serial" && !hamlibConfig.serialPort) || (hamlibConfig.connectionType === "Network" && !hamlibConfig.hostname)}
+                onClick={handleAddHamlib}
+                disabled={!hamlibConfig.modelId || (hamlibConfig.connectionType === "Serial" && !hamlibConfig.serialPort) || (hamlibConfig.connectionType === "Network" && !hamlibConfig.hostname)}
                 className="flex-1 px-4 py-2 text-sm font-medium font-ui flex items-center justify-center gap-2 bg-accent-primary/20 text-accent-primary rounded-lg hover:bg-accent-primary/30 transition-all disabled:opacity-50"
               >
-                {isConnectingHamlib ? (
-                  <>
-                    <Wifi className="w-4 h-4 animate-pulse" />
-                    Connecting...
-                  </>
-                ) : (
-                  <>
-                    <Plus className="w-4 h-4" />
-                    Connect
-                  </>
-                )}
+                <Plus className="w-4 h-4" />
+                Add
               </button>
               <button
                 onClick={() => setShowHamlibForm(false)}
@@ -943,21 +922,12 @@ export function RigPlugin() {
             </div>
             <div className="flex gap-2 pt-2">
               <button
-                onClick={handleConnectTci}
-                disabled={isConnectingTci || !tciSettings.host}
+                onClick={handleAddTci}
+                disabled={!tciSettings.host}
                 className="flex-1 px-4 py-2 text-sm font-medium font-ui flex items-center justify-center gap-2 bg-accent-secondary/20 text-accent-secondary rounded-lg hover:bg-accent-secondary/30 transition-all disabled:opacity-50"
               >
-                {isConnectingTci ? (
-                  <>
-                    <Wifi className="w-4 h-4 animate-pulse" />
-                    Connecting...
-                  </>
-                ) : (
-                  <>
-                    <Plus className="w-4 h-4" />
-                    Connect
-                  </>
-                )}
+                <Plus className="w-4 h-4" />
+                Add
               </button>
               <button
                 onClick={() => setShowTciForm(false)}

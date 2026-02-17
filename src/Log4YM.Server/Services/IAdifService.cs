@@ -27,7 +27,8 @@ public interface IAdifService
     /// <param name="skipDuplicates">Skip duplicate QSOs</param>
     /// <param name="markAsSyncedToQrz">Mark imported QSOs as already synced to QRZ (avoids re-uploading QRZ exports)</param>
     /// <param name="clearExistingLogs">Delete all existing QSOs before import</param>
-    Task<AdifImportResult> ImportAdifAsync(Stream stream, bool skipDuplicates = true, bool markAsSyncedToQrz = true, bool clearExistingLogs = false);
+    /// <param name="cancellationToken">Cancellation token to stop import</param>
+    Task<AdifImportResult> ImportAdifAsync(Stream stream, bool skipDuplicates = true, bool markAsSyncedToQrz = true, bool clearExistingLogs = false, CancellationToken cancellationToken = default);
 
     /// <summary>
     /// Export QSOs from database to ADIF format

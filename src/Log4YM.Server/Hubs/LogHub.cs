@@ -29,6 +29,12 @@ public interface ILogHubClient
     Task OnPgxlDisconnected(PgxlDisconnectedEvent evt);
     Task OnPgxlStatus(PgxlStatusEvent evt);
 
+    // Tuner Genius events
+    Task OnTunerGeniusDiscovered(TunerGeniusDiscoveredEvent evt);
+    Task OnTunerGeniusDisconnected(TunerGeniusDisconnectedEvent evt);
+    Task OnTunerGeniusStatus(TunerGeniusStatusEvent evt);
+    Task OnTunerGeniusPortChanged(TunerGeniusPortChangedEvent evt);
+
     // Radio CAT Control events
     Task OnRadioDiscovered(RadioDiscoveredEvent evt);
     Task OnRadioRemoved(RadioRemovedEvent evt);
@@ -55,6 +61,9 @@ public interface ILogHubClient
     // QRZ Sync events
     Task OnQrzSyncProgress(QrzSyncProgressEvent evt);
 
+    // ADIF Import events
+    Task OnAdifImportProgress(AdifImportProgressEvent evt);
+
     // DX Cluster events
     Task OnClusterStatusChanged(ClusterStatusChangedEvent evt);
 
@@ -73,6 +82,7 @@ public class LogHub : Hub<ILogHubClient>
     private readonly ILogger<LogHub> _logger;
     private readonly AntennaGeniusService _antennaGeniusService;
     private readonly PgxlService _pgxlService;
+    private readonly TunerGeniusService _tunerGeniusService;
     private readonly FlexRadioService _flexRadioService;
     private readonly TciRadioService _tciRadioService;
     private readonly HamlibService _hamlibService;
@@ -83,11 +93,13 @@ public class LogHub : Hub<ILogHubClient>
     private readonly CwKeyerService _cwKeyerService;
     private readonly ICallsignImageRepository _imageRepository;
     private readonly IDbContext _dbContext;
+    private readonly IRadioConfigRepository _radioConfigRepository;
 
     public LogHub(
         ILogger<LogHub> logger,
         AntennaGeniusService antennaGeniusService,
         PgxlService pgxlService,
+        TunerGeniusService tunerGeniusService,
         FlexRadioService flexRadioService,
         TciRadioService tciRadioService,
         HamlibService hamlibService,
@@ -97,11 +109,13 @@ public class LogHub : Hub<ILogHubClient>
         ISettingsRepository settingsRepository,
         CwKeyerService cwKeyerService,
         ICallsignImageRepository imageRepository,
-        IDbContext dbContext)
+        IDbContext dbContext,
+        IRadioConfigRepository radioConfigRepository)
     {
         _logger = logger;
         _antennaGeniusService = antennaGeniusService;
         _pgxlService = pgxlService;
+        _tunerGeniusService = tunerGeniusService;
         _flexRadioService = flexRadioService;
         _tciRadioService = tciRadioService;
         _hamlibService = hamlibService;
@@ -112,6 +126,7 @@ public class LogHub : Hub<ILogHubClient>
         _cwKeyerService = cwKeyerService;
         _imageRepository = imageRepository;
         _dbContext = dbContext;
+        _radioConfigRepository = radioConfigRepository;
     }
 
     public override async Task OnConnectedAsync()
@@ -322,6 +337,16 @@ public class LogHub : Hub<ILogHubClient>
             if (tuned)
             {
                 _logger.LogInformation("Tuned TCI radio {RadioId} to {FrequencyMHz} MHz", radioId, evt.Frequency / 1000.0);
+
+                // Also set mode if provided
+                if (!string.IsNullOrEmpty(evt.Mode))
+                {
+                    var modeSet = await _tciRadioService.SetModeAsync(radioId, evt.Mode, frequencyHz);
+                    if (modeSet)
+                    {
+                        _logger.LogInformation("Set TCI radio {RadioId} mode to {Mode}", radioId, evt.Mode);
+                    }
+                }
             }
         }
         else if (_hamlibService.IsConnected)
@@ -414,6 +439,50 @@ public class LogHub : Hub<ILogHubClient>
         await _pgxlService.DisableFlexRadioPairingAsync(cmd.Serial, cmd.Slice);
     }
 
+    // Tuner Genius methods
+
+    public async Task TuneTunerGenius(TuneTunerGeniusCommand cmd)
+    {
+        _logger.LogInformation("Tuning port {PortId} on Tuner Genius {Serial}",
+            cmd.PortId, cmd.DeviceSerial);
+
+        await _tunerGeniusService.TuneAsync(cmd.DeviceSerial, cmd.PortId);
+    }
+
+    public async Task BypassTunerGenius(BypassTunerGeniusCommand cmd)
+    {
+        _logger.LogInformation("Setting bypass={Bypass} for port {PortId} on Tuner Genius {Serial}",
+            cmd.Bypass, cmd.PortId, cmd.DeviceSerial);
+
+        await _tunerGeniusService.SetBypassAsync(cmd.DeviceSerial, cmd.PortId, cmd.Bypass);
+    }
+
+    public async Task OperateTunerGenius(OperateTunerGeniusCommand cmd)
+    {
+        _logger.LogInformation("Setting operate={Operate} on Tuner Genius {Serial}",
+            cmd.Operate, cmd.DeviceSerial);
+
+        await _tunerGeniusService.SetOperateAsync(cmd.DeviceSerial, cmd.Operate);
+    }
+
+    public async Task ActivateChannelTunerGenius(ActivateChannelTunerGeniusCommand cmd)
+    {
+        _logger.LogInformation("Activating channel {Channel} on Tuner Genius {Serial}",
+            cmd.Channel, cmd.DeviceSerial);
+
+        await _tunerGeniusService.ActivateChannelAsync(cmd.DeviceSerial, cmd.Channel);
+    }
+
+    public async Task RequestTunerGeniusStatus()
+    {
+        _logger.LogDebug("Client requested Tuner Genius status");
+
+        foreach (var status in _tunerGeniusService.GetAllDeviceStatuses())
+        {
+            await Clients.Caller.OnTunerGeniusStatus(status);
+        }
+    }
+
     // Radio CAT Control methods
 
     public async Task StartRadioDiscovery(StartRadioDiscoveryCommand cmd)
@@ -465,9 +534,9 @@ public class LogHub : Hub<ILogHubClient>
             var host = parts[0];
             var port = parts.Length > 1 && int.TryParse(parts[1], out var p) ? p : 50001;
 
-            // Load saved name from settings
-            var settings = await _settingsRepository.GetAsync();
-            var name = settings?.Radio?.Tci?.Name;
+            // Load saved name from radio_configs repo
+            var savedConfig = await _radioConfigRepository.GetByRadioIdAsync(cmd.RadioId);
+            var name = savedConfig?.TciName;
 
             await _tciRadioService.ConnectDirectAsync(host, port, !string.IsNullOrEmpty(name) ? name : null);
         }
@@ -699,6 +768,44 @@ public class LogHub : Hub<ILogHubClient>
     }
 
     /// <summary>
+    /// Save Hamlib rig configuration without connecting.
+    /// The rig will appear in the saved list but won't be connected.
+    /// </summary>
+    public async Task SaveHamlibConfig(HamlibRigConfigDto configDto)
+    {
+        _logger.LogInformation("Saving Hamlib config (no connect): {ModelName}", configDto.ModelName);
+
+        var config = new HamlibRigConfig
+        {
+            ModelId = configDto.ModelId,
+            ModelName = configDto.ModelName,
+            ConnectionType = (Native.Hamlib.HamlibConnectionType)(int)configDto.ConnectionType,
+            SerialPort = configDto.SerialPort,
+            BaudRate = configDto.BaudRate,
+            DataBits = (Native.Hamlib.HamlibDataBits)(int)configDto.DataBits,
+            StopBits = (Native.Hamlib.HamlibStopBits)(int)configDto.StopBits,
+            FlowControl = (Native.Hamlib.HamlibFlowControl)(int)configDto.FlowControl,
+            Parity = (Native.Hamlib.HamlibParity)(int)configDto.Parity,
+            Hostname = configDto.Hostname,
+            NetworkPort = configDto.NetworkPort,
+            PttType = (Native.Hamlib.HamlibPttType)(int)configDto.PttType,
+            PttPort = configDto.PttPort,
+            GetFrequency = configDto.GetFrequency,
+            GetMode = configDto.GetMode,
+            GetVfo = configDto.GetVfo,
+            GetPtt = configDto.GetPtt,
+            GetPower = configDto.GetPower,
+            GetRit = configDto.GetRit,
+            GetXit = configDto.GetXit,
+            GetKeySpeed = configDto.GetKeySpeed,
+            PollIntervalMs = configDto.PollIntervalMs
+        };
+
+        await _hamlibService.SaveConfigOnlyAsync(config);
+        await RequestRadioStatus();
+    }
+
+    /// <summary>
     /// Disconnect from the Hamlib rig
     /// </summary>
     public async Task DisconnectHamlibRig()
@@ -720,19 +827,38 @@ public class LogHub : Hub<ILogHubClient>
     }
 
     /// <summary>
+    /// Save TCI configuration to the radio_configs collection
+    /// </summary>
+    public async Task SaveTciConfig(string host, int port, string? name)
+    {
+        _logger.LogInformation("Saving TCI config: {Host}:{Port}", host, port);
+        await _tciRadioService.SaveTciConfigAsync(host, port, name);
+        await RequestRadioStatus();
+    }
+
+    /// <summary>
     /// Delete saved TCI configuration
     /// </summary>
-    public async Task DeleteTciConfig()
+    public async Task DeleteTciConfig(string? radioId = null)
     {
-        _logger.LogInformation("Deleting saved TCI configuration");
+        _logger.LogInformation("Deleting saved TCI configuration: {RadioId}", radioId ?? "(auto-detect)");
 
-        // Clear TCI settings to defaults
-        var settings = await _settingsRepository.GetAsync() ?? new Log4YM.Contracts.Models.UserSettings();
-        settings.Radio.Tci = new Log4YM.Contracts.Models.TciSettings();
-        settings.Radio.ActiveRigType = null;
-        settings.Radio.AutoReconnect = false;
-
-        await _settingsRepository.UpsertAsync(settings);
+        if (!string.IsNullOrEmpty(radioId))
+        {
+            // Delete from radio_configs and remove from discovered
+            await _tciRadioService.DeleteTciConfigAsync(radioId);
+            await _tciRadioService.RemoveRadioAsync(radioId);
+        }
+        else
+        {
+            // Fallback: delete all TCI configs from the repo
+            var tciConfigs = await _radioConfigRepository.GetByTypeAsync("tci");
+            foreach (var config in tciConfigs)
+            {
+                await _radioConfigRepository.DeleteByRadioIdAsync(config.RadioId);
+                await _tciRadioService.RemoveRadioAsync(config.RadioId);
+            }
+        }
 
         // Request updated radio status to reflect the removal
         await RequestRadioStatus();
@@ -933,6 +1059,11 @@ public static class LogHubExtensions
     public static async Task BroadcastQrzSyncProgress(this IHubContext<LogHub, ILogHubClient> hub, QrzSyncProgressEvent evt)
     {
         await hub.Clients.All.OnQrzSyncProgress(evt);
+    }
+
+    public static async Task BroadcastAdifImportProgress(this IHubContext<LogHub, ILogHubClient> hub, AdifImportProgressEvent evt)
+    {
+        await hub.Clients.All.OnAdifImportProgress(evt);
     }
 
     public static async Task BroadcastClusterStatusChanged(this IHubContext<LogHub, ILogHubClient> hub, ClusterStatusChangedEvent evt)

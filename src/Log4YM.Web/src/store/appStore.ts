@@ -6,6 +6,9 @@ import type {
   AntennaGeniusStatusEvent,
   AntennaGeniusPortStatus,
   PgxlStatusEvent,
+  TunerGeniusStatusEvent,
+  TunerGeniusPortStatus,
+  TunerGeniusPortChangedEvent,
   RadioDiscoveredEvent,
   RadioConnectionState,
   RadioStateChangedEvent,
@@ -74,6 +77,12 @@ interface AppState {
   pgxlTciLinkB: string | null;
   setPgxlTciLink: (side: 'A' | 'B', radioId: string | null) => void;
 
+  // Tuner Genius
+  tunerGeniusDevices: Map<string, TunerGeniusStatusEvent>;
+  setTunerGeniusStatus: (status: TunerGeniusStatusEvent) => void;
+  updateTunerGeniusPort: (evt: TunerGeniusPortChangedEvent) => void;
+  removeTunerGeniusDevice: (serial: string) => void;
+
   // Radio CAT Control
   discoveredRadios: Map<string, RadioDiscoveredEvent>;
   radioConnectionStates: Map<string, RadioConnectionState>;
@@ -104,6 +113,10 @@ interface AppState {
   // QRZ Sync
   qrzSyncProgress: QrzSyncProgress | null;
   setQrzSyncProgress: (progress: QrzSyncProgress | null) => void;
+
+  // ADIF Import
+  adifImportProgress: AdifImportProgress | null;
+  setAdifImportProgress: (progress: AdifImportProgress | null) => void;
 
   // Log History Callsign Filter (shared between LogEntry and LogHistory)
   logHistoryCallsignFilter: string | null;
@@ -167,6 +180,17 @@ export interface QrzSyncProgress {
   total: number;
   completed: number;
   successful: number;
+  failed: number;
+  isComplete: boolean;
+  currentCallsign: string | null;
+  message: string | null;
+}
+
+export interface AdifImportProgress {
+  total: number;
+  processed: number;
+  imported: number;
+  skipped: number;
   failed: number;
   isComplete: boolean;
   currentCallsign: string | null;
@@ -271,6 +295,59 @@ export const useAppStore = create<AppState>((set) => ({
     return set(side === 'A' ? { pgxlTciLinkA: radioId } : { pgxlTciLinkB: radioId });
   },
 
+  // Tuner Genius
+  tunerGeniusDevices: new Map(),
+  setTunerGeniusStatus: (status) =>
+    set((state) => {
+      const devices = new Map(state.tunerGeniusDevices);
+      devices.set(status.deviceSerial, status);
+      return { tunerGeniusDevices: devices };
+    }),
+  updateTunerGeniusPort: (evt) =>
+    set((state) => {
+      const devices = new Map(state.tunerGeniusDevices);
+      const device = devices.get(evt.deviceSerial);
+      if (!device) return state;
+
+      const portStatus: TunerGeniusPortStatus = {
+        portId: evt.portId,
+        auto: evt.auto,
+        band: evt.band,
+        frequencyMhz: evt.frequencyMhz,
+        swr: evt.swr,
+        isTuning: evt.isTuning,
+        isTransmitting: evt.isTransmitting,
+        selectedAntenna: evt.selectedAntenna,
+        tuneResult: evt.tuneResult,
+      };
+
+      const updatedDevice: TunerGeniusStatusEvent = {
+        ...device,
+        isOperating: evt.isOperating,
+        isBypassed: evt.isBypassed,
+        isTuning: evt.isTuning,
+        forwardPowerWatts: evt.forwardPowerWatts,
+        swr: evt.swrDecimal,
+        l: evt.l,
+        c1: evt.c1,
+        c2: evt.c2,
+        activeRadio: evt.activeRadio,
+        freqAMhz: evt.portId === 1 ? evt.frequencyMhz : device.freqAMhz,
+        freqBMhz: evt.portId === 2 ? evt.frequencyMhz : device.freqBMhz,
+        portA: evt.portId === 1 ? portStatus : device.portA,
+        portB: evt.portId === 2 ? portStatus : device.portB,
+      };
+
+      devices.set(evt.deviceSerial, updatedDevice);
+      return { tunerGeniusDevices: devices };
+    }),
+  removeTunerGeniusDevice: (serial) =>
+    set((state) => {
+      const devices = new Map(state.tunerGeniusDevices);
+      devices.delete(serial);
+      return { tunerGeniusDevices: devices };
+    }),
+
   // Radio CAT Control
   discoveredRadios: new Map(),
   radioConnectionStates: new Map(),
@@ -372,6 +449,10 @@ export const useAppStore = create<AppState>((set) => ({
   // QRZ Sync
   qrzSyncProgress: null,
   setQrzSyncProgress: (progress) => set({ qrzSyncProgress: progress }),
+
+  // ADIF Import
+  adifImportProgress: null,
+  setAdifImportProgress: (progress) => set({ adifImportProgress: progress }),
 
   // Log History Callsign Filter
   logHistoryCallsignFilter: null,

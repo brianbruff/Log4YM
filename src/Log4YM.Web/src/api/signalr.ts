@@ -211,6 +211,103 @@ export interface DisablePgxlFlexRadioPairingCommand {
   slice: string;
 }
 
+// Tuner Genius types
+export interface TunerGeniusDiscoveredEvent {
+  ipAddress: string;
+  port: number;
+  version: string;
+  serial: string;
+  name: string;
+  model: string;  // "SO2R" or "AntennaSwitch"
+  uptime: number;
+}
+
+export interface TunerGeniusDisconnectedEvent {
+  serial: string;
+}
+
+export interface TunerGeniusPortStatus {
+  portId: number;
+  auto: boolean;
+  band: string;
+  frequencyMhz: number;
+  swr: number;           // SWR * 10 (e.g., 15 = 1.5:1)
+  isTuning: boolean;
+  isTransmitting: boolean;
+  selectedAntenna?: number;  // null/undefined if not in antenna switch mode
+  tuneResult: string;    // "OK", "HighSWR", "Timeout", etc.
+}
+
+export interface TunerGeniusStatusEvent {
+  deviceSerial: string;
+  deviceName: string;
+  ipAddress: string;
+  version: string;
+  model: string;
+  isConnected: boolean;
+  // Tuner state
+  isOperating: boolean;
+  isBypassed: boolean;
+  isTuning: boolean;
+  activeRadio: number;          // 1 or 2
+  // Metering
+  forwardPowerWatts: number;
+  swr: number;                  // e.g. 1.5 (double)
+  // Matching network positions (0–255)
+  l: number;
+  c1: number;
+  c2: number;
+  // Per-radio frequency inputs
+  freqAMhz: number;
+  freqBMhz: number;
+  // Legacy port wrappers (portA = Radio 1, portB = Radio 2)
+  portA: TunerGeniusPortStatus;
+  portB?: TunerGeniusPortStatus;  // null for non-SO2R models
+}
+
+export interface TunerGeniusPortChangedEvent {
+  deviceSerial: string;
+  portId: number;
+  auto: boolean;
+  band: string;
+  frequencyMhz: number;
+  swr: number;              // SWR * 10 (int, legacy)
+  isTuning: boolean;
+  isTransmitting: boolean;
+  selectedAntenna?: number;
+  tuneResult: string;
+  // Tuner-level fields (mirrored from TunerGeniusStatusEvent)
+  isBypassed: boolean;
+  isOperating: boolean;
+  forwardPowerWatts: number;
+  swrDecimal: number;       // SWR as double e.g. 1.5
+  l: number;
+  c1: number;
+  c2: number;
+  activeRadio: number;
+}
+
+export interface TuneTunerGeniusCommand {
+  deviceSerial: string;
+  portId: number;
+}
+
+export interface BypassTunerGeniusCommand {
+  deviceSerial: string;
+  portId: number;
+  bypass: boolean;
+}
+
+export interface OperateTunerGeniusCommand {
+  deviceSerial: string;
+  operate: boolean;
+}
+
+export interface ActivateChannelTunerGeniusCommand {
+  deviceSerial: string;
+  channel: number;
+}
+
 // Radio CAT Control types
 export type RadioType = 'FlexRadio' | 'Tci' | 'Hamlib';
 
@@ -465,6 +562,18 @@ export interface QrzSyncProgressEvent {
   message: string | null;
 }
 
+// ADIF Import types
+export interface AdifImportProgressEvent {
+  total: number;
+  processed: number;
+  imported: number;
+  skipped: number;
+  failed: number;
+  isComplete: boolean;
+  currentCallsign: string | null;
+  message: string | null;
+}
+
 // DX Cluster types
 export interface ClusterStatusChangedEvent {
   clusterId: string;
@@ -495,6 +604,11 @@ type EventHandlers = {
   onPgxlDiscovered?: (evt: PgxlDiscoveredEvent) => void;
   onPgxlDisconnected?: (evt: PgxlDisconnectedEvent) => void;
   onPgxlStatus?: (evt: PgxlStatusEvent) => void;
+  // Tuner Genius handlers
+  onTunerGeniusDiscovered?: (evt: TunerGeniusDiscoveredEvent) => void;
+  onTunerGeniusDisconnected?: (evt: TunerGeniusDisconnectedEvent) => void;
+  onTunerGeniusStatus?: (evt: TunerGeniusStatusEvent) => void;
+  onTunerGeniusPortChanged?: (evt: TunerGeniusPortChangedEvent) => void;
   // Radio CAT Control handlers
   onRadioDiscovered?: (evt: RadioDiscoveredEvent) => void;
   onRadioRemoved?: (evt: RadioRemovedEvent) => void;
@@ -516,6 +630,8 @@ type EventHandlers = {
   onSmartUnlinkStatus?: (evt: SmartUnlinkStatusEvent) => void;
   // QRZ Sync handlers
   onQrzSyncProgress?: (evt: QrzSyncProgressEvent) => void;
+  // ADIF Import handlers
+  onAdifImportProgress?: (evt: AdifImportProgressEvent) => void;
   // DX Cluster handlers
   onClusterStatusChanged?: (evt: ClusterStatusChangedEvent) => void;
 };
@@ -770,6 +886,23 @@ class SignalRService {
       this.handlers.onPgxlStatus?.(evt);
     });
 
+    // Tuner Genius events
+    this.connection.on('OnTunerGeniusDiscovered', (evt: TunerGeniusDiscoveredEvent) => {
+      this.handlers.onTunerGeniusDiscovered?.(evt);
+    });
+
+    this.connection.on('OnTunerGeniusDisconnected', (evt: TunerGeniusDisconnectedEvent) => {
+      this.handlers.onTunerGeniusDisconnected?.(evt);
+    });
+
+    this.connection.on('OnTunerGeniusStatus', (evt: TunerGeniusStatusEvent) => {
+      this.handlers.onTunerGeniusStatus?.(evt);
+    });
+
+    this.connection.on('OnTunerGeniusPortChanged', (evt: TunerGeniusPortChangedEvent) => {
+      this.handlers.onTunerGeniusPortChanged?.(evt);
+    });
+
     // Radio CAT Control events
     this.connection.on('OnRadioDiscovered', (evt: RadioDiscoveredEvent) => {
       this.handlers.onRadioDiscovered?.(evt);
@@ -839,6 +972,11 @@ class SignalRService {
       this.handlers.onQrzSyncProgress?.(evt);
     });
 
+    // ADIF Import events
+    this.connection.on('OnAdifImportProgress', (evt: AdifImportProgressEvent) => {
+      this.handlers.onAdifImportProgress?.(evt);
+    });
+
     // DX Cluster events
     this.connection.on('OnClusterStatusChanged', (evt: ClusterStatusChangedEvent) => {
       this.handlers.onClusterStatusChanged?.(evt);
@@ -895,6 +1033,31 @@ class SignalRService {
   async disablePgxlFlexRadioPairing(serial: string, slice: string): Promise<void> {
     const cmd: DisablePgxlFlexRadioPairingCommand = { serial, slice };
     await this.connection?.invoke('DisablePgxlFlexRadioPairing', cmd);
+  }
+
+  // Tuner Genius methods
+  async tuneTunerGenius(deviceSerial: string, portId: number): Promise<void> {
+    const cmd: TuneTunerGeniusCommand = { deviceSerial, portId };
+    await this.connection?.invoke('TuneTunerGenius', cmd);
+  }
+
+  async bypassTunerGenius(deviceSerial: string, portId: number, bypass: boolean): Promise<void> {
+    const cmd: BypassTunerGeniusCommand = { deviceSerial, portId, bypass };
+    await this.connection?.invoke('BypassTunerGenius', cmd);
+  }
+
+  async operateTunerGenius(deviceSerial: string, operate: boolean): Promise<void> {
+    const cmd: OperateTunerGeniusCommand = { deviceSerial, operate };
+    await this.connection?.invoke('OperateTunerGenius', cmd);
+  }
+
+  async activateChannelTunerGenius(deviceSerial: string, channel: number): Promise<void> {
+    const cmd: ActivateChannelTunerGeniusCommand = { deviceSerial, channel };
+    await this.connection?.invoke('ActivateChannelTunerGenius', cmd);
+  }
+
+  async requestTunerGeniusStatus(): Promise<void> {
+    await this.connection?.invoke('RequestTunerGeniusStatus');
   }
 
   // Radio CAT Control methods
@@ -977,6 +1140,10 @@ class SignalRService {
     await this.connection?.invoke('ConnectHamlibRig', config);
   }
 
+  async saveHamlibConfig(config: HamlibRigConfigDto): Promise<void> {
+    await this.connection?.invoke('SaveHamlibConfig', config);
+  }
+
   async disconnectHamlibRig(): Promise<void> {
     await this.connection?.invoke('DisconnectHamlibRig');
   }
@@ -985,8 +1152,12 @@ class SignalRService {
     await this.connection?.invoke('DeleteHamlibConfig');
   }
 
-  async deleteTciConfig(): Promise<void> {
-    await this.connection?.invoke('DeleteTciConfig');
+  async saveTciConfig(host: string, port: number, name?: string): Promise<void> {
+    await this.connection?.invoke('SaveTciConfig', host, port, name ?? null);
+  }
+
+  async deleteTciConfig(radioId?: string): Promise<void> {
+    await this.connection?.invoke('DeleteTciConfig', radioId ?? null);
   }
 
   // TCI direct connection methods

@@ -6,8 +6,9 @@ import { SettingsPanel } from './components/SettingsPanel';
 import { ConnectionOverlay } from './components/ConnectionOverlay';
 import { SetupWizard } from './components/SetupWizard';
 import { SplashScreen } from './components/SplashScreen';
+import { PluginErrorBoundary } from './components/PluginErrorBoundary';
 import { useSignalRConnection } from './hooks/useSignalR';
-import { LogEntryPlugin, LogHistoryPlugin, ClusterPlugin, MapPlugin, RotatorPlugin, GlobePlugin, AntennaGeniusPlugin, PgxlPlugin, SmartUnlinkPlugin, RigPlugin, QrzProfilePlugin, ContestsPlugin, SolarPanelPlugin, AnalogClockPlugin, HeaderPlugin, DXpeditionsPlugin, ChatAiPlugin, POTAPlugin, PropagationPanelPlugin, CwKeyerPlugin } from './plugins';
+import { LogEntryPlugin, LogHistoryPlugin, ClusterPlugin, MapPlugin, RotatorPlugin, GlobePlugin, AntennaGeniusPlugin, PgxlPlugin, TunerGeniusPlugin, SmartUnlinkPlugin, RigPlugin, QrzProfilePlugin, ContestsPlugin, SolarPanelPlugin, AnalogClockPlugin, HeaderPlugin, DXpeditionsPlugin, ChatAiPlugin, POTAPlugin, PropagationPanelPlugin, CwKeyerPlugin } from './plugins';
 import { Globe as Globe3D } from 'lucide-react';
 import { useLayoutStore, defaultLayout } from './store/layoutStore';
 import { useSettingsStore } from './store/settingsStore';
@@ -84,6 +85,13 @@ const PLUGINS: Record<string, PluginDef> = {
     component: PgxlPlugin,
     category: 'Radio & Equipment',
     tags: ['amplifier', 'amp'],
+  },
+  'tuner-genius': {
+    name: 'Tuner Genius',
+    icon: <Zap className="w-4 h-4" />,
+    component: TunerGeniusPlugin,
+    category: 'Radio & Equipment',
+    tags: ['tuner', 'antenna', 'swr'],
   },
   'smart-unlink': {
     name: 'SmartUnlink',
@@ -321,7 +329,11 @@ export function App() {
 
     if (plugin) {
       const Component = plugin.component;
-      return <Component />;
+      return (
+        <PluginErrorBoundary pluginId={component || 'unknown'}>
+          <Component />
+        </PluginErrorBoundary>
+      );
     }
 
     return (

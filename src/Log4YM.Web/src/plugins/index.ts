@@ -6,6 +6,7 @@ export { RotatorPlugin } from './RotatorPlugin';
 export { GlobePlugin } from './GlobePlugin';
 export { AntennaGeniusPlugin } from './AntennaGeniusPlugin';
 export { PgxlPlugin } from './PgxlPlugin';
+export { TunerGeniusPlugin } from './TunerGeniusPlugin';
 export { SmartUnlinkPlugin } from './SmartUnlinkPlugin';
 export { RigPlugin } from './RigPlugin';
 export { QrzProfilePlugin } from './QrzProfilePlugin';

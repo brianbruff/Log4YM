@@ -24,6 +24,9 @@ export function useSignalRConnection() {
     removeAntennaGeniusDevice,
     setPgxlStatus,
     removePgxlDevice,
+    setTunerGeniusStatus,
+    updateTunerGeniusPort,
+    removeTunerGeniusDevice,
     addDiscoveredRadio,
     removeDiscoveredRadio,
     setRadioConnectionState,
@@ -35,6 +38,7 @@ export function useSignalRConnection() {
     removeSmartUnlinkRadio,
     setSmartUnlinkRadios,
     setQrzSyncProgress,
+    setAdifImportProgress,
     setSelectedSpot,
     setLogHistoryCallsignFilter,
     setClusterStatus,
@@ -61,8 +65,20 @@ export function useSignalRConnection() {
     // This callback is responsible for loading ALL data and then setting state to 'connected'
     signalRService.setOnConnectedCallback(async () => {
       console.log('Connection established, rehydrating application state...');
+
+      // Hard timeout: if rehydration takes longer than 15 seconds, bail out and
+      // show the UI anyway. This prevents the "Loading Data..." overlay from
+      // hanging indefinitely if the backend database is slow or unreachable.
+      const REHYDRATION_TIMEOUT_MS = 15_000;
+      let rehydrationTimedOut = false;
+      const timeoutId = setTimeout(() => {
+        rehydrationTimedOut = true;
+        console.warn(`Rehydration timed out after ${REHYDRATION_TIMEOUT_MS / 1000}s — proceeding to connected state`);
+        setConnectionState('connected', 0);
+      }, REHYDRATION_TIMEOUT_MS);
+
       try {
-        // 1. Reload settings from MongoDB
+        // 1. Reload settings from database
         console.log('Reloading settings from database...');
         await useSettingsStore.getState().loadSettings();
 
@@ -71,6 +87,7 @@ export function useSignalRConnection() {
         await Promise.all([
           signalRService.requestAntennaGeniusStatus(),
           signalRService.requestPgxlStatus(),
+          signalRService.requestTunerGeniusStatus(),
           signalRService.requestRadioStatus(),
           signalRService.requestSmartUnlinkStatus(),
           signalRService.requestRotatorStatus(),
@@ -105,12 +122,14 @@ export function useSignalRConnection() {
         ]);
 
         console.log('Rehydration complete');
-        // 5. Now we can set state to fully connected
-        setConnectionState('connected', 0);
       } catch (err) {
         console.error('Error during rehydration:', err);
-        // Still set connected even if some things failed - user can manually refresh
-        setConnectionState('connected', 0);
+      } finally {
+        clearTimeout(timeoutId);
+        // Only set connected if the timeout didn't already do it
+        if (!rehydrationTimedOut) {
+          setConnectionState('connected', 0);
+        }
       }
     });
 
@@ -213,6 +232,22 @@ export function useSignalRConnection() {
             console.log('PGXL status:', evt.serial, 'isOperating:', evt.isOperating, 'isTransmitting:', evt.isTransmitting);
             setPgxlStatus(evt);
           },
+          // Tuner Genius handlers
+          onTunerGeniusDiscovered: (evt) => {
+            console.log('Tuner Genius discovered:', evt.name, evt.serial, evt.model);
+          },
+          onTunerGeniusDisconnected: (evt) => {
+            console.log('Tuner Genius disconnected:', evt.serial);
+            removeTunerGeniusDevice(evt.serial);
+          },
+          onTunerGeniusStatus: (evt) => {
+            console.log('Tuner Genius status:', evt.deviceName, evt.isConnected, evt.model);
+            setTunerGeniusStatus(evt);
+          },
+          onTunerGeniusPortChanged: (evt) => {
+            console.log('Tuner Genius port changed:', evt.portId, 'SWR:', evt.swrDecimal, 'Operating:', evt.isOperating, 'Tuning:', evt.isTuning);
+            updateTunerGeniusPort(evt);
+          },
           // Radio CAT Control handlers
           onRadioDiscovered: (evt) => {
             console.log('Radio discovered:', evt.model, evt.ipAddress);
@@ -264,6 +299,11 @@ export function useSignalRConnection() {
           onQrzSyncProgress: (evt) => {
             console.log('QRZ sync progress:', evt.completed, '/', evt.total);
             setQrzSyncProgress(evt);
+          },
+          // ADIF Import handler
+          onAdifImportProgress: (evt) => {
+            console.log('ADIF import progress:', evt.processed, '/', evt.total);
+            setAdifImportProgress(evt);
           },
           // DX Cluster handler
           onClusterStatusChanged: (evt) => {
@@ -345,6 +385,22 @@ export function useSignalR() {
     await signalRService.disablePgxlFlexRadioPairing(serial, slice);
   }, []);
 
+  const tuneTunerGenius = useCallback(async (deviceSerial: string, portId: number) => {
+    await signalRService.tuneTunerGenius(deviceSerial, portId);
+  }, []);
+
+  const bypassTunerGenius = useCallback(async (deviceSerial: string, portId: number, bypass: boolean) => {
+    await signalRService.bypassTunerGenius(deviceSerial, portId, bypass);
+  }, []);
+
+  const operateTunerGenius = useCallback(async (deviceSerial: string, operate: boolean) => {
+    await signalRService.operateTunerGenius(deviceSerial, operate);
+  }, []);
+
+  const activateChannelTunerGenius = useCallback(async (deviceSerial: string, channel: number) => {
+    await signalRService.activateChannelTunerGenius(deviceSerial, channel);
+  }, []);
+
   // Radio CAT Control methods
   const startRadioDiscovery = useCallback(async (type: 'FlexRadio' | 'Tci') => {
     await signalRService.startRadioDiscovery(type);
@@ -408,6 +464,10 @@ export function useSignalR() {
     await signalRService.connectHamlibRig(config);
   }, []);
 
+  const saveHamlibConfig = useCallback(async (config: HamlibRigConfigDto) => {
+    await signalRService.saveHamlibConfig(config);
+  }, []);
+
   const disconnectHamlibRig = useCallback(async () => {
     await signalRService.disconnectHamlibRig();
   }, []);
@@ -448,8 +508,12 @@ export function useSignalR() {
     await signalRService.disconnectHamlibRig();
   }, []);
 
-  const deleteTciConfig = useCallback(async () => {
-    await signalRService.deleteTciConfig();
+  const saveTciConfig = useCallback(async (host: string, port: number, name?: string) => {
+    await signalRService.saveTciConfig(host, port, name);
+  }, []);
+
+  const deleteTciConfig = useCallback(async (radioId?: string) => {
+    await signalRService.deleteTciConfig(radioId);
   }, []);
 
   // TCI direct connection methods
@@ -498,6 +562,11 @@ export function useSignalR() {
     setPgxlOperate,
     setPgxlStandby,
     disablePgxlFlexRadioPairing,
+    // Tuner Genius
+    tuneTunerGenius,
+    bypassTunerGenius,
+    operateTunerGenius,
+    activateChannelTunerGenius,
     // Radio CAT Control
     startRadioDiscovery,
     stopRadioDiscovery,
@@ -516,6 +585,7 @@ export function useSignalR() {
     getHamlibConfig,
     getHamlibStatus,
     connectHamlibRig,
+    saveHamlibConfig,
     disconnectHamlibRig,
     deleteHamlibConfig,
     // Hamlib (legacy rigctld compatibility)
@@ -524,6 +594,7 @@ export function useSignalR() {
     // TCI direct connection
     connectTci,
     disconnectTci,
+    saveTciConfig,
     deleteTciConfig,
     // SmartUnlink
     addSmartUnlinkRadio: addSmartUnlinkRadioFn,

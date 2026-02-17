@@ -12,6 +12,10 @@ public class AdifController : ControllerBase
     private readonly IAdifService _adifService;
     private readonly ILogger<AdifController> _logger;
 
+    // Static cancellation source for import operation - allows cancellation from another request
+    private static CancellationTokenSource? _importCancellation;
+    private static readonly object _importLock = new();
+
     public AdifController(IAdifService adifService, ILogger<AdifController> logger)
     {
         _adifService = adifService;
@@ -49,16 +53,55 @@ public class AdifController : ControllerBase
         _logger.LogInformation("Importing ADIF file: {FileName} ({Size} bytes), skipDuplicates={Skip}, markAsSyncedToQrz={Synced}, clearExisting={Clear}",
             file.FileName, file.Length, skipDuplicates, markAsSyncedToQrz, clearExistingLogs);
 
-        await using var stream = file.OpenReadStream();
-        var result = await _adifService.ImportAdifAsync(stream, skipDuplicates, markAsSyncedToQrz, clearExistingLogs);
+        // Create new cancellation source for this import operation
+        CancellationTokenSource cts;
+        lock (_importLock)
+        {
+            // Cancel any existing import
+            _importCancellation?.Cancel();
+            _importCancellation?.Dispose();
+            _importCancellation = new CancellationTokenSource();
+            cts = _importCancellation;
+        }
 
-        return Ok(new AdifImportResponse(
-            result.TotalRecords,
-            result.ImportedCount,
-            result.SkippedDuplicates,
-            result.ErrorCount,
-            result.Errors
-        ));
+        try
+        {
+            await using var stream = file.OpenReadStream();
+            var result = await _adifService.ImportAdifAsync(stream, skipDuplicates, markAsSyncedToQrz, clearExistingLogs, cts.Token);
+
+            return Ok(new AdifImportResponse(
+                result.TotalRecords,
+                result.ImportedCount,
+                result.SkippedDuplicates,
+                result.ErrorCount,
+                result.Errors
+            ));
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogInformation("ADIF import was cancelled by user");
+            return Ok(new AdifImportResponse(0, 0, 0, 0, new[] { "Import cancelled by user" }));
+        }
+    }
+
+    /// <summary>
+    /// Cancel an ongoing ADIF import operation
+    /// </summary>
+    [HttpPost("import/cancel")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public IActionResult CancelImport()
+    {
+        lock (_importLock)
+        {
+            if (_importCancellation != null)
+            {
+                _importCancellation.Cancel();
+                _logger.LogInformation("ADIF import cancellation requested");
+                return Ok(new { Message = "Import cancellation requested" });
+            }
+        }
+
+        return Ok(new { Message = "No import in progress" });
     }
 
     /// <summary>

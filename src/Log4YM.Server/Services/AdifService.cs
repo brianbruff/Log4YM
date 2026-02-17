@@ -102,7 +102,7 @@ public partial class AdifService : IAdifService
         return sb.ToString();
     }
 
-    public async Task<AdifImportResult> ImportAdifAsync(Stream stream, bool skipDuplicates = true, bool markAsSyncedToQrz = true, bool clearExistingLogs = false)
+    public async Task<AdifImportResult> ImportAdifAsync(Stream stream, bool skipDuplicates = true, bool markAsSyncedToQrz = true, bool clearExistingLogs = false, CancellationToken cancellationToken = default)
     {
         var qsos = ParseAdif(stream).ToList();
         var importedCount = 0;
@@ -113,6 +113,10 @@ public partial class AdifService : IAdifService
         _logger.LogInformation("Importing {Count} QSO records from ADIF (markAsSynced={Synced}, clearExisting={Clear})",
             qsos.Count, markAsSyncedToQrz, clearExistingLogs);
 
+        // Send initial progress update
+        await _hub.BroadcastAdifImportProgress(new AdifImportProgressEvent(
+            qsos.Count, 0, 0, 0, 0, false, null, "Starting import..."));
+
         // Clear existing logs if requested
         if (clearExistingLogs)
         {
@@ -120,8 +124,12 @@ public partial class AdifService : IAdifService
             _logger.LogInformation("Cleared {Count} existing QSOs before import", deletedCount);
         }
 
-        foreach (var qso in qsos)
+        for (int i = 0; i < qsos.Count; i++)
         {
+            // Check for cancellation
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var qso = qsos[i];
             try
             {
                 if (skipDuplicates && !clearExistingLogs)
@@ -171,11 +179,27 @@ public partial class AdifService : IAdifService
                     created.RstRcvd,
                     created.Station?.Grid
                 ));
+
+                // Send progress update every 10 records or on last record
+                if ((i + 1) % 10 == 0 || i == qsos.Count - 1)
+                {
+                    await _hub.BroadcastAdifImportProgress(new AdifImportProgressEvent(
+                        qsos.Count,
+                        i + 1,
+                        importedCount,
+                        skippedDuplicates,
+                        errorCount,
+                        false,
+                        qso.Callsign,
+                        $"Importing {qso.Callsign}..."
+                    ));
+                }
             }
             catch (Exception ex)
             {
                 errorCount++;
-                errors.Add($"Error importing QSO with {qso.Callsign}: {ex.Message}");
+                var errorMsg = $"{qso.Callsign}: {ex.Message}";
+                errors.Add(errorMsg);
                 _logger.LogWarning(ex, "Error importing QSO with {Callsign}", qso.Callsign);
             }
         }
@@ -183,6 +207,18 @@ public partial class AdifService : IAdifService
         _logger.LogInformation(
             "ADIF import complete: {Imported} imported, {Skipped} duplicates skipped, {Errors} errors",
             importedCount, skippedDuplicates, errorCount);
+
+        // Send final progress update
+        await _hub.BroadcastAdifImportProgress(new AdifImportProgressEvent(
+            qsos.Count,
+            qsos.Count,
+            importedCount,
+            skippedDuplicates,
+            errorCount,
+            true,
+            null,
+            errorCount > 0 ? $"Import complete with {errorCount} error(s)" : "Import complete"
+        ));
 
         return new AdifImportResult(qsos.Count, importedCount, skippedDuplicates, errorCount, errors);
     }
@@ -360,7 +396,9 @@ public partial class AdifService : IAdifService
         {
             if (!mappedFields.Contains(kvp.Key))
             {
-                extraFields[kvp.Key] = BsonValue.Create(kvp.Value);
+                // Convert all extra fields to strings to avoid BSON type conflicts
+                // (e.g., when importing "Y"/"N" values that might be stored as BsonBoolean elsewhere)
+                extraFields[kvp.Key] = kvp.Value?.ToString() ?? string.Empty;
             }
         }
 

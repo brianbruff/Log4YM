@@ -24,10 +24,6 @@ jobs:
             platform: win
             dotnet_rid: win-x64
             electron_arch: x64
-          - os: windows-latest
-            platform: win
-            dotnet_rid: win-x86
-            electron_arch: ia32
           - os: ubuntu-latest
             platform: linux
             dotnet_rid: linux-x64
@@ -161,14 +157,13 @@ jobs:
         run: find artifacts -type f -name "*" | head -20
 
       - name: Create GitHub Release
-        uses: softprops/action-gh-release@v1
+        uses: softprops/action-gh-release@v2
         with:
           name: Log4YM v${{ steps.version.outputs.version }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           draft: false
           prerelease: false
           generate_release_notes: true
           files: |
             artifacts/*
             CHANGELOG.md
-        env:
-          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

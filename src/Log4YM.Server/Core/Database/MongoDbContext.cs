@@ -59,18 +59,24 @@ public class MongoDbContext : IDbContext
 
                 Log.Information("MongoDB connecting to database: {DatabaseName}", databaseName);
 
-                // Configure client with reasonable timeouts to prevent blocking
+                // Configure client with aggressive timeouts to prevent blocking on startup.
+                // SRV DNS lookups for unreachable Atlas clusters can hang for minutes
+                // if we rely solely on the driver's built-in timeouts.
                 var settings = MongoClientSettings.FromConnectionString(connectionString);
                 settings.ConnectTimeout = TimeSpan.FromSeconds(5);
                 settings.ServerSelectionTimeout = TimeSpan.FromSeconds(5);
-                settings.SocketTimeout = TimeSpan.FromSeconds(10);
+                settings.SocketTimeout = TimeSpan.FromSeconds(5);
 
                 _client = new MongoClient(settings);
                 _database = _client.GetDatabase(databaseName);
 
-                // Test connection with ping
+                // Test connection with ping, using a hard CancellationToken timeout
+                // to guarantee we don't block longer than 10 seconds total even if
+                // the driver's internal timeouts don't cover SRV/DNS resolution.
+                using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(10));
                 _database.RunCommand<MongoDB.Bson.BsonDocument>(
-                    new MongoDB.Bson.BsonDocument("ping", 1));
+                    new MongoDB.Bson.BsonDocument("ping", 1),
+                    cancellationToken: cts.Token);
 
                 // Set initialized BEFORE creating indexes (indexes access collection properties)
                 _isInitialized = true;
@@ -115,7 +121,9 @@ public class MongoDbContext : IDbContext
 
     private string? GetConnectionString()
     {
-        // Priority: 1) User config file, 2) appsettings.json
+        // Use the connection string from config.json (or env var via IConfiguration fallback).
+        // The appsettings.json default was removed to prevent fresh desktop installs
+        // from accidentally defaulting to MongoDB.
         var config = _userConfigService.GetConfigAsync().GetAwaiter().GetResult();
         if (!string.IsNullOrEmpty(config.MongoDbConnectionString))
         {
@@ -163,6 +171,11 @@ public class MongoDbContext : IDbContext
         get { EnsureConnected(); return _database!.GetCollection<CallsignMapImage>("callsign_images"); }
     }
 
+    public IMongoCollection<RadioConfigEntity> RadioConfigs
+    {
+        get { EnsureConnected(); return _database!.GetCollection<RadioConfigEntity>("radio_configs"); }
+    }
+
     private void CreateIndexes()
     {
         // QSO indexes
@@ -185,6 +198,16 @@ public class MongoDbContext : IDbContext
                 new CreateIndexOptions { Unique = true }),
             new CreateIndexModel<CallsignMapImage>(
                 Builders<CallsignMapImage>.IndexKeys.Descending(i => i.SavedAt)),
+        });
+
+        // Radio config indexes
+        RadioConfigs.Indexes.CreateMany(new[]
+        {
+            new CreateIndexModel<RadioConfigEntity>(
+                Builders<RadioConfigEntity>.IndexKeys.Ascending(r => r.RadioId),
+                new CreateIndexOptions { Unique = true }),
+            new CreateIndexModel<RadioConfigEntity>(
+                Builders<RadioConfigEntity>.IndexKeys.Ascending(r => r.RadioType)),
         });
     }
 }

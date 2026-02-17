@@ -11,7 +11,8 @@ interface DayNightOverlayProps {
 
 /**
  * Day/Night overlay using Leaflet vector polygon, matching OpenHamClock's terminator style.
- * Renders the night side as a polygon with a dashed orange/amber border and subtle dark fill.
+ * Renders the night side as a filled polygon with transparent stroke (to avoid antimeridian
+ * artifact), and the terminator line as a separate dashed polyline.
  */
 export function DayNightOverlay({
   opacity = 0.7,
@@ -51,9 +52,22 @@ export function DayNightOverlay({
           polygonPoints.push([nightPole, lastLon]);
           polygonPoints.push([nightPole, firstLon]);
 
+          // Polygon with transparent stroke to avoid antimeridian closing-edge artifact
           L.polygon(polygonPoints, {
             fillColor: '#000020',
             fillOpacity: 0.35 * opacity,
+            color: 'transparent',
+            weight: 0,
+            interactive: false,
+          }).addTo(layerGroup);
+        }
+
+        // Draw the terminator line separately as a polyline (no closing edge issue)
+        for (const offset of [-360, 0, 360]) {
+          const linePoints: L.LatLngExpression[] = termLine.map(
+            ([lat, lon]) => [lat, lon + offset]
+          );
+          L.polyline(linePoints, {
             color: '#ffaa00',
             weight: 2,
             dashArray: '5, 5',

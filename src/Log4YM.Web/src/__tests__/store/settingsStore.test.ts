@@ -23,7 +23,7 @@ describe('settingsStore', () => {
         qrz: { username: '', password: '', apiKey: '', enabled: false },
         appearance: { theme: 'dark', compactMode: false },
         rotator: { enabled: false, ipAddress: '127.0.0.1', port: 4533, pollingIntervalMs: 500, rotatorId: 'default', presets: [] },
-        radio: { followRadio: true, activeRigType: null, autoReconnect: false, autoConnectRigId: null, tci: { host: 'localhost', port: 50001, name: '', autoConnect: false } },
+        radio: { followRadio: true, activeRigType: null, autoReconnect: false, autoConnectRigId: null, tci: { host: '', port: 50001, name: '', autoConnect: false } },
         map: { tileLayer: 'dark' },
         cluster: { connections: [] },
         header: { timeFormat: '24h', sizeMultiplier: 1.0, showWeather: true, weatherLocation: '' },

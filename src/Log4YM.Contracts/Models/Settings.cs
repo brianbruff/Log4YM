@@ -179,13 +179,13 @@ public class RadioSettings
 public class TciSettings
 {
     [BsonElement("host")]
-    public string? Host { get; set; } = "localhost";
+    public string? Host { get; set; }
 
     [BsonElement("port")]
     public int Port { get; set; } = 50001;
 
     [BsonElement("name")]
-    public string? Name { get; set; } = string.Empty;
+    public string? Name { get; set; }
 
     [BsonElement("autoConnect")]
     public bool AutoConnect { get; set; }

@@ -60,88 +60,84 @@ export function TunerGeniusPlugin() {
           <span className="font-mono text-xs">{device.ipAddress}</span>
         </div>
 
-        {/* Tuner State & Controls */}
-        <div className="bg-dark-700/50 rounded-lg p-3 border border-glass-100 space-y-3">
-          {/* Operate/Standby + Bypass row */}
-          <div className="flex items-center gap-2">
-            <button
-              onClick={() => operateTunerGenius(device.deviceSerial, !device.isOperating)}
-              className={`
-                flex-1 px-3 py-2 text-sm font-medium font-ui flex items-center justify-center gap-2
-                rounded-lg transition-all
-                ${device.isOperating
-                  ? 'bg-accent-success/20 text-accent-success border border-accent-success/30'
-                  : 'bg-dark-600 text-dark-300 hover:bg-dark-500'
-                }
-              `}
-            >
-              <Power className="w-4 h-4" />
-              {device.isOperating ? 'Operate' : 'Standby'}
-            </button>
+        {/* Tuner State & Controls — all 3 buttons on one row */}
+        <div className="bg-dark-700/50 rounded-lg p-2 border border-glass-100 flex items-center gap-1.5">
+          <button
+            onClick={() => operateTunerGenius(device.deviceSerial, !device.isOperating)}
+            className={`
+              flex-1 px-2 py-1.5 text-xs font-medium font-ui flex items-center justify-center gap-1.5
+              rounded-md transition-all
+              ${device.isOperating
+                ? 'bg-accent-success/20 text-accent-success border border-accent-success/30'
+                : 'bg-dark-600 text-dark-300 hover:bg-dark-500'
+              }
+            `}
+          >
+            <Power className="w-3.5 h-3.5" />
+            {device.isOperating ? 'Operate' : 'Standby'}
+          </button>
 
-            <button
-              onClick={() => bypassTunerGenius(device.deviceSerial, 1, !device.isBypassed)}
-              className={`
-                flex-1 px-3 py-2 text-sm font-medium font-ui flex items-center justify-center gap-2
-                rounded-lg transition-all
-                ${device.isBypassed
-                  ? 'bg-accent-warning/20 text-accent-warning border border-accent-warning/30'
-                  : 'bg-dark-600 text-dark-300 hover:bg-dark-500'
-                }
-              `}
-              title={device.isBypassed ? 'Tuner is bypassed — click to enable' : 'Click to bypass tuner'}
-            >
-              {device.isBypassed ? 'Bypassed' : 'Tuner In'}
-            </button>
-          </div>
+          <button
+            onClick={() => bypassTunerGenius(device.deviceSerial, 1, !device.isBypassed)}
+            className={`
+              flex-1 px-2 py-1.5 text-xs font-medium font-ui flex items-center justify-center gap-1.5
+              rounded-md transition-all
+              ${device.isBypassed
+                ? 'bg-accent-warning/20 text-accent-warning border border-accent-warning/30'
+                : 'bg-dark-600 text-dark-300 hover:bg-dark-500'
+              }
+            `}
+            title={device.isBypassed ? 'Tuner is bypassed — click to enable' : 'Click to bypass tuner'}
+          >
+            {device.isBypassed ? 'Bypassed' : 'Tuner Inline'}
+          </button>
 
-          {/* Auto-Tune button */}
           <button
             onClick={() => tuneTunerGenius(device.deviceSerial, 1)}
             disabled={device.isTuning || !device.isOperating}
             className={`
-              w-full px-4 py-2.5 text-sm font-medium font-ui flex items-center justify-center gap-2
-              rounded-lg transition-all disabled:opacity-50 disabled:cursor-not-allowed
+              flex-1 px-2 py-1.5 text-xs font-medium font-ui flex items-center justify-center gap-1.5
+              rounded-md transition-all disabled:opacity-50 disabled:cursor-not-allowed
               bg-accent-primary/20 text-accent-primary hover:bg-accent-primary/30
               border border-accent-primary/20
             `}
           >
             {device.isTuning ? (
               <>
-                <RefreshCw className="w-4 h-4 animate-spin" />
+                <RefreshCw className="w-3.5 h-3.5 animate-spin" />
                 Tuning...
               </>
             ) : (
               <>
-                <Activity className="w-4 h-4" />
+                <Activity className="w-3.5 h-3.5" />
                 Auto Tune
               </>
             )}
           </button>
         </div>
 
-        {/* Meters: Power + SWR */}
-        <div className="grid grid-cols-2 gap-3">
-          <div className="bg-dark-700/50 rounded-lg p-3 border border-glass-100">
-            <div className="text-xs text-dark-300 uppercase tracking-wider mb-1 font-ui">Fwd Power</div>
-            <div className="text-xl font-bold font-mono text-dark-100">
+        {/* Meters: Power + SWR + Matching Network — all on one row */}
+        <div className="grid grid-cols-3 gap-2">
+          <div className="bg-dark-700/50 rounded-lg p-2 border border-glass-100">
+            <div className="text-xs text-dark-300 uppercase tracking-wider mb-1 font-ui">Fwd PWR</div>
+            <div className="text-lg font-bold font-mono text-dark-100">
               {device.forwardPowerWatts > 0 ? `${device.forwardPowerWatts.toFixed(0)} W` : '--'}
             </div>
           </div>
-          <div className="bg-dark-700/50 rounded-lg p-3 border border-glass-100">
+          <div className="bg-dark-700/50 rounded-lg p-2 border border-glass-100">
             <div className="text-xs text-dark-300 uppercase tracking-wider mb-1 font-ui">SWR</div>
-            <div className={`text-xl font-bold font-mono ${getSWRColor(device.swr)}`}>
-              {device.forwardPowerWatts >= 1 && device.swr > 0 && device.swr < 99 ? `${device.swr.toFixed(1)} :1` : '--'}
+            <div className={`text-lg font-bold font-mono ${getSWRColor(device.swr)}`}>
+              {device.forwardPowerWatts >= 1 && device.swr > 0 && device.swr < 99 ? `${device.swr.toFixed(1)}:1` : '--'}
             </div>
           </div>
-        </div>
-
-        {/* Matching Network: L / C1 / C2 */}
-        <div className="bg-dark-700/50 rounded-lg p-3 border border-glass-100 space-y-2">
-          <div className="text-xs text-dark-300 uppercase tracking-wider font-ui mb-2">Matching Network</div>
-          <LCGauge label="C1" value={device.c1} />
-          <LCGauge label="L" value={device.l} />
-          <LCGauge label="C2" value={device.c2} />
+          <div className="bg-dark-700/50 rounded-lg p-2 border border-glass-100">
+            <div className="text-xs text-dark-300 uppercase tracking-wider mb-1 font-ui">Match</div>
+            <div className="space-y-1 mt-0.5">
+              <LCGauge label="C1" value={device.c1} />
+              <LCGauge label="L" value={device.l} />
+              <LCGauge label="C2" value={device.c2} />
+            </div>
+          </div>
         </div>
 
         {/* Radio Inputs */}

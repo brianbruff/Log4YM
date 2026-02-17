@@ -134,10 +134,11 @@ export function LogHistoryPlugin() {
   const handleCancelImport = useCallback(async () => {
     try {
       await api.cancelImport();
+      setAdifImportProgress(null);
     } catch (error) {
       console.error('Failed to cancel import:', error);
     }
-  }, []);
+  }, [setAdifImportProgress]);
 
   // Sync callsign filter from LogEntryPlugin
   useEffect(() => {
@@ -154,7 +155,6 @@ export function LogHistoryPlugin() {
     },
     onSuccess: (data) => {
       setImportResult(data);
-      setShowImportModal(false);
       queryClient.invalidateQueries({ queryKey: ['qsos'] });
       queryClient.invalidateQueries({ queryKey: ['statistics'] });
     },
@@ -178,6 +178,7 @@ export function LogHistoryPlugin() {
   const handleFileSelect = useCallback((e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
+      setShowImportModal(false);
       importMutation.mutate(file);
     }
     if (fileInputRef.current) {

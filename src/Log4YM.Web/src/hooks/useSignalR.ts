@@ -24,6 +24,9 @@ export function useSignalRConnection() {
     removeAntennaGeniusDevice,
     setPgxlStatus,
     removePgxlDevice,
+    setTunerGeniusStatus,
+    updateTunerGeniusPort,
+    removeTunerGeniusDevice,
     addDiscoveredRadio,
     removeDiscoveredRadio,
     setRadioConnectionState,
@@ -83,6 +86,7 @@ export function useSignalRConnection() {
         await Promise.all([
           signalRService.requestAntennaGeniusStatus(),
           signalRService.requestPgxlStatus(),
+          signalRService.requestTunerGeniusStatus(),
           signalRService.requestRadioStatus(),
           signalRService.requestSmartUnlinkStatus(),
           signalRService.requestRotatorStatus(),
@@ -227,6 +231,22 @@ export function useSignalRConnection() {
             console.log('PGXL status:', evt.serial, 'isOperating:', evt.isOperating, 'isTransmitting:', evt.isTransmitting);
             setPgxlStatus(evt);
           },
+          // Tuner Genius handlers
+          onTunerGeniusDiscovered: (evt) => {
+            console.log('Tuner Genius discovered:', evt.name, evt.serial, evt.model);
+          },
+          onTunerGeniusDisconnected: (evt) => {
+            console.log('Tuner Genius disconnected:', evt.serial);
+            removeTunerGeniusDevice(evt.serial);
+          },
+          onTunerGeniusStatus: (evt) => {
+            console.log('Tuner Genius status:', evt.deviceName, evt.isConnected, evt.model);
+            setTunerGeniusStatus(evt);
+          },
+          onTunerGeniusPortChanged: (evt) => {
+            console.log('Tuner Genius port changed:', evt.portId, 'SWR:', evt.swrDecimal, 'Operating:', evt.isOperating, 'Tuning:', evt.isTuning);
+            updateTunerGeniusPort(evt);
+          },
           // Radio CAT Control handlers
           onRadioDiscovered: (evt) => {
             console.log('Radio discovered:', evt.model, evt.ipAddress);
@@ -357,6 +377,22 @@ export function useSignalR() {
 
   const disablePgxlFlexRadioPairing = useCallback(async (serial: string, slice: string) => {
     await signalRService.disablePgxlFlexRadioPairing(serial, slice);
+  }, []);
+
+  const tuneTunerGenius = useCallback(async (deviceSerial: string, portId: number) => {
+    await signalRService.tuneTunerGenius(deviceSerial, portId);
+  }, []);
+
+  const bypassTunerGenius = useCallback(async (deviceSerial: string, portId: number, bypass: boolean) => {
+    await signalRService.bypassTunerGenius(deviceSerial, portId, bypass);
+  }, []);
+
+  const operateTunerGenius = useCallback(async (deviceSerial: string, operate: boolean) => {
+    await signalRService.operateTunerGenius(deviceSerial, operate);
+  }, []);
+
+  const activateChannelTunerGenius = useCallback(async (deviceSerial: string, channel: number) => {
+    await signalRService.activateChannelTunerGenius(deviceSerial, channel);
   }, []);
 
   // Radio CAT Control methods
@@ -520,6 +556,11 @@ export function useSignalR() {
     setPgxlOperate,
     setPgxlStandby,
     disablePgxlFlexRadioPairing,
+    // Tuner Genius
+    tuneTunerGenius,
+    bypassTunerGenius,
+    operateTunerGenius,
+    activateChannelTunerGenius,
     // Radio CAT Control
     startRadioDiscovery,
     stopRadioDiscovery,

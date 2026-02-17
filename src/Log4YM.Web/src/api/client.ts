@@ -307,6 +307,12 @@ class ApiClient {
     return response.json();
   }
 
+  async cancelImport(): Promise<{ message: string }> {
+    return this.fetch('/adif/import/cancel', {
+      method: 'POST',
+    });
+  }
+
   async exportAdif(request?: AdifExportRequest): Promise<Blob> {
     const params = new URLSearchParams();
     if (request?.callsign) params.append('callsign', request.callsign);

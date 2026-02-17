@@ -284,6 +284,49 @@ public class AdifServiceTests
         qsos[0].AdifExtra!["pota_ref"].AsString.Should().Be("K-0817");
     }
 
+    [Fact]
+    public void ParseAdif_NumericExtraFields_StoredAsStrings()
+    {
+        // Test that numeric values in extra fields are also normalized to strings
+        // to prevent type conflicts when fields might be stored as numbers elsewhere
+        var adif = "<CALL:5>W1AW <QSO_DATE:8>20240101 <TIME_ON:4>1234 <BAND:3>20m <MODE:3>SSB " +
+                   "<AGE:2>42 <CUSTOM_NUM:3>123 <IOTA:6>NA-001 <EOR>";
+
+        var qsos = _service.ParseAdif(adif).ToList();
+
+        qsos.Should().HaveCount(1);
+        qsos[0].AdifExtra.Should().NotBeNull();
+        qsos[0].AdifExtra!.Contains("age").Should().BeTrue();
+        qsos[0].AdifExtra!["age"].BsonType.Should().Be(MongoDB.Bson.BsonType.String);
+        qsos[0].AdifExtra!["age"].AsString.Should().Be("42");
+        qsos[0].AdifExtra!["custom_num"].AsString.Should().Be("123");
+        qsos[0].AdifExtra!["iota"].AsString.Should().Be("NA-001");
+    }
+
+    [Fact]
+    public void ParseAdif_MixedTypeExtraFields_AllNormalizedToStrings()
+    {
+        // This test validates the fix for the BSON type cast error
+        // All extra fields should be BsonString regardless of their apparent type
+        var adif = "<CALL:5>W1AW <QSO_DATE:8>20240101 <TIME_ON:4>1234 <BAND:3>20m <MODE:3>SSB " +
+                   "<BOOL_FIELD:1>Y <NUM_FIELD:3>100 <TEXT_FIELD:4>Test <EMPTY_FIELD:0> <EOR>";
+
+        var qsos = _service.ParseAdif(adif).ToList();
+
+        qsos.Should().HaveCount(1);
+        var extra = qsos[0].AdifExtra!;
+
+        // All fields should be BsonString type
+        extra["bool_field"].BsonType.Should().Be(MongoDB.Bson.BsonType.String);
+        extra["num_field"].BsonType.Should().Be(MongoDB.Bson.BsonType.String);
+        extra["text_field"].BsonType.Should().Be(MongoDB.Bson.BsonType.String);
+
+        // Verify values are preserved correctly
+        extra["bool_field"].AsString.Should().Be("Y");
+        extra["num_field"].AsString.Should().Be("100");
+        extra["text_field"].AsString.Should().Be("Test");
+    }
+
     #endregion
 
     #region ExportToAdif

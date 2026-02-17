@@ -362,13 +362,14 @@ public partial class AdifService : IAdifService
             {
                 // Convert all extra fields to strings to avoid BSON type conflicts
                 // (e.g., when importing "Y"/"N" values that might be stored as BsonBoolean elsewhere)
-                extraFields[kvp.Key] = kvp.Value?.ToString() ?? string.Empty;
+                var stringValue = kvp.Value?.ToString() ?? string.Empty;
+                extraFields[kvp.Key] = new MongoDB.Bson.BsonString(stringValue);
             }
         }
 
         if (extraFields.ElementCount > 0)
         {
-            qso.AdifExtra = extraFields;
+            qso.AdifExtra = NormalizeBsonDocument(extraFields);
         }
 
         return qso;
@@ -576,5 +577,27 @@ public partial class AdifService : IAdifService
             >= 420.0 and < 450.0 => "70cm",
             _ => "20m"
         };
+    }
+
+    /// <summary>
+    /// Normalizes all values in a BsonDocument to BsonString to avoid type conflicts.
+    /// This prevents "Unable to cast BsonString to BsonBoolean" errors when importing
+    /// ADIF files with fields that may have been stored with different BSON types.
+    /// </summary>
+    private static BsonDocument NormalizeBsonDocument(BsonDocument document)
+    {
+        var normalized = new BsonDocument();
+        foreach (var element in document)
+        {
+            var value = element.Value;
+            // Convert all values to BsonString for consistency
+            normalized[element.Name] = value.BsonType switch
+            {
+                BsonType.String => value,
+                BsonType.Null => BsonString.Empty,
+                _ => new BsonString(value.ToString() ?? string.Empty)
+            };
+        }
+        return normalized;
     }
 }

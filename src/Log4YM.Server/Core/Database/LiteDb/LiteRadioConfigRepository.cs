@@ -66,7 +66,7 @@ public class LiteRadioConfigRepository : IRadioConfigRepository
             {
                 // Delete first to avoid unique index conflict on RadioId
                 rawCollection.Delete(doc["_id"]);
-                doc["_id"] = ObjectId.NewObjectId();
+                doc["_id"] = ObjectId.NewObjectId().ToString();
                 rawCollection.Insert(doc);
             }
         }

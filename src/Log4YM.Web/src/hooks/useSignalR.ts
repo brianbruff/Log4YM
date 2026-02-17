@@ -38,6 +38,7 @@ export function useSignalRConnection() {
     removeSmartUnlinkRadio,
     setSmartUnlinkRadios,
     setQrzSyncProgress,
+    setAdifImportProgress,
     setSelectedSpot,
     setLogHistoryCallsignFilter,
     setClusterStatus,
@@ -298,6 +299,11 @@ export function useSignalRConnection() {
           onQrzSyncProgress: (evt) => {
             console.log('QRZ sync progress:', evt.completed, '/', evt.total);
             setQrzSyncProgress(evt);
+          },
+          // ADIF Import handler
+          onAdifImportProgress: (evt) => {
+            console.log('ADIF import progress:', evt.processed, '/', evt.total);
+            setAdifImportProgress(evt);
           },
           // DX Cluster handler
           onClusterStatusChanged: (evt) => {

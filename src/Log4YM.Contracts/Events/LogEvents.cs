@@ -751,6 +751,22 @@ public record QrzSyncProgressEvent(
     string? Message
 );
 
+// ===== ADIF Import Events =====
+
+/// <summary>
+/// ADIF import progress update
+/// </summary>
+public record AdifImportProgressEvent(
+    int Total,
+    int Processed,
+    int Imported,
+    int Skipped,
+    int Failed,
+    bool IsComplete,
+    string? CurrentCallsign,
+    string? Message
+);
+
 // ===== Tuner Genius Events =====
 
 /// <summary>

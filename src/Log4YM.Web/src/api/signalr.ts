@@ -562,6 +562,18 @@ export interface QrzSyncProgressEvent {
   message: string | null;
 }
 
+// ADIF Import types
+export interface AdifImportProgressEvent {
+  total: number;
+  processed: number;
+  imported: number;
+  skipped: number;
+  failed: number;
+  isComplete: boolean;
+  currentCallsign: string | null;
+  message: string | null;
+}
+
 // DX Cluster types
 export interface ClusterStatusChangedEvent {
   clusterId: string;
@@ -618,6 +630,8 @@ type EventHandlers = {
   onSmartUnlinkStatus?: (evt: SmartUnlinkStatusEvent) => void;
   // QRZ Sync handlers
   onQrzSyncProgress?: (evt: QrzSyncProgressEvent) => void;
+  // ADIF Import handlers
+  onAdifImportProgress?: (evt: AdifImportProgressEvent) => void;
   // DX Cluster handlers
   onClusterStatusChanged?: (evt: ClusterStatusChangedEvent) => void;
 };
@@ -956,6 +970,11 @@ class SignalRService {
     // QRZ Sync events
     this.connection.on('OnQrzSyncProgress', (evt: QrzSyncProgressEvent) => {
       this.handlers.onQrzSyncProgress?.(evt);
+    });
+
+    // ADIF Import events
+    this.connection.on('OnAdifImportProgress', (evt: AdifImportProgressEvent) => {
+      this.handlers.onAdifImportProgress?.(evt);
     });
 
     // DX Cluster events

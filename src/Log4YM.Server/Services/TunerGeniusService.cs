@@ -11,7 +11,7 @@ namespace Log4YM.Server.Services;
 /// <summary>
 /// Service for communicating with the 4O3A Tuner Genius XL (TGXL) over TCP port 9010.
 ///
-/// Protocol summary (reverse-engineered — no official API doc from 4O3A):
+/// Protocol (from official 4O3A API document):
 ///   Commands:  C{seq}|{command}\n
 ///   Responses: R{seq}|{hex_result}|{message}
 ///   Status:    S{seq}|status key1=val1 key2=val2 ... (space-delimited key=value pairs)
@@ -27,10 +27,16 @@ namespace Log4YM.Server.Services;
 ///   C{N}|activate ch=2\n       — activate Radio 2
 ///
 /// Status keys:
-///   fwd      Forward power in watts
+///   fwd      Forward power in dBm (convert via 10^(x/10)/1000 to watts)
 ///   swr      Return loss in dB (negative, e.g. -60.0) → convert to SWR ratio
-///   freqA    Radio A frequency in kHz
+///   freqA    Radio A frequency in kHz (0 when radio does not supply frequency)
 ///   freqB    Radio B frequency in kHz
+///   bandA    Radio A band as integer (e.g. 40 = 40m, 20 = 20m) — present even when freqA=0
+///   bandB    Radio B band as integer
+///   pttA     1=Radio A transmitting
+///   pttB     1=Radio B transmitting
+///   modeA    Radio A input mode (0=RF Sense, 1=Flex, 2=CAT, 3=P2B, 4=BCD)
+///   modeB    Radio B input mode
 ///   state    1=OPERATE, 0=STANDBY
 ///   active   Active radio (1 or 2)
 ///   tuning   1=tuning in progress
@@ -38,8 +44,6 @@ namespace Log4YM.Server.Services;
 ///   relayL   L position (0-255)
 ///   relayC1  C1 position (0-255)
 ///   relayC2  C2 position (0-255)
-///   pttA     1=Radio A transmitting
-///   pttB     1=Radio B transmitting
 /// </summary>
 public class TunerGeniusService : BackgroundService
 {
@@ -222,6 +226,8 @@ internal class TunerGeniusConnection
     private double _swr = 1.0;
     private int _L = 0, _C1 = 0, _C2 = 0;
     private double _freqA = 0, _freqB = 0;
+    private int _bandA = 0, _bandB = 0;   // Raw band numbers from device (e.g. 40 = 40m)
+    private bool _pttA = false, _pttB = false;
     private string _version = "";
 
     public bool IsConnected => _tcpClient?.Connected ?? false;
@@ -433,6 +439,18 @@ internal class TunerGeniusConnection
                 double.TryParse(freqBStr, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var freqBKhz))
                 _freqB = Math.Round(freqBKhz / 1000.0, 3);
 
+            // Raw band numbers (present even when frequency is 0 — e.g. radio supplies band but not frequency)
+            if (kv.TryGetValue("bandA", out var bandAStr) && int.TryParse(bandAStr, out var bandAVal))
+                _bandA = bandAVal;
+            if (kv.TryGetValue("bandB", out var bandBStr) && int.TryParse(bandBStr, out var bandBVal))
+                _bandB = bandBVal;
+
+            // PTT state
+            if (kv.TryGetValue("pttA", out var pttAStr))
+                _pttA = pttAStr == "1";
+            if (kv.TryGetValue("pttB", out var pttBStr))
+                _pttB = pttBStr == "1";
+
             // Operate state
             if (kv.TryGetValue("state", out var stateStr))
                 _isOperating = stateStr == "1";
@@ -463,32 +481,9 @@ internal class TunerGeniusConnection
             return;
         }
 
-        var swrX10 = (int)Math.Round(_swr * 10);
-        var activeFreq = _activeRadio == 2 ? _freqB : _freqA;
-        var band = FreqToBand(activeFreq);
-
-        var changedEvt = new TunerGeniusPortChangedEvent(
-            DeviceSerial: _device.Serial,
-            PortId: _activeRadio,
-            Auto: !_isBypassed,
-            Band: band,
-            FrequencyMhz: activeFreq,
-            Swr: swrX10,
-            IsTuning: _isTuning,
-            IsTransmitting: false,
-            SelectedAntenna: null,
-            TuneResult: _swr <= 2.0 ? "OK" : "HighSWR",
-            IsBypassed: _isBypassed,
-            IsOperating: _isOperating,
-            ForwardPowerWatts: _forwardPowerWatts,
-            SwrDecimal: _swr,
-            L: _L,
-            C1: _C1,
-            C2: _C2,
-            ActiveRadio: _activeRadio
-        );
-
-        await _hubContext.Clients.All.OnTunerGeniusPortChanged(changedEvt);
+        // Broadcast full status — covers both ports (A and B) so each radio's band/PTT are reflected,
+        // even when the radio only supplies band data without frequency.
+        await BroadcastStatusAsync();
     }
 
     // ── Commands ──────────────────────────────────────────────────────────
@@ -529,11 +524,13 @@ internal class TunerGeniusConnection
     public TunerGeniusStatusEvent GetStatus()
     {
         var swrX10 = (int)Math.Round(_swr * 10);
-        var portA = new TunerGeniusPortStatus(1, !_isBypassed, FreqToBand(_freqA), _freqA,
-            swrX10, _isTuning, false, null, _swr <= 2.0 ? "OK" : "HighSWR");
-        TunerGeniusPortStatus? portB = _freqB > 0
-            ? new TunerGeniusPortStatus(2, !_isBypassed, FreqToBand(_freqB), _freqB,
-                swrX10, _isTuning, false, null, _swr <= 2.0 ? "OK" : "HighSWR")
+        var tuneResult = _swr <= 2.0 ? "OK" : "HighSWR";
+        var portA = new TunerGeniusPortStatus(1, !_isBypassed, GetBandForPort(_freqA, _bandA), _freqA,
+            swrX10, _isTuning, _pttA, null, tuneResult);
+        // Show portB when the device has supplied any band or frequency data for radio B
+        TunerGeniusPortStatus? portB = (_freqB > 0 || _bandB > 0)
+            ? new TunerGeniusPortStatus(2, !_isBypassed, GetBandForPort(_freqB, _bandB), _freqB,
+                swrX10, _isTuning, _pttB, null, tuneResult)
             : null;
 
         return new TunerGeniusStatusEvent(
@@ -570,6 +567,14 @@ internal class TunerGeniusConnection
         _tcpClient = null;
     }
 
+    /// <summary>
+    /// Returns band label using frequency when available, falling back to the raw band integer
+    /// supplied by the TGXL (e.g. bandA=40 means 40m).  Radios that provide band data but not
+    /// frequency (e.g. via BCD or CAT without frequency reporting) will still show the correct band.
+    /// </summary>
+    private static string GetBandForPort(double freqMhz, int bandNum)
+        => freqMhz > 0 ? FreqToBand(freqMhz) : BandNumToString(bandNum);
+
     private static string FreqToBand(double mhz) => mhz switch
     {
         >= 1.8 and < 2.0   => "160m",
@@ -584,5 +589,27 @@ internal class TunerGeniusConnection
         >= 28.0 and < 29.7  => "10m",
         >= 50.0 and < 54.0  => "6m",
         _ => mhz > 0 ? $"{mhz:F3}" : "None"
+    };
+
+    /// <summary>
+    /// Converts the raw band integer from the TGXL status (e.g. bandA=40) to a display label.
+    /// The device reports the band in meters as a plain integer.
+    /// </summary>
+    private static string BandNumToString(int band) => band switch
+    {
+        160 => "160m",
+        80  => "80m",
+        60  => "60m",
+        40  => "40m",
+        30  => "30m",
+        20  => "20m",
+        17  => "17m",
+        15  => "15m",
+        12  => "12m",
+        10  => "10m",
+        6   => "6m",
+        2   => "2m",
+        0   => "None",
+        _   => $"{band}m"
     };
 }

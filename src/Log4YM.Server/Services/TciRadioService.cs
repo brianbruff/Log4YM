@@ -419,6 +419,17 @@ public class TciRadioService : BackgroundService
         return await connection.SetFrequencyAsync(frequencyHz);
     }
 
+    public async Task<bool> SetModeAsync(string radioId, string mode, long frequencyHz = 0)
+    {
+        if (!_connections.TryGetValue(radioId, out var connection))
+        {
+            _logger.LogWarning("Cannot set mode: TCI radio {RadioId} not connected", radioId);
+            return false;
+        }
+
+        return await connection.SetModeAsync(mode, frequencyHz);
+    }
+
     public async Task<bool> SendCwAsync(string radioId, string message, int speedWpm)
     {
         if (!_connections.TryGetValue(radioId, out var connection))
@@ -750,6 +761,60 @@ internal class TciRadioConnection
         return true;
     }
 
+    public async Task<bool> SetModeAsync(string mode, long frequencyHz = 0)
+    {
+        if (!IsConnected) return false;
+
+        var tciMode = MapToTciMode(mode, frequencyHz);
+        // TCI protocol: modulation:rx,MODE;
+        var command = $"modulation:{_selectedInstance},{tciMode};";
+        _logger.LogDebug("Sending TCI command: {Command} (app mode: {AppMode})", command, mode);
+        await SendCommandAsync(command);
+        return true;
+    }
+
+    /// <summary>
+    /// Maps application-level mode names to TCI protocol mode strings.
+    /// TCI modes vary by radio. Common: LSB, USB, DSB, CW, FMN, AM, DIGU, SPEC, DIGL, SAM, DRM
+    /// </summary>
+    private static string MapToTciMode(string appMode, long frequencyHz)
+    {
+        switch (appMode.ToUpperInvariant())
+        {
+            case "CW":
+            case "CWU":
+            case "CWL":
+                return "CW";
+            case "SSB":
+                // Below 10 MHz convention is LSB, above is USB
+                return frequencyHz > 0 && frequencyHz < 10_000_000 ? "LSB" : "USB";
+            case "USB":
+                return "USB";
+            case "LSB":
+                return "LSB";
+            case "AM":
+                return "AM";
+            case "FM":
+                return "FMN";
+            case "FT8":
+            case "FT4":
+            case "RTTY":
+            case "PSK31":
+            case "DIGI":
+            case "JT65":
+            case "JT9":
+                return "DIGU";
+            case "DSB":
+                return "DSB";
+            case "SAM":
+                return "SAM";
+            case "DRM":
+                return "DRM";
+            default:
+                return appMode.ToUpperInvariant();
+        }
+    }
+
     public async Task<bool> SendCwAsync(string message, int speedWpm)
     {
         if (!IsConnected) return false;
@@ -848,6 +913,11 @@ internal class TciRadioConnection
                             }
                         }
                     }
+                    break;
+
+                case "modulations_list":
+                    // Format: modulations_list:mode1,mode2,...;
+                    _logger.LogDebug("TCI supported modulations: {Modes}", argsStr);
                     break;
 
                 case "modulation":

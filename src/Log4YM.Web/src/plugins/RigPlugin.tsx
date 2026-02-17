@@ -297,7 +297,7 @@ export function RigPlugin() {
         setRigSearch("");
       } else if (isTci) {
         await deleteTciConfig(radioId);
-        updateTciSettings({ host: "localhost", port: 50001, name: "" });
+        updateTciSettings({ host: "", port: 50001, name: "" });
       }
 
       // Remove from UI immediately

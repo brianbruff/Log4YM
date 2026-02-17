@@ -221,7 +221,7 @@ const defaultSettings: Settings = {
     autoReconnect: false,
     autoConnectRigId: null,
     tci: {
-      host: 'localhost',
+      host: '',
       port: 50001,
       name: '',
       autoConnect: false,
@@ -505,7 +505,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
             activeRigType: settings.radio?.activeRigType ?? null,
             autoReconnect: settings.radio?.autoReconnect ?? false,
             autoConnectRigId: settings.radio?.autoConnectRigId ?? null,
-            tci: { ...defaultSettings.radio.tci, ...settings.radio?.tci },
+            tci: { ...defaultSettings.radio.tci, ...settings.radio?.tci, host: settings.radio?.tci?.host ?? '', name: settings.radio?.tci?.name ?? '' },
           },
           map: {
             ...defaultSettings.map,

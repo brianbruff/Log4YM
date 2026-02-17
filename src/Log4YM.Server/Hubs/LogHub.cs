@@ -854,6 +854,15 @@ public class LogHub : Hub<ILogHubClient>
             }
         }
 
+        // Also clear the legacy settings.Radio.Tci.Host field to prevent migration recreating the entry on restart
+        var settings = await _settingsRepository.GetAsync();
+        if (settings?.Radio?.Tci != null && !string.IsNullOrEmpty(settings.Radio.Tci.Host))
+        {
+            settings.Radio.Tci.Host = null;
+            settings.Radio.Tci.Name = null;
+            await _settingsRepository.UpsertAsync(settings);
+        }
+
         // Request updated radio status to reflect the removal
         await RequestRadioStatus();
     }

@@ -359,6 +359,24 @@ function createSpotIcon(color: string, isHighlighted: boolean) {
   });
 }
 
+// Smaller icon for spotter locations
+function createSpotterIcon(color: string, isHighlighted: boolean) {
+  const size = isHighlighted ? 6 : 4;
+  return new L.DivIcon({
+    className: 'custom-spotter-marker',
+    html: `<div style="
+      width: ${size}px;
+      height: ${size}px;
+      background: ${color};
+      border: 1px solid rgba(255,255,255,${isHighlighted ? '0.7' : '0.3'});
+      border-radius: 50%;
+      opacity: 0.7;
+    "></div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
+}
+
 // Compute spot path data (memoizable)
 interface SpotPathData {
   spot: Spot;
@@ -429,48 +447,52 @@ export function MapPlugin() {
   const spotPaths = useMemo<SpotPathData[]>(() => {
     if (!dxClusterMapEnabled || !spots?.length) return [];
 
-    return spots
-      .filter(spot => spot.dxStation?.grid) // Only spots with grid data
-      .map(spot => {
-        const coords = gridToLatLon(spot.dxStation!.grid!);
-        if (!coords) return null;
-        const band = getBandFromFrequency(spot.frequency);
-        const color = BAND_COLORS[band] || '#888888';
+    const paths: SpotPathData[] = [];
 
-        // Path from station to DX
-        const pathPoints = generateGreatCirclePoints(
-          stationLat, stationLon, coords.lat, coords.lon
-        );
+    for (const spot of spots) {
+      if (!spot.dxStation?.grid) continue;
 
-        // If spotter location is available, calculate path from spotter to DX
-        let spotterLat: number | undefined;
-        let spotterLon: number | undefined;
-        let spotterPathPoints: [number, number][][] | undefined;
+      const coords = gridToLatLon(spot.dxStation.grid);
+      if (!coords) continue;
 
-        if (spot.spotterStation?.grid) {
-          const spotterCoords = gridToLatLon(spot.spotterStation.grid);
-          if (spotterCoords) {
-            spotterLat = spotterCoords.lat;
-            spotterLon = spotterCoords.lon;
-            spotterPathPoints = generateGreatCirclePoints(
-              spotterCoords.lat, spotterCoords.lon, coords.lat, coords.lon
-            );
-          }
+      const band = getBandFromFrequency(spot.frequency);
+      const color = BAND_COLORS[band] || '#888888';
+
+      // Path from station to DX
+      const pathPoints = generateGreatCirclePoints(
+        stationLat, stationLon, coords.lat, coords.lon
+      );
+
+      // If spotter location is available, calculate path from spotter to DX
+      let spotterLat: number | undefined;
+      let spotterLon: number | undefined;
+      let spotterPathPoints: [number, number][][] | undefined;
+
+      if (spot.spotterStation?.grid) {
+        const spotterCoords = gridToLatLon(spot.spotterStation.grid);
+        if (spotterCoords) {
+          spotterLat = spotterCoords.lat;
+          spotterLon = spotterCoords.lon;
+          spotterPathPoints = generateGreatCirclePoints(
+            spotterCoords.lat, spotterCoords.lon, coords.lat, coords.lon
+          );
         }
+      }
 
-        return {
-          spot,
-          band,
-          color,
-          targetLat: coords.lat,
-          targetLon: coords.lon,
-          pathPoints,
-          spotterLat,
-          spotterLon,
-          spotterPathPoints
-        };
-      })
-      .filter((p): p is SpotPathData => p !== null);
+      paths.push({
+        spot,
+        band,
+        color,
+        targetLat: coords.lat,
+        targetLon: coords.lon,
+        pathPoints,
+        spotterLat,
+        spotterLon,
+        spotterPathPoints
+      });
+    }
+
+    return paths;
   }, [dxClusterMapEnabled, spots, stationLat, stationLon]);
 
   // Active bands for the legend (only bands that have spots visible)
@@ -1138,7 +1160,7 @@ export function MapPlugin() {
               <Marker
                 key={`spotter-${sp.spot.id}`}
                 position={[sp.spotterLat, sp.spotterLon]}
-                icon={createSpotIcon(sp.color, isHovered, 6)} // Smaller marker for spotter
+                icon={createSpotterIcon(sp.color, isHovered)}
               >
                 <Tooltip
                   direction="top"

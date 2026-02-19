@@ -191,6 +191,7 @@ public class DxClusterService : IDxClusterService, IHostedService, IDisposable
             config.Host,
             config.Port,
             callsign,
+            config.Password,
             config.AutoReconnect,
             _logger,
             OnSpotReceived,
@@ -346,6 +347,7 @@ internal class ClusterConnectionHandler
     private readonly string _host;
     private readonly int _port;
     private readonly string _callsign;
+    private readonly string? _password;
     private readonly bool _autoReconnect;
     private readonly ILogger _logger;
     private readonly Func<ParsedSpot, string, string, Task> _onSpotReceived;
@@ -373,6 +375,7 @@ internal class ClusterConnectionHandler
         string host,
         int port,
         string callsign,
+        string? password,
         bool autoReconnect,
         ILogger logger,
         Func<ParsedSpot, string, string, Task> onSpotReceived,
@@ -383,6 +386,7 @@ internal class ClusterConnectionHandler
         _host = host;
         _port = port;
         _callsign = callsign;
+        _password = password;
         _autoReconnect = autoReconnect;
         _logger = logger;
         _onSpotReceived = onSpotReceived;
@@ -470,6 +474,7 @@ internal class ClusterConnectionHandler
         _onStatusChanged(_id, _name, "connected", null);
 
         var loginSent = false;
+        var passwordSent = false;
         var ccModeEnabled = false;
         var ft8Enabled = false;
 
@@ -491,6 +496,23 @@ internal class ClusterConnectionHandler
                 _logger.LogInformation("Sending login to {Name}: {Callsign}", _name, _callsign);
                 await writer.WriteLineAsync(_callsign);
                 loginSent = true;
+                continue;
+            }
+
+            // Handle password prompt (for closed clusters)
+            if (loginSent && !passwordSent && (line.Contains("password:") || line.Contains("Password:")))
+            {
+                if (!string.IsNullOrEmpty(_password))
+                {
+                    _logger.LogInformation("Sending password to {Name}", _name);
+                    await writer.WriteLineAsync(_password);
+                }
+                else
+                {
+                    _logger.LogWarning("Cluster {Name} requires password but none configured", _name);
+                    throw new Exception("Password required but not configured");
+                }
+                passwordSent = true;
                 continue;
             }
 

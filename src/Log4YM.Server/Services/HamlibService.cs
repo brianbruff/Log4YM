@@ -376,7 +376,7 @@ public class HamlibService : BackgroundService
     /// <summary>
     /// Set the rig mode
     /// </summary>
-    public async Task<bool> SetModeAsync(string mode)
+    public async Task<bool> SetModeAsync(string mode, long frequencyHz = 0)
     {
         if (_rig == null || !_rig.IsOpen)
         {
@@ -384,15 +384,62 @@ public class HamlibService : BackgroundService
             return false;
         }
 
-        var result = _rig.SetMode(mode);
+        var hamlibMode = MapToHamlibMode(mode, frequencyHz);
+        _logger.LogDebug("Hamlib mode mapping: {AppMode} → {HamlibMode} at {FrequencyHz} Hz", mode, hamlibMode, frequencyHz);
+
+        var result = _rig.SetMode(hamlibMode);
         if (result)
         {
-            _currentMode = mode;
-            _logger.LogDebug("Hamlib mode set to {Mode}", mode);
+            _currentMode = hamlibMode;
+            _logger.LogDebug("Hamlib mode set to {Mode}", hamlibMode);
             // Broadcast state change immediately so UI updates
             await BroadcastStateAsync();
         }
         return result;
+    }
+
+    /// <summary>
+    /// Maps application-level mode names to Hamlib mode strings.
+    /// Hamlib modes: AM, CW, CWR, USB, LSB, RTTY, RTTYR, FM, WFM, AMS,
+    ///               PKTLSB, PKTUSB, PKTFM, ECSSUSB, ECSSLSB, FAX, SAM, SAL, SAH, DSB, FMN, PKTAM
+    /// </summary>
+    private static string MapToHamlibMode(string appMode, long frequencyHz)
+    {
+        switch (appMode.ToUpperInvariant())
+        {
+            case "CW":
+            case "CWU":
+                return "CW";
+            case "CWL":
+                return "CWR";
+            case "SSB":
+                // Below 10 MHz convention is LSB, above is USB
+                return frequencyHz > 0 && frequencyHz < 10_000_000 ? "LSB" : "USB";
+            case "USB":
+                return "USB";
+            case "LSB":
+                return "LSB";
+            case "AM":
+                return "AM";
+            case "FM":
+            case "FMN":
+                return "FM";
+            case "RTTY":
+                return "RTTY";
+            case "FT8":
+            case "FT4":
+            case "PSK31":
+            case "DIGI":
+            case "JT65":
+            case "JT9":
+                return "PKTUSB";
+            case "DSB":
+                return "DSB";
+            case "SAM":
+                return "SAM";
+            default:
+                return appMode.ToUpperInvariant();
+        }
     }
 
     /// <summary>

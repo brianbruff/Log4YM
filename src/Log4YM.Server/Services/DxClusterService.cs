@@ -279,6 +279,30 @@ public class DxClusterService : IDxClusterService, IHostedService, IDisposable
         _logger.LogDebug("Spot: {DxCall} on {Freq} by {Spotter} - {Country} (from {Source})",
             parsedSpot.DxCall, parsedSpot.Frequency, parsedSpot.Spotter, parsedSpot.Country ?? "Unknown", source);
 
+        // Lookup spotter location asynchronously (best effort, non-blocking)
+        string? spotterGrid = null;
+        string? spotterCountry = null;
+        int? spotterDxcc = null;
+        string? spotterContinent = null;
+
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var rbnService = scope.ServiceProvider.GetService<IRbnService>();
+
+            if (rbnService != null)
+            {
+                var (grid, _, _, country) = await rbnService.LookupSkimmerLocationAsync(parsedSpot.Spotter);
+                spotterGrid = grid;
+                spotterCountry = country;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogDebug("Failed to lookup spotter location for {Spotter}: {Error}",
+                parsedSpot.Spotter, ex.Message);
+        }
+
         // Broadcast to clients (spots are kept in memory on frontend only, not persisted)
         var evt = new SpotReceivedEvent(
             spotId,
@@ -291,7 +315,11 @@ public class DxClusterService : IDxClusterService, IHostedService, IDisposable
             source,
             parsedSpot.Country,
             parsedSpot.Dxcc,
-            parsedSpot.Grid
+            parsedSpot.Grid,
+            spotterCountry,
+            spotterDxcc,
+            spotterGrid,
+            spotterContinent
         );
 
         await _hubContext.Clients.All.OnSpotReceived(evt);

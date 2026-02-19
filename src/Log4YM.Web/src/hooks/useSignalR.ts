@@ -173,6 +173,12 @@ export function useSignalRConnection() {
                 dxcc: evt.dxcc,
                 grid: evt.grid,
               } : undefined,
+              spotterStation: (evt.spotterCountry || evt.spotterDxcc || evt.spotterGrid) ? {
+                country: evt.spotterCountry,
+                dxcc: evt.spotterDxcc,
+                grid: evt.spotterGrid,
+                continent: evt.spotterContinent,
+              } : undefined,
             };
             useAppStore.getState().addDxClusterSpot(spot);
           },

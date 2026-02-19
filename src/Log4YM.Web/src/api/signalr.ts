@@ -49,6 +49,10 @@ export interface SpotReceivedEvent {
   country?: string;
   dxcc?: number;
   grid?: string;
+  spotterCountry?: string;
+  spotterDxcc?: number;
+  spotterGrid?: string;
+  spotterContinent?: string;
 }
 
 export interface SpotSelectedEvent {

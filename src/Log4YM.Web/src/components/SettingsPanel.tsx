@@ -33,7 +33,7 @@ import {
   Bot,
   Sun,
   Moon,
-  Monitor,
+  Flame,
 } from 'lucide-react';
 import { useSettingsStore, SettingsSection, StationSettings } from '../store/settingsStore';
 import { gridToLatLon } from '../utils/maidenhead';
@@ -1538,11 +1538,11 @@ function AppearanceSettingsSection() {
       preview: { bg: '#f6f7f9', panel: '#ffffff', accent: '#4a3d8f', text: '#4b5563' },
     },
     {
-      id: 'system' as const,
-      label: 'System',
-      icon: <Monitor className="w-5 h-5" />,
-      description: 'Follow OS preference',
-      preview: null,
+      id: 'amber' as const,
+      label: 'Amber',
+      icon: <Flame className="w-5 h-5" />,
+      description: 'Black & amber glow',
+      preview: { bg: '#080604', panel: '#14100c', accent: '#ffb000', text: '#b9a06e' },
     },
   ];
 

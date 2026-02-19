@@ -130,6 +130,90 @@
   color-scheme: dark;
 }
 
+/* Amber & Black — warm monochrome dark theme */
+.dark.amber {
+  /* Surface / background colors — pure black */
+  --surface-900: 5 5 5;              /* #050505 — pure black */
+  --surface-850: 10 10 10;           /* #0a0a0a */
+  --surface-800: 16 16 16;           /* #101010 */
+  --surface-700: 24 24 24;           /* #181818 */
+  --surface-600: 45 38 25;           /* #2d2619 — amber-tinted borders */
+  --surface-500: 70 60 38;           /* #463c26 */
+  --surface-400: 160 148 125;        /* #a0947d — warm muted interactive */
+  --surface-300: 190 178 158;        /* #beb29e — warm muted text */
+  --surface-200: 218 208 190;        /* #dad0be — cream secondary text */
+
+  /* Accent colors — amber borders, green for buttons/headers */
+  --accent-primary: 255 176 0;       /* #ffb000 — pure amber (borders, structure) */
+  --accent-secondary: 80 200 100;    /* #50c864 — green (buttons, headers) */
+  --accent-success: 80 200 100;      /* #50c864 — green */
+  --accent-warning: 255 176 0;       /* #ffb000 — amber */
+  --accent-danger: 255 70 70;        /* #ff4646 — red */
+  --accent-info: 255 200 120;        /* #ffc878 — soft amber */
+
+  /* Ham radio mode colors */
+  --ham-cw: 255 176 0;               /* #ffb000 — amber */
+  --ham-ssb: 80 200 100;             /* #50c864 — green */
+  --ham-ft8: 100 200 180;            /* #64c8b4 — teal */
+  --ham-rtty: 255 140 0;             /* #ff8c00 — deep amber */
+
+  /* Gray scale — warm cream tones */
+  --gray-50: 240 235 225;
+  --gray-100: 228 220 208;
+  --gray-200: 210 200 185;
+  --gray-300: 190 180 165;
+  --gray-400: 165 155 138;
+  --gray-500: 130 120 105;
+  --gray-600: 90 82 68;
+  --gray-700: 45 40 32;
+  --gray-800: 24 22 18;
+  --gray-900: 10 10 10;
+
+  /* Text foreground — cream */
+  --text-foreground: 230 222 205;    /* #e6decd — warm cream text */
+
+  /* Shadows — amber structural glow */
+  --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 176, 0, 0.06);
+  --shadow-glass-sm: 0 4px 16px 0 rgba(0, 0, 0, 0.5);
+  --shadow-glow: 0 0 20px rgba(255, 176, 0, 0.3);
+  --shadow-glow-success: 0 0 20px rgba(80, 200, 100, 0.25);
+  --shadow-glow-cyan: 0 0 20px rgba(80, 200, 100, 0.25);
+
+  /* Scrollbar — black with amber thumb */
+  --scrollbar-track: #050505;
+  --scrollbar-thumb: #2d2619;
+  --scrollbar-thumb-hover: #463c26;
+
+  /* Text glow — subtle amber */
+  --text-glow-primary: 0 0 14px rgb(255 176 0 / 0.25);
+  --text-glow-secondary: 0 0 10px rgb(255 176 0 / 0.15);
+
+  color-scheme: dark;
+}
+
+/* Amber theme: override dark-mode flex/grid borders to use amber tones */
+.dark.amber .flexlayout__tabset {
+  border-color: rgb(var(--accent-primary) / 0.12);
+}
+
+.dark.amber .flexlayout__tabset_tabbar_outer {
+  border-bottom-color: rgb(var(--accent-primary) / 0.12);
+}
+
+.dark.amber .flexlayout__splitter {
+  background: rgb(var(--accent-primary) / 0.06);
+}
+
+.dark.amber .flexlayout__splitter:hover {
+  background: rgb(var(--accent-secondary) / 0.25);
+}
+
+.dark.amber .ag-theme-alpine-dark {
+  --ag-border-color: rgb(var(--accent-primary) / 0.10);
+  --ag-row-border-color: rgb(var(--accent-primary) / 0.05);
+  --ag-header-column-separator-color: rgb(var(--accent-primary) / 0.12);
+}
+
 /* ============================================================
    BASE LAYER
    ============================================================ */

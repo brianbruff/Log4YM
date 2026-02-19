@@ -19,7 +19,7 @@ export interface QrzSettings {
 }
 
 export interface AppearanceSettings {
-  theme: 'dark' | 'light' | 'system';
+  theme: 'dark' | 'light' | 'amber';
   compactMode: boolean;
 }
 

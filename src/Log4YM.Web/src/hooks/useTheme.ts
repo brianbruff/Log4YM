@@ -2,9 +2,9 @@ import { useEffect } from 'react';
 import { useSettingsStore } from '../store/settingsStore';
 
 /**
- * Manages theme application based on user settings and system preference.
+ * Manages theme application based on user settings.
  * Applies 'dark' class to <html> for dark mode, removes it for light mode.
- * Listens to prefers-color-scheme media query when theme is set to 'system'.
+ * Applies 'dark amber' classes for amber theme variant.
  */
 export function useTheme() {
   const theme = useSettingsStore((s) => s.settings.appearance.theme);
@@ -13,25 +13,23 @@ export function useTheme() {
     const html = document.documentElement;
     const meta = document.querySelector('meta[name="theme-color"]');
 
-    const applyTheme = (resolved: 'dark' | 'light') => {
-      if (resolved === 'dark') {
-        html.classList.add('dark');
-      } else {
-        html.classList.remove('dark');
-      }
-      if (meta) {
-        meta.setAttribute('content', resolved === 'dark' ? '#0a0e14' : '#faf8f3');
-      }
-    };
+    // Clean all theme classes
+    html.classList.remove('dark', 'amber');
 
-    if (theme === 'system') {
-      const mq = window.matchMedia('(prefers-color-scheme: dark)');
-      const handler = (e: MediaQueryListEvent) => applyTheme(e.matches ? 'dark' : 'light');
-      applyTheme(mq.matches ? 'dark' : 'light');
-      mq.addEventListener('change', handler);
-      return () => mq.removeEventListener('change', handler);
+    if (theme === 'dark' || theme === 'amber') {
+      html.classList.add('dark');
+    }
+    if (theme === 'amber') {
+      html.classList.add('amber');
     }
 
-    applyTheme(theme);
+    if (meta) {
+      const colors: Record<string, string> = {
+        dark: '#0a0e14',
+        light: '#faf8f3',
+        amber: '#080604',
+      };
+      meta.setAttribute('content', colors[theme]);
+    }
   }, [theme]);
 }

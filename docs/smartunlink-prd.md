@@ -2,7 +2,9 @@
 
 ## 📋 Executive Summary
 
-SmartUnlink is a Log4YM plugin that enables users to connect to FlexRadio devices when normal UDP multicast discovery is unavailable, such as when operating over a VPN connection. The plugin allows users to manually configure FlexRadio details and broadcasts "synthetic" discovery packets on the local network, enabling SmartSDR and other VITA-49 compatible applications to discover and connect to remote radios.
+SmartUnlink is a Log4YM plugin that enables **SmartSDR** to discover FlexRadio devices when normal UDP multicast discovery is unavailable, such as when operating over a VPN connection. The plugin allows users to manually configure FlexRadio details and broadcasts "synthetic" discovery packets on the local network, enabling SmartSDR and other VITA-49 compatible applications to discover and connect to remote radios.
+
+> **Important:** SmartUnlink is designed for **SmartSDR compatibility only**. Log4YM itself connects to FlexRadio via **Hamlib** (Radio Type: Hamlib, Rig Model: FlexRadio 6xxx (Stable), Network connection) and does **not** use VITA-49 discovery. SmartUnlink is only needed if you also use SmartSDR alongside Log4YM over a VPN.
 
 ## 🔍 Background
 
@@ -10,7 +12,9 @@ SmartUnlink is a Log4YM plugin that enables users to connect to FlexRadio device
 
 FlexRadio's SmartSDR ecosystem relies on UDP multicast discovery packets (VITA-49 discovery protocol) to automatically find radios on the local network. When a user connects to their home network via VPN, multicast traffic typically does not traverse the VPN tunnel, making radio discovery impossible even though unicast TCP/UDP traffic to the radio works fine.
 
-### Current Workarounds
+**Note:** This limitation applies to SmartSDR's discovery mechanism. Log4YM's Hamlib-based connection to FlexRadio does not rely on UDP discovery and works over VPN without SmartUnlink.
+
+### Current Workarounds (for SmartSDR)
 
 - ❌ Manual SmartLink configuration in SmartSDR (requires FlexRadio SmartLink subscription)
 - ❌ Complex network configurations to forward multicast traffic
@@ -18,7 +22,7 @@ FlexRadio's SmartSDR ecosystem relies on UDP multicast discovery packets (VITA-4
 
 ### Proposed Solution
 
-✅ SmartUnlink acts as a local discovery proxy. Users configure their FlexRadio's details (IP, model, name), and when enabled, the plugin broadcasts discovery packets on the local machine's network interfaces. SmartSDR sees these packets and allows the user to connect to the radio using standard unicast traffic over the VPN.
+✅ SmartUnlink acts as a local discovery proxy for SmartSDR. Users configure their FlexRadio's details (IP, model, name), and when enabled, the plugin broadcasts discovery packets on the local machine's network interfaces. SmartSDR sees these packets and allows the user to connect to the radio using standard unicast traffic over the VPN.
 
 ## 🏗️ Technical Architecture
 

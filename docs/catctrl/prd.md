@@ -2,7 +2,9 @@
 
 ## Executive Summary
 
-This document outlines the requirements for implementing Computer Aided Transceiver (CAT) control support in Log4YM. The feature enables automatic frequency and mode tracking from amateur radio transceivers, specifically supporting FlexRadio (via Flex Discovery Protocol) and TCI-compatible radios including Thetis, Hermes, and ANAN transceivers.
+This document outlines the requirements for implementing Computer Aided Transceiver (CAT) control support in Log4YM. The feature enables automatic frequency and mode tracking from amateur radio transceivers, supporting **Hamlib** (covering a wide range of rigs including FlexRadio) and TCI-compatible radios including Thetis, Hermes, and ANAN transceivers.
+
+> **FlexRadio Note:** FlexRadio devices (FLEX-6000 and FLEX-8000 series) are supported via **Hamlib**, not via the native SmartSDR/FlexLib API. Select Radio Type: Hamlib, Rig Model: FlexRadio 6xxx (Stable), Connection Type: Network.
 
 ## Background
 
@@ -12,18 +14,22 @@ Ham radio operators currently need to manually enter frequency and band informat
 
 ### Solution Overview
 
-By implementing CAT control support, Log4YM can automatically detect connected radios on the local network, monitor their frequency and mode in real-time, and pre-populate logging fields accordingly.
+By implementing CAT control support, Log4YM can connect to a Hamlib `rigctld` daemon or a TCI-compatible radio, monitor frequency and mode in real-time, and pre-populate logging fields accordingly.
 
 ## Supported Radio Types
 
-### FlexRadio (SmartSDR Ecosystem)
+### Hamlib (All Supported Rigs)
 
 | Aspect | Details |
 |--------|---------|
-| Discovery Protocol | Flex Discovery Protocol (UDP broadcast) |
-| Discovery Port | UDP 4992 (VITA-49 discovery) |
-| Control Protocol | FlexLib API / TCP connection |
-| Supported Models | FLEX-6000 series, FLEX-8000 series |
+| Discovery Protocol | Manual configuration (no auto-discovery) |
+| Connection | TCP to `rigctld` daemon |
+| Control Protocol | Hamlib rigctld protocol |
+| Supported Models | 300+ rigs including FlexRadio 6xxx/8xxx, Icom, Kenwood, Yaesu, etc. |
+| FlexRadio Model | Select "FlexRadio 6xxx (Stable)" in Rig Model dropdown |
+| Default Port | 5002 (rigctld default) |
+
+> **Important:** Auto-discovery is not available for Hamlib-connected radios. Users must manually configure the hostname and port of their `rigctld` instance.
 
 ### TCI Protocol Radios
 
@@ -36,21 +42,21 @@ By implementing CAT control support, Log4YM can automatically detect connected r
 
 ## Architecture
 
-### Discovery Flow
+### Configuration Flow
 
 ```mermaid
 flowchart TD
-    subgraph Discovery["Radio Discovery Process"]
+    subgraph Configuration["Radio Configuration Process"]
         A[Plugin Initialized] --> B{Radio Type Selected?}
-        B -->|FlexRadio| C[Start Flex Discovery]
+        B -->|Hamlib| C[Show Hamlib Config]
         B -->|TCI| D[Start TCI Discovery]
 
-        subgraph FlexDiscovery["Flex Discovery Protocol"]
-            C --> C1[Bind UDP Socket Port 4992]
-            C1 --> C2[Listen for VITA-49 Discovery Packets]
-            C2 --> C3[Parse Radio Info: IP, Model, Serial, Nickname]
-            C3 --> C4[Add to Available Radios List]
-            C4 --> C2
+        subgraph HamlibConfig["Hamlib Configuration"]
+            C --> C1[Select Rig Model]
+            C1 --> C2[Select Connection Type\nNetwork or Serial]
+            C2 --> C3[Enter Hostname and Port]
+            C3 --> C4[Click Connect]
+            C4 --> C5[TCP Connection to rigctld]
         end
 
         subgraph TCIDiscovery["TCI Discovery Protocol"]
@@ -63,9 +69,9 @@ flowchart TD
         end
     end
 
-    C4 --> E[Update UI via SignalR]
+    C5 --> E[Update UI via SignalR]
     D5 --> E
-    E --> F[User Selects Radio]
+    E --> F[User Connected]
 ```
 
 ### Plugin State Machine
@@ -74,16 +80,12 @@ flowchart TD
 stateDiagram-v2
     [*] --> Disconnected: Plugin Loaded
 
-    Disconnected --> Discovering: Start Discovery
-    Discovering --> Disconnected: Stop Discovery
-    Discovering --> Discovering: Radio Found
-    Discovering --> Connecting: User Selects Radio
-
+    Disconnected --> Connecting: User Clicks Connect
     Connecting --> Connected: Connection Success
     Connecting --> Error: Connection Failed
 
-    Connected --> Monitoring: Slice/Instance Selected
-    Monitoring --> Connected: Slice/Instance Deselected
+    Connected --> Monitoring: Polling Active
+    Monitoring --> Connected: Polling Paused
 
     Connected --> Disconnecting: User Disconnects
     Monitoring --> Disconnecting: User Disconnects
@@ -100,13 +102,13 @@ stateDiagram-v2
 ```mermaid
 flowchart LR
     subgraph Radio["Physical Radio"]
-        R1[FlexRadio]
+        R1[Hamlib rigctld\n(FlexRadio, Icom, etc.)]
         R2[TCI Radio]
     end
 
     subgraph Backend["ASP.NET Core Backend"]
         subgraph Services["Services Layer"]
-            FS[FlexRadioService]
+            HS[HamlibRadioService]
             TS[TciRadioService]
         end
 
@@ -120,10 +122,10 @@ flowchart LR
         UH[useRadioHub]
     end
 
-    R1 -->|FlexLib API| FS
+    R1 -->|rigctld TCP| HS
     R2 -->|TCI WebSocket| TS
 
-    FS --> RS
+    HS --> RS
     TS --> RS
 
     RS -->|State Changed| RH
@@ -141,30 +143,26 @@ sequenceDiagram
     participant RadioPlugin as Radio Plugin
     participant SignalR as RadioHub
     participant RadioService as Radio Service
-    participant Radio as Physical Radio
+    participant Radio as rigctld / TCI Radio
     participant LogEntry as Log Entry Plugin
 
-    Note over User,LogEntry: Discovery Phase
-    User->>RadioPlugin: Select Radio Type
-    RadioPlugin->>SignalR: StartDiscovery(radioType)
-    SignalR->>RadioService: InitiateDiscovery()
-    RadioService->>Radio: UDP Broadcast/Listen
-    Radio-->>RadioService: Discovery Response
-    RadioService->>SignalR: RadioDiscovered(radioInfo)
-    SignalR->>RadioPlugin: OnRadioDiscovered(radioInfo)
-
-    Note over User,LogEntry: Connection Phase
-    User->>RadioPlugin: Select Radio
-    RadioPlugin->>SignalR: Connect(radioId)
-    SignalR->>RadioService: ConnectToRadio(radioId)
-    RadioService->>Radio: Establish Connection
+    Note over User,LogEntry: Configuration Phase (Hamlib)
+    User->>RadioPlugin: Select Radio Type (Hamlib)
+    User->>RadioPlugin: Select Rig Model, Hostname, Port
+    User->>RadioPlugin: Click Connect
+    RadioPlugin->>SignalR: Connect(config)
+    SignalR->>RadioService: ConnectToRadio(config)
+    RadioService->>Radio: TCP Connect to rigctld
     Radio-->>RadioService: Connection ACK
     RadioService->>SignalR: ConnectionStateChanged(connected)
 
     Note over User,LogEntry: Monitoring Phase
-    loop Frequency/Mode Changes
-        Radio->>RadioService: Frequency Changed
-        RadioService->>SignalR: RadioStateChanged(freq, mode, txrx)
+    loop Poll interval (500ms)
+        RadioService->>Radio: "f" get frequency
+        Radio-->>RadioService: frequency Hz
+        RadioService->>Radio: "m" get mode
+        Radio-->>RadioService: mode string
+        RadioService->>SignalR: RadioStateChanged(freq, mode)
         SignalR->>RadioPlugin: OnRadioStateChanged(state)
         SignalR->>LogEntry: OnBandChanged(band, freq)
     end
@@ -172,13 +170,14 @@ sequenceDiagram
 
 ## Functional Requirements
 
-### FR-1: Radio Discovery
+### FR-1: Radio Connection
 
-#### FR-1.1: FlexRadio Discovery
-- The system SHALL listen on UDP port 4992 for VITA-49 discovery packets
-- The system SHALL parse discovery packets to extract radio IP, model, serial number, and nickname
-- The system SHALL maintain a list of discovered FlexRadio devices
-- The system SHALL remove radios from the list after 30 seconds without a discovery packet
+#### FR-1.1: Hamlib Connection
+- The system SHALL connect to a `rigctld` daemon via TCP at the configured hostname and port
+- The system SHALL allow selection of rig model from Hamlib's supported rig list
+- The system SHALL support Network (TCP) and Serial connection types
+- The system SHALL poll the connected rigctld for frequency and mode at a configurable interval
+- **Auto-discovery is not supported** for Hamlib rigs; users must configure hostname and port manually
 
 #### FR-1.2: TCI Radio Discovery
 - The system SHALL send UDP broadcast packets on port 1024 for TCI discovery
@@ -189,18 +188,16 @@ sequenceDiagram
 ### FR-2: Radio Plugin UI
 
 #### FR-2.1: Radio Type Selection
-- The plugin SHALL provide a dropdown to select radio type (FlexRadio or TCI)
-- The plugin SHALL automatically start discovery when a radio type is selected
+- The plugin SHALL provide a selector for radio type (Hamlib or TCI)
+- Selecting Hamlib SHALL show the Hamlib configuration form
+- Selecting TCI SHALL automatically start discovery
 
-#### FR-2.2: Radio Selection
-- The plugin SHALL display a list of discovered radios with Model, IP Address, and Nickname
-- The user SHALL be able to select a radio from the list to initiate connection
+#### FR-2.2: Hamlib Configuration
+- The plugin SHALL display: Rig Model dropdown, Connection Type selector, Hostname and Port fields
+- The plugin SHALL provide a curated list of common rig models including "FlexRadio 6xxx (Stable)"
+- The plugin SHALL remember last-used configuration
 
-#### FR-2.3: FlexRadio Slice Selection
-- When connected to a FlexRadio, the plugin SHALL display available slices
-- The user SHALL be able to select which slice to monitor for frequency changes
-
-#### FR-2.4: TCI Instance Selection
+#### FR-2.3: TCI Instance Selection
 - When connected to a TCI radio, the plugin SHALL display available receiver instances
 - The user SHALL be able to select which instance to monitor
 
@@ -230,14 +227,13 @@ sequenceDiagram
 
 ### Backend Components
 
-#### FlexRadioService.cs
+#### HamlibRadioService.cs
 ```
-Location: src/Log4YM.Server/Services/FlexRadioService.cs
+Location: src/Log4YM.Server/Services/HamlibRadioService.cs
 Responsibilities:
-- UDP listener on port 4992 for VITA-49 packets
-- TCP connection to FlexRadio API
-- Monitor selected slice for freq/mode changes
-- Push state changes to RadioHub
+- TCP connection to rigctld daemon
+- Poll frequency and mode via rigctld protocol
+- Detect state changes and push to RadioHub
 ```
 
 #### TciRadioService.cs
@@ -257,14 +253,9 @@ Location: src/Log4YM.Server/Hubs/RadioHub.cs
 
 | Method | Direction | Description |
 |--------|-----------|-------------|
-| StartDiscovery | Client → Server | Begin radio discovery |
-| StopDiscovery | Client → Server | Stop radio discovery |
-| Connect | Client → Server | Connect to selected radio |
+| Connect | Client → Server | Connect to configured radio |
 | Disconnect | Client → Server | Disconnect from radio |
-| SelectSlice | Client → Server | Select FlexRadio slice to monitor |
 | SelectInstance | Client → Server | Select TCI instance to monitor |
-| OnRadioDiscovered | Server → Client | Radio found during discovery |
-| OnRadioRemoved | Server → Client | Radio no longer available |
 | OnConnectionStateChanged | Server → Client | Connection state update |
 | OnRadioStateChanged | Server → Client | Frequency/mode/TX state update |
 
@@ -274,10 +265,10 @@ Location: src/Log4YM.Server/Hubs/RadioHub.cs
 ```
 Location: src/Log4YM.Web/src/plugins/radio/RadioPlugin.tsx
 Features:
-- Radio type selector
-- Discovered radios list
+- Radio type selector (Hamlib / TCI)
+- Hamlib: rig model, connection type, hostname, port
+- TCI: discovered radios list, instance selector
 - Connection controls
-- Slice/instance selector
 - Status display (frequency, mode, TX/RX)
 ```
 
@@ -297,10 +288,10 @@ Features:
 public class RadioInfo
 {
     public string Id { get; set; }
-    public RadioType Type { get; set; }      // FlexRadio or TCI
-    public string Model { get; set; }        // "FLEX-6600", "Hermes Lite 2"
+    public RadioType Type { get; set; }      // Hamlib or TCI
+    public string Model { get; set; }        // "FlexRadio 6xxx", "Hermes Lite 2"
     public string IpAddress { get; set; }
-    public string Nickname { get; set; }
+    public int Port { get; set; }
     public DateTime LastSeen { get; set; }
 }
 ```
@@ -314,7 +305,6 @@ public class RadioState
     public string Mode { get; set; }         // "USB", "LSB", "CW", "FT8"
     public bool IsTransmitting { get; set; }
     public string Band { get; set; }         // "20m", "40m"
-    public string SliceOrInstance { get; set; }
 }
 ```
 
@@ -323,7 +313,6 @@ public class RadioState
 public enum ConnectionState
 {
     Disconnected,
-    Discovering,
     Connecting,
     Connected,
     Monitoring,
@@ -357,11 +346,11 @@ public enum ConnectionState
 4. Implement frequency-to-band mapping utility
 5. Create useRadioHub React hook
 
-### Phase 2: FlexRadio Support
-1. Implement FlexRadioDiscoveryService (UDP 4992)
-2. Implement FlexRadioService for connection and state monitoring
+### Phase 2: Hamlib Support
+1. Implement HamlibRadioService for TCP connection to rigctld
+2. Implement frequency/mode polling
 3. Integrate with RadioHub
-4. Unit tests for discovery and state parsing
+4. Unit tests for rigctld response parsing
 
 ### Phase 3: TCI Support
 1. Implement TciDiscoveryService (UDP 1024)
@@ -371,15 +360,15 @@ public enum ConnectionState
 
 ### Phase 4: Frontend Plugin
 1. Create RadioPlugin component structure
-2. Implement radio type selection UI
-3. Implement discovered radios list
-4. Implement connection management UI
-5. Implement status display (frequency, mode, TX/RX)
-6. Add slice/instance selection
+2. Implement radio type selection UI (Hamlib / TCI)
+3. Implement Hamlib configuration form
+4. Implement TCI discovered radios list
+5. Implement connection management UI
+6. Implement status display (frequency, mode, TX/RX)
 
 ### Phase 5: Integration
 1. Integrate with Log Entry plugin for automatic band selection
-2. Add settings persistence for last-used radio
+2. Add settings persistence for last-used radio configuration
 3. Implement reconnection logic
 4. End-to-end testing
 
@@ -387,9 +376,9 @@ public enum ConnectionState
 
 ```csharp
 // Program.cs additions
-builder.Services.AddSingleton<FlexRadioService>();
+builder.Services.AddSingleton<HamlibRadioService>();
 builder.Services.AddSingleton<TciRadioService>();
-builder.Services.AddHostedService(sp => sp.GetRequiredService<FlexRadioService>());
+builder.Services.AddHostedService(sp => sp.GetRequiredService<HamlibRadioService>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<TciRadioService>());
 
 // Hub mapping
@@ -398,7 +387,7 @@ app.MapHub<RadioHub>("/hubs/radio");
 
 ## Future Enhancements
 
-1. **Additional CAT Protocols**: Hamlib, Omni-Rig, N1MM+ broadcast
-2. **Multi-Radio Support**: Monitor multiple radios simultaneously (SO2R)
-3. **Frequency Memories**: Quick-select stored frequencies
-4. **TX Control**: PTT control via CAT for digital modes
+1. **Multi-Radio Support**: Monitor multiple radios simultaneously (SO2R)
+2. **Frequency Memories**: Quick-select stored frequencies
+3. **TX Control**: PTT control via CAT for digital modes
+4. **N1MM+ Broadcast**: Receive frequency data from N1MM+ UDP broadcast

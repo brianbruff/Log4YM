@@ -1,6 +1,6 @@
 # Radio Integration PRD
 
-**Version:** 1.0
+**Version:** 1.1
 **Author:** Log4YM Development Team
 **Date:** 2025-12-16
 **Status:** Draft
@@ -11,8 +11,10 @@
 
 This PRD defines the requirements for integrating amateur radio transceiver control into Log4YM. The Radio Plugin enables automatic frequency, mode, and band tracking from connected radios, eliminating manual data entry during logging.
 
-**Phase 1** focuses on FlexRadio integration via the SmartSDR TCP API.
+**Phase 1** focuses on Hamlib-based radio integration, supporting a wide range of radios including FlexRadio (via Hamlib's FlexRadio 6xxx driver).
 **Phase 2** adds TCI protocol support for ANAN, Thetis, and Hermes Lite radios.
+
+> **Note:** FlexRadio devices are supported via **Hamlib**, not via the native SmartSDR TCP API. Users should select Radio Type: **Hamlib** and Rig Model: **FlexRadio 6xxx (Stable)** with a Network connection to their radio.
 
 The integration provides real-time radio state synchronization to the LogEntryPlugin through a "Follow Radio" toggle, automatically populating QSO frequency, band, and mode fields.
 
@@ -24,9 +26,9 @@ The integration provides real-time radio state synchronization to the LogEntryPl
 
 Log4YM currently supports:
 - Manual frequency/band/mode entry in LogEntryPlugin
-- Basic FlexRadioService with UDP discovery (port 4992) and TCP connection
+- HamlibRadioService with configurable rig model and network/serial connection
 - TciRadioService with UDP discovery (port 1024) and WebSocket connection
-- RadioPlugin UI with FlexRadio/TCI radio type selection and inline discovery
+- RadioPlugin UI with Hamlib/TCI radio type selection and inline configuration
 
 ### Problem Statement
 
@@ -38,7 +40,7 @@ Amateur radio operators frequently switch frequencies and modes during operating
 ### Solution Overview
 
 Automatic radio tracking eliminates these issues by:
-- Discovering radios on the local network
+- Connecting to radios via Hamlib (wide rig support) or TCI protocol
 - Maintaining persistent connections with real-time state updates
 - Pushing frequency/mode changes to the logging interface
 - Providing a user-controlled toggle to enable/disable auto-population
@@ -51,29 +53,30 @@ Automatic radio tracking eliminates these issues by:
 %%{init: {'theme': 'dark', 'themeVariables': { 'primaryColor': '#4a9eff', 'primaryTextColor': '#fff', 'primaryBorderColor': '#2d7dd2', 'lineColor': '#6b7280', 'secondaryColor': '#50c878', 'tertiaryColor': '#ffa500'}}}%%
 flowchart TB
     subgraph Radio["Radio Hardware"]
-        FLEX[("FlexRadio\n6000/8000 Series")]
+        FLEX[("FlexRadio\n6000/8000 Series\n(via Hamlib)")]
+        OTHER[("Any Hamlib-supported\nRig")]
         TCI[("TCI Radio\nANAN / Hermes Lite")]
     end
 
     subgraph Backend["ASP.NET Core Backend"]
         RS["RadioService\n(Coordinator)"]
-        FRS["FlexRadioService\nTCP API"]
+        HLS["HamlibRadioService\nrigctld API"]
         TCIS["TciRadioService\nWebSocket"]
         HUB["LogHub\nSignalR"]
     end
 
     subgraph Frontend["React Frontend"]
-        RP["RadioPlugin\nDiscovery & Status"]
+        RP["RadioPlugin\nConfiguration & Status"]
         LEP["LogEntryPlugin\nFollow Radio Toggle"]
         STORE["AppStore\nZustand State"]
     end
 
-    FLEX -- "UDP 4992\nVITA-49 Discovery" --> FRS
-    FLEX -- "TCP 4992\nSmartSDR API" --> FRS
+    FLEX -- "Network TCP\nHamlib rigctld" --> HLS
+    OTHER -- "Serial/Network\nHamlib rigctld" --> HLS
     TCI -- "UDP 1024\nDiscovery" --> TCIS
     TCI -- "WS 40001\nTCI Protocol" --> TCIS
 
-    FRS --> RS
+    HLS --> RS
     TCIS --> RS
     RS --> HUB
     HUB -- "SignalR\nReal-time Events" --> RP
@@ -82,9 +85,10 @@ flowchart TB
     STORE --> LEP
 
     style FLEX fill:#3b82f6,stroke:#1d4ed8,color:#fff
+    style OTHER fill:#6366f1,stroke:#4338ca,color:#fff
     style TCI fill:#8b5cf6,stroke:#6d28d9,color:#fff
     style RS fill:#22c55e,stroke:#16a34a,color:#fff
-    style FRS fill:#22c55e,stroke:#16a34a,color:#fff
+    style HLS fill:#22c55e,stroke:#16a34a,color:#fff
     style TCIS fill:#22c55e,stroke:#16a34a,color:#fff
     style HUB fill:#22c55e,stroke:#16a34a,color:#fff
     style RP fill:#f97316,stroke:#ea580c,color:#fff
@@ -96,16 +100,16 @@ flowchart TB
 
 ## Radio Type Comparison
 
-| Feature | FlexRadio (Phase 1) | TCI Radio (Phase 2) |
-|---------|---------------------|---------------------|
-| **Target Radios** | FLEX-6000, 8000 series | ANAN, Thetis, Hermes Lite |
-| **Discovery** | UDP 4992 (VITA-49) | UDP 1024 |
-| **Connection** | TCP (plain text) | WebSocket |
-| **Default Port** | 4992 | 40001 |
-| **Frequency Format** | `RF_frequency=14.250` (MHz) | `vfo:0,14250000;` (Hz) |
-| **Mode Format** | `mode=USB` | `modulation:0,USB;` |
-| **Multi-receiver** | Slices (0-7) | Receivers (0-n) |
-| **CAT Integration** | SmartSDR / SmartCAT | Native TCI |
+| Feature | Hamlib (incl. FlexRadio) | TCI Radio (Phase 2) |
+|---------|--------------------------|---------------------|
+| **Target Radios** | 300+ rigs incl. FlexRadio 6xxx/8xxx | ANAN, Thetis, Hermes Lite |
+| **Discovery** | Manual configuration (hostname + port) | UDP 1024 |
+| **Connection** | TCP to rigctld daemon | WebSocket |
+| **FlexRadio Port** | 5002 (rigctld default) | N/A |
+| **Frequency Format** | Hz (rigctld standard) | `vfo:0,14250000;` (Hz) |
+| **Mode Format** | `USB`, `CW`, etc. | `modulation:0,USB;` |
+| **Multi-receiver** | Single VFO per rigctld instance | Receivers (0-n) |
+| **FlexRadio Note** | Select Rig Model: "FlexRadio 6xxx (Stable)" | N/A |
 
 ---
 
@@ -115,9 +119,9 @@ flowchart TB
 
 | ID | Objective | Success Metric |
 |----|-----------|----------------|
-| O1 | FlexRadio CAT slice tracking | Frequency updates within 100ms of radio change |
+| O1 | Hamlib radio frequency/mode tracking | Frequency updates within 100ms of radio change |
 | O2 | Automatic log field population | 95% reduction in manual frequency entry |
-| O3 | Seamless discovery experience | One-click connection after initial setup |
+| O3 | Simple configuration experience | Connect with hostname + port after initial setup |
 | O4 | Reliable connection management | Auto-reconnect within 5 seconds of disconnect |
 
 ### Non-Goals (Phase 1)
@@ -125,29 +129,29 @@ flowchart TB
 - TX/PTT control from Log4YM
 - Multi-radio simultaneous connections
 - Direct rig control (frequency changes from software)
-- Omni-Rig or Hamlib integration
+- Native FlexRadio SmartSDR TCP API integration (use Hamlib instead)
 
 ---
 
 ## User Stories
 
-### US-1: Radio Discovery
-**As a** FlexRadio operator
-**I want to** discover my radio on the network
-**So that** I can connect without manual IP configuration
+### US-1: Radio Configuration
+**As a** Hamlib radio operator
+**I want to** configure my radio's hostname and port
+**So that** I can connect without network discovery
 
 **Acceptance Criteria:**
-- RadioPlugin displays discovered radios within 3 seconds
-- Radio list shows model, nickname, IP address
-- Refresh button triggers new discovery scan
+- RadioPlugin displays Hamlib configuration fields (Rig Model, Connection Type, Hostname, Port)
+- User can select Rig Model from dropdown (e.g., "FlexRadio 6xxx (Stable)")
+- Settings are persisted across sessions
 
 ### US-2: Radio Connection
 **As a** radio operator
-**I want to** connect to my discovered radio
+**I want to** connect to my configured radio
 **So that** Log4YM can track my frequency and mode
 
 **Acceptance Criteria:**
-- Single click connects to selected radio
+- Single click connects to configured radio
 - Connection status displayed (Disconnected/Connecting/Connected/Monitoring)
 - Error messages shown for connection failures
 
@@ -162,38 +166,36 @@ flowchart TB
 - When disabled, fields remain editable but static
 - Toggle state persists across sessions
 
-### US-4: Multi-Slice Radio Handling
-**As a** FlexRadio operator with multiple slices
-**I want** Log4YM to track only my CAT-designated slice
-**So that** logging reflects my transmit frequency
+### US-4: FlexRadio via Hamlib
+**As a** FlexRadio operator
+**I want** to connect my FlexRadio via Hamlib
+**So that** I can use Log4YM without needing SmartSDR API access
 
 **Acceptance Criteria:**
-- Only the CAT slice (exposed by SmartSDR/SmartCAT) is tracked
-- Slice changes in SmartSDR are reflected in Log4YM
-- Other slices are ignored for logging purposes
+- Select Radio Type: Hamlib
+- Select Rig Model: FlexRadio 6xxx (Stable)
+- Set Connection Type: Network, Hostname: localhost (or radio IP), Port: 5002
+- Frequency and mode updates are reflected in Log4YM
 
 ---
 
 ## Technical Design
 
-### FlexRadio Protocol Details
+### Hamlib rigctld Connection
+
+Hamlib requires a running `rigctld` daemon that Log4YM connects to via TCP:
 
 ```
-Discovery (UDP 4992):
-+-- VITA-49 discovery packets broadcast
-+-- Parse: model, serial, nickname, IP, version
-+-- Radios respond every ~3 seconds
-
-Connection (TCP):
-+-- Connect to radio IP on discovered port
-+-- Send: "sub slice all" (subscribe to slice updates)
-+-- Receive: slice status messages
-+-- Parse: RF_frequency, mode, tx (TX state)
+Connection:
++-- Connect to rigctld hostname:port (default port 5002)
++-- Poll: "f" command → returns current frequency in Hz
++-- Poll: "m" command → returns current mode and passband
++-- Interval: configurable (default 500ms)
 ```
 
-**Slice Status Message Format:**
-```
-S<handle>|slice <num> RF_frequency=<MHz> mode=<mode> tx=<0|1> ...
+For FlexRadio, start rigctld with:
+```bash
+rigctld -m 2069 -t 5002  # FlexRadio 6xxx (Stable) rig model
 ```
 
 ### Radio Connection State Machine
@@ -203,24 +205,17 @@ S<handle>|slice <num> RF_frequency=<MHz> mode=<mode> tx=<0|1> ...
 stateDiagram-v2
     [*] --> Disconnected
 
-    Disconnected --> Discovering: Start Discovery
-    Discovering --> Disconnected: No Radios Found
-    Discovering --> RadioFound: Radio Detected
-
-    RadioFound --> Connecting: User Clicks Connect
-    RadioFound --> Disconnected: User Cancels
-
+    Disconnected --> Connecting: User Clicks Connect
     Connecting --> Connected: Connection Success
     Connecting --> ConnectionFailed: Timeout/Error
 
     ConnectionFailed --> Connecting: Retry (Auto)
     ConnectionFailed --> Disconnected: Max Retries
 
-    Connected --> Monitoring: Slice Selected
+    Connected --> Monitoring: Polling Active
     Connected --> Disconnected: User Disconnect
     Connected --> Reconnecting: Connection Lost
 
-    Monitoring --> Connected: Slice Deselected
     Monitoring --> Reconnecting: Connection Lost
 
     Reconnecting --> Connected: Reconnect Success
@@ -232,15 +227,20 @@ stateDiagram-v2
 ```mermaid
 %%{init: {'theme': 'dark'}}%%
 sequenceDiagram
-    participant Radio as FlexRadio
-    participant FRS as FlexRadioService
+    participant Radio as Hamlib rigctld
+    participant HLS as HamlibRadioService
     participant Hub as LogHub (SignalR)
     participant Store as AppStore
     participant LEP as LogEntryPlugin
 
-    Radio->>FRS: TCP: slice status update
-    Note over FRS: Parse RF_frequency,<br/>mode, tx state
-    FRS->>Hub: BroadcastRadioStateChanged
+    loop Poll interval (500ms)
+        HLS->>Radio: TCP: "f" (get frequency)
+        Radio-->>HLS: frequency in Hz
+        HLS->>Radio: TCP: "m" (get mode)
+        Radio-->>HLS: mode string
+    end
+    Note over HLS: Detect state change
+    HLS->>Hub: BroadcastRadioStateChanged
     Hub->>Store: setRadioState(state)
 
     alt Follow Radio Enabled
@@ -283,20 +283,19 @@ flowchart LR
 
 ---
 
-## FlexRadio CAT Slice Handling
+## FlexRadio Configuration
 
-FlexRadio supports multiple simultaneous slices (virtual receivers). Log4YM tracks only the **CAT slice** which is:
+FlexRadio devices are connected via Hamlib rather than the native SmartSDR API. This approach is simpler and does not require SmartSDR to be running.
 
-| Platform | CAT Slice Source |
-|----------|------------------|
-| **macOS** | SmartSDR designates active slice |
-| **Windows** | SmartCAT exposes CAT-connected slice |
+| Setting | Value |
+|---------|-------|
+| **Radio Type** | Hamlib |
+| **Rig Model** | FlexRadio 6xxx (Stable) |
+| **Connection Type** | Network |
+| **Hostname** | `localhost` (or radio IP) |
+| **Port** | `5002` |
 
-**Detection Strategy:**
-1. Subscribe to all slices: `sub slice all`
-2. Monitor for `tx=1` state to identify transmit slice
-3. Use the TX slice as the logging source
-4. Fall back to Slice A (slice 0) if no TX designation
+> **Note:** For multi-slice FlexRadio setups, rigctld exposes a single VFO. Advanced slice management is not available via Hamlib.
 
 ---
 
@@ -306,18 +305,21 @@ FlexRadio supports multiple simultaneous slices (virtual receivers). Log4YM trac
 
 The radio connection is configured inline within the RadioPlugin:
 
-1. **Select Radio Type** - FlexRadio or TCI (different protocols)
-2. **Discovery** - Scans network for available radios
-3. **Select Radio** - Choose from discovered radios
-4. **Connect** - Establish connection
-5. **Select Slice/Instance** - Choose which receiver to track
+1. **Select Radio Type** - Hamlib or TCI (different protocols)
+2. **Select Rig Model** - Choose rig from Hamlib's supported list (e.g., "FlexRadio 6xxx (Stable)")
+3. **Connection Type** - Network (TCP to rigctld) or Serial
+4. **Hostname/Port** - Address of the rigctld daemon
+5. **Connect** - Establish connection
 
 ### Persistent Settings
 
 ```typescript
 interface RadioSettings {
-  lastRadioType: 'FlexRadio' | 'Tci';
-  lastConnectedRadioId: string | null;
+  lastRadioType: 'Hamlib' | 'Tci';
+  lastRigModel: string;
+  lastConnectionType: 'Network' | 'Serial';
+  lastHostname: string;
+  lastPort: number;
   autoConnect: boolean;
   followRadioEnabled: boolean;
 }
@@ -327,37 +329,17 @@ interface RadioSettings {
 
 ## Implementation Plan
 
-### Phase 1: FlexRadio Integration
-
-```mermaid
-%%{init: {'theme': 'dark'}}%%
-gantt
-    title Phase 1: FlexRadio Integration
-    dateFormat YYYY-MM-DD
-    section Backend
-    Complete TCP connection lifecycle    :a1, 2025-01-06, 3d
-    Implement slice status parsing       :a2, after a1, 2d
-    Add CAT slice detection             :a3, after a2, 2d
-    section Frontend
-    Add Follow Radio toggle to LEP      :b1, 2025-01-06, 2d
-    Implement auto-population logic     :b2, after b1, 2d
-    Add settings persistence           :b3, after b2, 1d
-    section Testing
-    Integration testing                 :c1, after a3, 3d
-    End-to-end with real radio         :c2, after c1, 2d
-```
-
-#### Tasks
+### Phase 1: Hamlib Integration
 
 | Task | Description | Priority |
 |------|-------------|----------|
-| FLEX-1 | Complete FlexRadioService TCP connection lifecycle | P0 |
-| FLEX-2 | Parse slice status (RF_frequency, mode, tx) | P0 |
-| FLEX-3 | Implement CAT slice detection (TX slice tracking) | P0 |
+| HAM-1 | Implement HamlibRadioService TCP connection to rigctld | P0 |
+| HAM-2 | Poll frequency and mode from rigctld | P0 |
+| HAM-3 | Implement rig model selection UI | P0 |
 | LEP-1 | Add Follow Radio toggle to LogEntryPlugin header | P0 |
 | LEP-2 | Subscribe to radioState and auto-populate fields | P0 |
 | LEP-3 | Persist followRadio setting | P1 |
-| TEST-1 | Test with real FlexRadio hardware | P0 |
+| TEST-1 | Test with real hardware via Hamlib | P0 |
 
 ### Phase 2: TCI Protocol Support (Future)
 
@@ -374,8 +356,8 @@ gantt
 
 | Error Condition | Recovery Action |
 |-----------------|-----------------|
-| Discovery timeout | Show "No radios found" with retry button |
-| Connection refused | Display error, offer manual IP entry |
+| Connection refused | Display error, check hostname/port configuration |
+| rigctld not running | Show error message with instructions to start rigctld |
 | Connection lost | Auto-reconnect with exponential backoff |
 | Parse error | Log warning, continue with last known state |
 | Invalid frequency | Ignore update, maintain previous value |
@@ -385,25 +367,24 @@ gantt
 ## Testing Strategy
 
 ### Unit Tests
-- FlexRadioService message parsing
+- HamlibRadioService response parsing
 - Frequency-to-band conversion
 - State machine transitions
 
 ### Integration Tests
-- End-to-end discovery flow
+- End-to-end connection flow
 - SignalR event propagation
 - RadioContext state synchronization
 
 ### Manual Testing Checklist
 
-- [ ] Discover FlexRadio on local network
+- [ ] Configure Hamlib with FlexRadio 6xxx model
 - [ ] Connect and verify status indicator
 - [ ] Change frequency on radio, verify LogEntry updates
 - [ ] Change mode on radio, verify LogEntry updates
 - [ ] Toggle Follow Radio off, verify fields don't update
 - [ ] Disconnect radio, verify graceful handling
 - [ ] Reconnect after network interruption
-- [ ] Multi-slice: verify only CAT/TX slice tracked
 
 ---
 
@@ -415,15 +396,11 @@ gantt
 2. **Q:** How to handle SO2R (two-radio) setups?
    **A:** Deferred. May require separate LogEntry widgets per radio.
 
-3. **Q:** Should we display non-tracked slices for reference?
-   **A:** Future enhancement - show all slices with "tracking" indicator.
-
 ---
 
 ## References
 
-- [FlexRadio SmartSDR TCP/IP API](https://community.flexradio.com/discussion/8031488/smartsdr-tcp-ip-api-frequency)
-- [FlexRadio Developer Program](https://www.flexradio.com/api/developer-program/)
+- [Hamlib Project](https://hamlib.github.io/)
+- [rigctld documentation](https://hamlib.github.io/hamlib/rigctld.1.html)
 - [TCI Protocol - maksimus1210](https://github.com/maksimus1210/TCI)
 - [TCI Protocol - ExpertSDR3](https://github.com/ExpertSDR3/TCI)
-- [K3TZR xLib6000](https://github.com/K3TZR/xLib6000)

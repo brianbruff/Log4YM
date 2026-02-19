@@ -267,6 +267,41 @@ class ApiClient {
     return this.fetch(`/qrz/lookup/${encodeURIComponent(callsign)}`);
   }
 
+  // LOTW
+  async getLotwInstallation(): Promise<LotwInstallationResponse> {
+    return this.fetch('/lotw/installation');
+  }
+
+  async getLotwStationLocations(): Promise<LotwStationLocationsResponse> {
+    return this.fetch('/lotw/locations');
+  }
+
+  async updateLotwSettings(settings: LotwSettingsRequest): Promise<{ success: boolean; message: string; tqslInstalled: boolean; version?: string }> {
+    return this.fetch('/lotw/settings', {
+      method: 'PUT',
+      body: JSON.stringify(settings),
+    });
+  }
+
+  async uploadToLotw(qsoIds: string[]): Promise<LotwUploadResponse> {
+    return this.fetch('/lotw/upload', {
+      method: 'POST',
+      body: JSON.stringify({ qsoIds }),
+    });
+  }
+
+  async syncToLotw(): Promise<LotwUploadResponse> {
+    return this.fetch('/lotw/sync', {
+      method: 'POST',
+    });
+  }
+
+  async cancelLotwSync(): Promise<{ message: string }> {
+    return this.fetch('/lotw/sync/cancel', {
+      method: 'POST',
+    });
+  }
+
   // POTA
   async getPotaSpots(): Promise<PotaSpot[]> {
     return this.fetch<PotaSpot[]>('/pota/spots');
@@ -497,6 +532,33 @@ export interface QrzCallsignResponse {
   qslManager?: string;
   imageUrl?: string;
   licenseExpiration?: string;
+}
+
+// LOTW Types
+export interface LotwInstallationResponse {
+  isInstalled: boolean;
+  tqslPath?: string;
+  version?: string;
+  message?: string;
+}
+
+export interface LotwStationLocationsResponse {
+  locations: string[];
+}
+
+export interface LotwSettingsRequest {
+  enabled?: boolean;
+  tqslPath?: string;
+  stationLocation?: string;
+}
+
+export interface LotwUploadResponse {
+  totalCount: number;
+  uploadedCount: number;
+  failedCount: number;
+  success: boolean;
+  message?: string;
+  errors?: string[];
 }
 
 // POTA Types

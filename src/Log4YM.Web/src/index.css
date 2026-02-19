@@ -130,7 +130,7 @@
   color-scheme: dark;
 }
 
-/* Amber & Black — warm monochrome dark theme */
+/* Amber & Black — pure black with amber structural accents */
 .dark.amber {
   /* Surface / background colors — pure black */
   --surface-900: 5 5 5;              /* #050505 — pure black */
@@ -191,7 +191,7 @@
   color-scheme: dark;
 }
 
-/* Amber theme: override dark-mode flex/grid borders to use amber tones */
+/* Amber theme: structural amber borders on layout chrome */
 .dark.amber .flexlayout__tabset {
   border-color: rgb(var(--accent-primary) / 0.12);
 }
@@ -212,6 +212,83 @@
   --ag-border-color: rgb(var(--accent-primary) / 0.10);
   --ag-row-border-color: rgb(var(--accent-primary) / 0.05);
   --ag-header-column-separator-color: rgb(var(--accent-primary) / 0.12);
+}
+
+/* ===== AMBER: Alternating contrast — black ↔ cream ↔ black ===== */
+
+/* Embedded containers on dark panels → cream with dark text */
+.dark.amber .bg-dark-700\/50,
+.dark.amber .bg-dark-700\/80,
+.dark.amber .bg-dark-700\/30,
+.dark.amber .bg-dark-800\/50 {
+  background-color: #ede7d9;
+  border-color: rgba(255, 176, 0, 0.2);
+  /* Flip text vars to dark for readability on cream */
+  --surface-200: 66 58 44;
+  --surface-300: 80 70 55;
+  --surface-400: 110 98 78;
+  --text-foreground: 42 37 32;
+  --gray-100: 52 46 36;
+  --gray-300: 90 80 64;
+  --gray-400: 115 102 82;
+  --gray-500: 140 128 108;
+  /* Darken accents for cream contrast */
+  --accent-primary: 200 138 0;
+  --accent-secondary: 30 140 55;
+  --accent-success: 30 140 55;
+  --accent-info: 170 118 25;
+  --accent-warning: 200 138 0;
+  /* Hover inside cream → slightly darker cream */
+  --surface-600: 218 210 195;
+}
+
+/* Hover state on cream containers */
+.dark.amber .bg-dark-700\/50 .hover\:bg-dark-600\/50:hover,
+.dark.amber .bg-dark-700\/50.hover\:bg-dark-600\/50:hover {
+  background-color: #ddd5c5;
+}
+
+/* All text inputs, textareas, selects → cream with dark text */
+.dark.amber input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
+.dark.amber textarea,
+.dark.amber select {
+  background-color: #f5f0e4;
+  color: #2a2520;
+  border-color: rgba(255, 176, 0, 0.25);
+}
+
+.dark.amber input::placeholder,
+.dark.amber textarea::placeholder {
+  color: #9a8e7e;
+}
+
+.dark.amber input:focus,
+.dark.amber textarea:focus,
+.dark.amber select:focus {
+  border-color: rgba(255, 176, 0, 0.5);
+  box-shadow: 0 0 0 2px rgba(255, 176, 0, 0.15);
+}
+
+.dark.amber select option {
+  background-color: #f5f0e4;
+  color: #2a2520;
+}
+
+/* Buttons — dark with amber accent (contrast against cream containers) */
+.dark.amber .glass-button {
+  background-color: rgba(255, 176, 0, 0.1);
+  border-color: rgba(255, 176, 0, 0.2);
+  color: #ffb000;
+}
+
+.dark.amber .glass-button:hover {
+  background-color: rgba(255, 176, 0, 0.2);
+  border-color: rgba(255, 176, 0, 0.35);
+}
+
+/* Panel header — subtle amber accent line */
+.dark.amber .glass-panel > div:first-child {
+  border-bottom-color: rgba(255, 176, 0, 0.15);
 }
 
 /* ============================================================

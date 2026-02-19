@@ -10,6 +10,11 @@ import { GlassPanel } from '../components/GlassPanel';
 import { getCountryFlag } from '../core/countryFlags';
 import { useAppStore } from '../store/appStore';
 
+// Common RST values for phone modes (SSB, AM, FM)
+const RST_PHONE = ['59', '58', '57', '56', '55', '54', '53', '52', '51'];
+// Common RST values for CW and digital modes
+const RST_CW_DIGITAL = ['599', '589', '579', '569', '559', '549', '539', '529', '519'];
+
 // Custom cell renderer for mode badges
 const ModeCellRenderer = (props: ICellRendererParams<QsoResponse>) => {
   const mode = props.value;
@@ -1090,6 +1095,11 @@ function EditQsoModal({
     comment: qso.comment || '',
   });
 
+  // Get RST options based on mode
+  const getRstOptions = (mode: string): string[] => {
+    return mode === 'CW' ? RST_CW_DIGITAL : RST_PHONE;
+  };
+
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
     onSave({
@@ -1208,23 +1218,27 @@ function EditQsoModal({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm text-dark-300 mb-1 font-ui">RST Sent</label>
-              <input
-                type="text"
+              <select
                 value={formData.rstSent}
                 onChange={(e) => setFormData({ ...formData, rstSent: e.target.value })}
                 className="glass-input w-full font-mono"
-                placeholder="59"
-              />
+              >
+                {getRstOptions(formData.mode).map(rst => (
+                  <option key={rst} value={rst}>{rst}</option>
+                ))}
+              </select>
             </div>
             <div>
               <label className="block text-sm text-dark-300 mb-1 font-ui">RST Rcvd</label>
-              <input
-                type="text"
+              <select
                 value={formData.rstRcvd}
                 onChange={(e) => setFormData({ ...formData, rstRcvd: e.target.value })}
                 className="glass-input w-full font-mono"
-                placeholder="59"
-              />
+              >
+                {getRstOptions(formData.mode).map(rst => (
+                  <option key={rst} value={rst}>{rst}</option>
+                ))}
+              </select>
             </div>
           </div>
 

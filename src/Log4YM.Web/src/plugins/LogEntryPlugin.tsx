@@ -21,6 +21,16 @@ const formatTimeForInput = (date: Date): string => {
 const BANDS = ['160m', '80m', '40m', '30m', '20m', '17m', '15m', '12m', '10m', '6m', '2m', '70cm'];
 const MODES = ['SSB', 'CW', 'FT8', 'FT4', 'RTTY', 'PSK31', 'AM', 'FM'];
 
+// Common RST values for phone modes (SSB, AM, FM)
+const RST_PHONE = ['59', '58', '57', '56', '55', '54', '53', '52', '51'];
+// Common RST values for CW and digital modes
+const RST_CW_DIGITAL = ['599', '589', '579', '569', '559', '549', '539', '529', '519'];
+
+// Get default RST based on mode
+const getDefaultRst = (mode: string): string => {
+  return mode === 'CW' ? '599' : '59';
+};
+
 export function LogEntryPlugin() {
   const queryClient = useQueryClient();
   const { focusCallsign, persistCallsignMapImage } = useSignalR();
@@ -116,6 +126,16 @@ export function LogEntryPlugin() {
     }
   }, [selectedSpot, setSelectedSpot]);
 
+  // Update RST defaults when mode changes
+  useEffect(() => {
+    const defaultRst = getDefaultRst(formData.mode);
+    setFormData(prev => ({
+      ...prev,
+      rstSent: defaultRst,
+      rstRcvd: defaultRst,
+    }));
+  }, [formData.mode]);
+
   // Helper to determine band from frequency in Hz
   const getBandFromFrequency = (freqHz: number): string | null => {
     const freqKhz = freqHz / 1000;
@@ -148,6 +168,11 @@ export function LogEntryPlugin() {
     if (upperMode.includes('FM') || upperMode.includes('NFM')) return 'FM';
     // Return original if in list, otherwise default
     return MODES.includes(upperMode) ? upperMode : 'SSB';
+  };
+
+  // Get RST options based on mode
+  const getRstOptions = (mode: string): string[] => {
+    return mode === 'CW' ? RST_CW_DIGITAL : RST_PHONE;
   };
 
   const toggleFollowRadio = () => {
@@ -476,13 +501,15 @@ export function LogEntryPlugin() {
               <span className="text-accent-success">TX</span> RST
             </label>
             <div className="flex items-center gap-1">
-              <input
-                type="text"
+              <select
                 value={formData.rstSent}
                 onChange={(e) => setFormData(prev => ({ ...prev, rstSent: e.target.value }))}
-                className="glass-input w-14 font-mono text-sm"
-                maxLength={3}
-              />
+                className="glass-input w-16 font-mono text-sm"
+              >
+                {getRstOptions(formData.mode).map(rst => (
+                  <option key={rst} value={rst}>{rst}</option>
+                ))}
+              </select>
               {formData.rstSent.endsWith('9') && (
                 <>
                   <span className="text-dark-300">+</span>
@@ -513,13 +540,15 @@ export function LogEntryPlugin() {
               <span className="text-accent-secondary">RX</span> RST
             </label>
             <div className="flex items-center gap-1">
-              <input
-                type="text"
+              <select
                 value={formData.rstRcvd}
                 onChange={(e) => setFormData(prev => ({ ...prev, rstRcvd: e.target.value }))}
-                className="glass-input w-14 font-mono text-sm"
-                maxLength={3}
-              />
+                className="glass-input w-16 font-mono text-sm"
+              >
+                {getRstOptions(formData.mode).map(rst => (
+                  <option key={rst} value={rst}>{rst}</option>
+                ))}
+              </select>
               {formData.rstRcvd.endsWith('9') && (
                 <>
                   <span className="text-dark-300">+</span>

@@ -70,7 +70,11 @@ public record SpotReceivedEvent(
     string Source,
     string? Country,
     int? Dxcc,
-    string? Grid
+    string? Grid,
+    string? SpotterCountry = null,
+    int? SpotterDxcc = null,
+    string? SpotterGrid = null,
+    string? SpotterContinent = null
 );
 
 /// <summary>

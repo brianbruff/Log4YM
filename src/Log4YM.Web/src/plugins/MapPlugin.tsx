@@ -359,6 +359,24 @@ function createSpotIcon(color: string, isHighlighted: boolean) {
   });
 }
 
+// Smaller icon for spotter locations
+function createSpotterIcon(color: string, isHighlighted: boolean) {
+  const size = isHighlighted ? 6 : 4;
+  return new L.DivIcon({
+    className: 'custom-spotter-marker',
+    html: `<div style="
+      width: ${size}px;
+      height: ${size}px;
+      background: ${color};
+      border: 1px solid rgba(255,255,255,${isHighlighted ? '0.7' : '0.3'});
+      border-radius: 50%;
+      opacity: 0.7;
+    "></div>`,
+    iconSize: [size, size],
+    iconAnchor: [size / 2, size / 2],
+  });
+}
+
 // Compute spot path data (memoizable)
 interface SpotPathData {
   spot: Spot;
@@ -367,6 +385,9 @@ interface SpotPathData {
   targetLat: number;
   targetLon: number;
   pathPoints: [number, number][][]; // Array of path segments to handle antimeridian crossing
+  spotterLat?: number;
+  spotterLon?: number;
+  spotterPathPoints?: [number, number][][]; // Path from spotter to DX station
 }
 
 export function MapPlugin() {
@@ -426,19 +447,52 @@ export function MapPlugin() {
   const spotPaths = useMemo<SpotPathData[]>(() => {
     if (!dxClusterMapEnabled || !spots?.length) return [];
 
-    return spots
-      .filter(spot => spot.dxStation?.grid) // Only spots with grid data
-      .map(spot => {
-        const coords = gridToLatLon(spot.dxStation!.grid!);
-        if (!coords) return null;
-        const band = getBandFromFrequency(spot.frequency);
-        const color = BAND_COLORS[band] || '#888888';
-        const pathPoints = generateGreatCirclePoints(
-          stationLat, stationLon, coords.lat, coords.lon
-        );
-        return { spot, band, color, targetLat: coords.lat, targetLon: coords.lon, pathPoints };
-      })
-      .filter((p): p is SpotPathData => p !== null);
+    const paths: SpotPathData[] = [];
+
+    for (const spot of spots) {
+      if (!spot.dxStation?.grid) continue;
+
+      const coords = gridToLatLon(spot.dxStation.grid);
+      if (!coords) continue;
+
+      const band = getBandFromFrequency(spot.frequency);
+      const color = BAND_COLORS[band] || '#888888';
+
+      // Path from station to DX
+      const pathPoints = generateGreatCirclePoints(
+        stationLat, stationLon, coords.lat, coords.lon
+      );
+
+      // If spotter location is available, calculate path from spotter to DX
+      let spotterLat: number | undefined;
+      let spotterLon: number | undefined;
+      let spotterPathPoints: [number, number][][] | undefined;
+
+      if (spot.spotterStation?.grid) {
+        const spotterCoords = gridToLatLon(spot.spotterStation.grid);
+        if (spotterCoords) {
+          spotterLat = spotterCoords.lat;
+          spotterLon = spotterCoords.lon;
+          spotterPathPoints = generateGreatCirclePoints(
+            spotterCoords.lat, spotterCoords.lon, coords.lat, coords.lon
+          );
+        }
+      }
+
+      paths.push({
+        spot,
+        band,
+        color,
+        targetLat: coords.lat,
+        targetLon: coords.lon,
+        pathPoints,
+        spotterLat,
+        spotterLon,
+        spotterPathPoints
+      });
+    }
+
+    return paths;
   }, [dxClusterMapEnabled, spots, stationLat, stationLon]);
 
   // Active bands for the legend (only bands that have spots visible)
@@ -1043,6 +1097,7 @@ export function MapPlugin() {
             const isHovered = hoveredSpotId === sp.spot.id;
             return (
               <React.Fragment key={`path-${sp.spot.id}`}>
+                {/* Path from station to DX */}
                 {sp.pathPoints.map((segment, segmentIndex) => (
                   <Polyline
                     key={`path-${sp.spot.id}-${segmentIndex}`}
@@ -1051,6 +1106,19 @@ export function MapPlugin() {
                       color: sp.color,
                       weight: isHovered ? 3 : 1.5,
                       opacity: isHovered ? 1 : 0.5,
+                    }}
+                  />
+                ))}
+                {/* Path from spotter to DX (if spotter location is available) */}
+                {sp.spotterPathPoints && sp.spotterPathPoints.map((segment, segmentIndex) => (
+                  <Polyline
+                    key={`spotter-path-${sp.spot.id}-${segmentIndex}`}
+                    positions={segment}
+                    pathOptions={{
+                      color: sp.color,
+                      weight: isHovered ? 2 : 1,
+                      opacity: isHovered ? 0.8 : 0.3,
+                      dashArray: '5, 10', // Dashed line to distinguish spotter path
                     }}
                   />
                 ))}
@@ -1078,6 +1146,30 @@ export function MapPlugin() {
                   </span>
                   <span style={{ color: '#999', fontSize: '10px', marginLeft: '4px' }}>
                     {(sp.spot.frequency / 1000).toFixed(1)}
+                  </span>
+                </Tooltip>
+              </Marker>
+            );
+          })}
+
+          {/* DX Cluster spotter markers (if location is available) */}
+          {dxClusterMapEnabled && spotPaths.map((sp) => {
+            if (!sp.spotterLat || !sp.spotterLon) return null;
+            const isHovered = hoveredSpotId === sp.spot.id;
+            return (
+              <Marker
+                key={`spotter-${sp.spot.id}`}
+                position={[sp.spotterLat, sp.spotterLon]}
+                icon={createSpotterIcon(sp.color, isHovered)}
+              >
+                <Tooltip
+                  direction="top"
+                  offset={[0, -6]}
+                  permanent={isHovered}
+                  className="dx-spot-tooltip"
+                >
+                  <span style={{ color: sp.color, fontFamily: 'monospace', fontSize: '10px' }}>
+                    DE: {sp.spot.spotter}
                   </span>
                 </Tooltip>
               </Marker>

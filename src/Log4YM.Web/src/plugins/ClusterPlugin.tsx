@@ -577,8 +577,13 @@ export function ClusterPlugin() {
       headerName: 'Spotter',
       field: 'spotter',
       cellClass: 'font-mono text-dark-300',
-      width: 100,
+      width: 120,
       resizable: true,
+      valueGetter: (params) => {
+        const spotter = params.data?.spotter || '-';
+        const grid = params.data?.spotterStation?.grid;
+        return grid ? `${spotter} (${grid})` : spotter;
+      },
     },
     {
       headerName: 'Comment',

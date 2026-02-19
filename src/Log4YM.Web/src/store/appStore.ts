@@ -167,6 +167,12 @@ export interface Spot {
     grid?: string;
     continent?: string;
   };
+  spotterStation?: {
+    country?: string;
+    dxcc?: number;
+    grid?: string;
+    continent?: string;
+  };
 }
 
 export interface ClusterStatus {

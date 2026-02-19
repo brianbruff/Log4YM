@@ -11,6 +11,7 @@ public class Spot
     public string? Source { get; set; }
     public DateTime Timestamp { get; set; }
     public SpotStationInfo? DxStation { get; set; }
+    public SpotStationInfo? SpotterStation { get; set; }
     public DateTime CreatedAt { get; set; } = DateTime.UtcNow;
 }
 

@@ -4,6 +4,7 @@ using System.Runtime.InteropServices;
 using System.Text;
 using System.Text.RegularExpressions;
 using Log4YM.Contracts.Models;
+using Log4YM.Server.Core.Database;
 
 namespace Log4YM.Server.Services;
 
@@ -75,7 +76,7 @@ public partial class LotwService : ILotwService
                     lotwSettings.TqslPath = tqslPath;
                     lotwSettings.TqslVersion = version;
                     lotwSettings.InstallationCheckedAt = DateTime.UtcNow;
-                    await _settingsRepository.UpdateAsync(settings);
+                    await _settingsRepository.UpsertAsync(settings);
 
                     _logger.LogInformation("TQSL found at {Path}, version {Version}", tqslPath, version);
 
@@ -96,7 +97,7 @@ public partial class LotwService : ILotwService
         // Not found
         lotwSettings.TqslInstalled = false;
         lotwSettings.InstallationCheckedAt = DateTime.UtcNow;
-        await _settingsRepository.UpdateAsync(settings);
+        await _settingsRepository.UpsertAsync(settings);
 
         return new LotwInstallationStatus(
             false,

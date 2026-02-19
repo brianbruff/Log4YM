@@ -61,6 +61,9 @@ public interface ILogHubClient
     // QRZ Sync events
     Task OnQrzSyncProgress(QrzSyncProgressEvent evt);
 
+    // LOTW Sync events
+    Task OnLotwSyncProgress(LotwSyncProgressEvent evt);
+
     // ADIF Import events
     Task OnAdifImportProgress(AdifImportProgressEvent evt);
 
@@ -1062,6 +1065,11 @@ public static class LogHubExtensions
     public static async Task BroadcastQrzSyncProgress(this IHubContext<LogHub, ILogHubClient> hub, QrzSyncProgressEvent evt)
     {
         await hub.Clients.All.OnQrzSyncProgress(evt);
+    }
+
+    public static async Task BroadcastLotwSyncProgress(this IHubContext<LogHub, ILogHubClient> hub, LotwSyncProgressEvent evt)
+    {
+        await hub.Clients.All.OnLotwSyncProgress(evt);
     }
 
     public static async Task BroadcastAdifImportProgress(this IHubContext<LogHub, ILogHubClient> hub, AdifImportProgressEvent evt)

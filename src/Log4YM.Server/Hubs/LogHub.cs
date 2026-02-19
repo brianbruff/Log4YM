@@ -354,7 +354,7 @@ public class LogHub : Hub<ILogHubClient>
                 // Also set mode if provided
                 if (!string.IsNullOrEmpty(evt.Mode))
                 {
-                    var modeSet = await _hamlibService.SetModeAsync(evt.Mode);
+                    var modeSet = await _hamlibService.SetModeAsync(evt.Mode, frequencyHz);
                     if (modeSet)
                     {
                         _logger.LogInformation("Set Hamlib radio mode to {Mode}", evt.Mode);

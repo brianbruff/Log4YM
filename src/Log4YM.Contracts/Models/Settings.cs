@@ -15,6 +15,9 @@ public class UserSettings
     [BsonElement("qrz")]
     public QrzSettings Qrz { get; set; } = new();
 
+    [BsonElement("lotw")]
+    public LotwSettings Lotw { get; set; } = new();
+
     [BsonElement("appearance")]
     public AppearanceSettings Appearance { get; set; } = new();
 
@@ -88,6 +91,28 @@ public class QrzSettings
 
     [BsonElement("subscriptionCheckedAt")]
     public DateTime? SubscriptionCheckedAt { get; set; }
+}
+
+[BsonIgnoreExtraElements]
+public class LotwSettings
+{
+    [BsonElement("enabled")]
+    public bool Enabled { get; set; }
+
+    [BsonElement("tqslPath")]
+    public string? TqslPath { get; set; } = string.Empty; // Path to tqsl executable
+
+    [BsonElement("stationLocation")]
+    public string? StationLocation { get; set; } = string.Empty; // TQSL station location name
+
+    [BsonElement("tqslInstalled")]
+    public bool? TqslInstalled { get; set; } // Cached TQSL installation status
+
+    [BsonElement("tqslVersion")]
+    public string? TqslVersion { get; set; } // Cached TQSL version
+
+    [BsonElement("installationCheckedAt")]
+    public DateTime? InstallationCheckedAt { get; set; }
 }
 
 [BsonIgnoreExtraElements]

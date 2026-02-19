@@ -755,6 +755,21 @@ public record QrzSyncProgressEvent(
     string? Message
 );
 
+// ===== LOTW Sync Events =====
+
+/// <summary>
+/// LOTW sync progress update
+/// </summary>
+public record LotwSyncProgressEvent(
+    int Total,
+    int Completed,
+    int Successful,
+    int Failed,
+    bool IsComplete,
+    string? CurrentCallsign,
+    string? Message
+);
+
 // ===== ADIF Import Events =====
 
 /// <summary>

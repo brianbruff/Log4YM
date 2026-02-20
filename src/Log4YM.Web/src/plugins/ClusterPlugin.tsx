@@ -1,5 +1,5 @@
 import { useState, useMemo } from 'react';
-import { Zap, Map, Settings, ChevronUp, Plus, Trash2, X, Search } from 'lucide-react';
+import { Zap, Map, Settings, Plus, Trash2, X, Search } from 'lucide-react';
 import { AgGridReact } from 'ag-grid-react';
 import { ColDef, ICellRendererParams, RowClickedEvent, CellMouseOverEvent, CellMouseOutEvent } from 'ag-grid-community';
 import 'ag-grid-community/styles/ag-grid.css';
@@ -632,24 +632,30 @@ export function ClusterPlugin() {
         </div>
       }
     >
-      <div className="flex flex-col h-full">
-        {/* Collapsible Settings Panel */}
+      <div className="flex flex-col h-full relative">
+        {/* Settings Overlay Panel — covers the full panel area, scrollable */}
         <div
           className={`
-            overflow-hidden transition-all duration-300 ease-in-out
-            ${showSettings ? 'max-h-[500px] opacity-100' : 'max-h-0 opacity-0'}
+            absolute inset-0 z-20 flex flex-col
+            bg-dark-900/97 backdrop-blur-sm
+            transition-opacity duration-200
+            ${showSettings ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}
           `}
         >
-          <div className="p-4 border-b border-glass-100 bg-dark-900/30">
-            <div className="flex items-center justify-between mb-3">
-              <h4 className="text-sm font-medium font-ui text-dark-200">Cluster Connections</h4>
-              <button
-                onClick={() => setShowSettings(false)}
-                className="p-1 text-dark-300 hover:text-dark-200"
-              >
-                <ChevronUp className="w-4 h-4" />
-              </button>
-            </div>
+          {/* Overlay Header */}
+          <div className="flex items-center justify-between px-4 py-3 border-b border-glass-100 flex-shrink-0">
+            <h4 className="text-sm font-medium font-ui text-dark-200">Cluster Connections</h4>
+            <button
+              onClick={() => setShowSettings(false)}
+              className="p-1.5 text-dark-300 hover:text-dark-200 hover:bg-dark-700 rounded transition-colors"
+              title="Close settings"
+            >
+              <X className="w-4 h-4" />
+            </button>
+          </div>
+
+          {/* Scrollable Settings Content */}
+          <div className="flex-1 overflow-y-auto p-4">
             <ClusterSettingsPanel
               connections={clusterConnections}
               onUpdateConnection={handleUpdateConnection}
@@ -660,18 +666,20 @@ export function ClusterPlugin() {
               statuses={clusterStatuses}
               stationCallsign={stationCallsign}
             />
-            {/* Save Button */}
-            {clusterConnections.length > 0 && (
-              <div className="mt-4 flex justify-end">
-                <button
-                  onClick={() => saveSettings()}
-                  className="px-4 py-2 bg-accent-primary text-white rounded-lg text-sm font-medium font-ui hover:bg-accent-primary/80 transition-colors"
-                >
-                  Save Settings
-                </button>
-              </div>
-            )}
           </div>
+
+          {/* Sticky Save Footer — always visible regardless of content height */}
+          {clusterConnections.length > 0 && (
+            <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-t border-glass-100 bg-dark-900/80">
+              <span className="text-xs text-dark-400 font-ui">Changes take effect after saving</span>
+              <button
+                onClick={async () => { await saveSettings(); setShowSettings(false); }}
+                className="px-4 py-2 bg-accent-primary text-white rounded-lg text-sm font-medium font-ui hover:bg-accent-primary/80 transition-colors"
+              >
+                Save &amp; Close
+              </button>
+            </div>
+          )}
         </div>
 
         {/* Filters */}

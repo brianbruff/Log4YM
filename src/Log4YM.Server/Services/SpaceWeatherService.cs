@@ -74,11 +74,20 @@ public class SpaceWeatherService : ISpaceWeatherService
                 var latest = data.OrderByDescending(d => d.TimeTag).First();
                 var kIndex = await FetchKIndex();
 
+                // Parse the actual timestamp from NOAA data instead of using DateTime.UtcNow
+                // NOAA's TimeTag is in format like "2025-02-19" or "2025-02-19T00:00:00"
+                DateTime timestamp;
+                if (!DateTime.TryParse(latest.TimeTag, out timestamp))
+                {
+                    _logger.LogWarning("Failed to parse NOAA TimeTag '{TimeTag}', using current time", latest.TimeTag);
+                    timestamp = DateTime.UtcNow;
+                }
+
                 return new SpaceWeatherData(
                     (int)Math.Round(latest.F107),
                     kIndex,
                     (int)Math.Round(latest.Ssn),
-                    DateTime.UtcNow
+                    timestamp
                 );
             }
         }
@@ -128,7 +137,15 @@ public class SpaceWeatherService : ISpaceWeatherService
                 var kIndex = int.Parse(solar.Element("kindex")?.Value?.Trim() ?? "2");
                 var ssn = int.Parse(solar.Element("sunspots")?.Value?.Trim() ?? "0");
 
-                return new SpaceWeatherData(sfi, kIndex, ssn, DateTime.UtcNow);
+                // Try to parse the updated timestamp if available, otherwise use current time
+                DateTime timestamp = DateTime.UtcNow;
+                var updatedField = solar.Element("updated")?.Value?.Trim();
+                if (!string.IsNullOrEmpty(updatedField) && DateTime.TryParse(updatedField, out var parsedTime))
+                {
+                    timestamp = parsedTime;
+                }
+
+                return new SpaceWeatherData(sfi, kIndex, ssn, timestamp);
             }
         }
         catch (Exception ex)

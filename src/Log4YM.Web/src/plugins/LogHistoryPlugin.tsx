@@ -9,6 +9,7 @@ import { api, QsoResponse, UpdateQsoRequest, AdifImportResponse } from '../api/c
 import { GlassPanel } from '../components/GlassPanel';
 import { getCountryFlag } from '../core/countryFlags';
 import { useAppStore } from '../store/appStore';
+import { useSettingsStore } from '../store/settingsStore';
 
 // Common RST values for phone modes (SSB, AM, FM)
 const RST_PHONE = ['59', '58', '57', '56', '55', '54', '53', '52', '51'];
@@ -98,6 +99,7 @@ export function LogHistoryPlugin() {
   const [showFilters, setShowFilters] = useState(false);
   const [showSummary, setShowSummary] = useState(true);
   const [isSyncing, setIsSyncing] = useState(false);
+  const [isSyncingLotw, setIsSyncingLotw] = useState(false);
   const [editingQso, setEditingQso] = useState<QsoResponse | null>(null);
   const [deletingQso, setDeletingQso] = useState<QsoResponse | null>(null);
   const [isDeleting, setIsDeleting] = useState(false);
@@ -113,7 +115,8 @@ export function LogHistoryPlugin() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const queryClient = useQueryClient();
-  const { qrzSyncProgress, setQrzSyncProgress, adifImportProgress, setAdifImportProgress, logHistoryCallsignFilter } = useAppStore();
+  const { qrzSyncProgress, setQrzSyncProgress, lotwSyncProgress, setLotwSyncProgress, adifImportProgress, setAdifImportProgress, logHistoryCallsignFilter } = useAppStore();
+  const { settings } = useSettingsStore();
 
   const handleSyncToQrz = useCallback(async () => {
     if (isSyncing) return;
@@ -133,6 +136,27 @@ export function LogHistoryPlugin() {
       await api.cancelQrzSync();
     } catch (error) {
       console.error('Failed to cancel sync:', error);
+    }
+  }, []);
+
+  const handleSyncToLotw = useCallback(async () => {
+    if (isSyncingLotw) return;
+    setIsSyncingLotw(true);
+    setLotwSyncProgress(null);
+    try {
+      await api.syncToLotw();
+    } catch (error) {
+      console.error('Failed to sync to LoTW:', error);
+    } finally {
+      setIsSyncingLotw(false);
+    }
+  }, [isSyncingLotw, setLotwSyncProgress]);
+
+  const handleCancelLotwSync = useCallback(async () => {
+    try {
+      await api.cancelLotwSync();
+    } catch (error) {
+      console.error('Failed to cancel LoTW sync:', error);
     }
   }, []);
 
@@ -404,6 +428,21 @@ export function LogHistoryPlugin() {
               )}
               <span className="text-xs">Push to QRZ</span>
             </button>
+            {settings.lotw.enabled && (
+              <button
+                onClick={handleSyncToLotw}
+                disabled={isSyncingLotw}
+                className="glass-button p-1.5 flex items-center gap-1.5 text-accent-info hover:text-accent-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Upload unsynced QSOs to ARRL Logbook of the World via TQSL"
+              >
+                {isSyncingLotw ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <CloudUpload className="w-4 h-4" />
+                )}
+                <span className="text-xs">Push to LoTW</span>
+              </button>
+            )}
           </div>
         </div>
       }
@@ -495,6 +534,100 @@ export function LogHistoryPlugin() {
               </div>
               <button
                 onClick={() => setQrzSyncProgress(null)}
+                className="text-dark-300 hover:text-dark-200"
+              >
+                <X className="w-4 h-4" />
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* LOTW Sync Starting (before first progress event) */}
+        {isSyncingLotw && !lotwSyncProgress && (
+          <div className="bg-dark-700/80 rounded-lg p-3 border border-accent-info/30">
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 text-accent-info animate-spin" />
+                <span className="text-sm text-dark-200 font-ui">
+                  Preparing LOTW upload...
+                </span>
+              </div>
+              <button
+                onClick={handleCancelLotwSync}
+                className="text-xs text-accent-danger hover:text-accent-danger/80 flex items-center gap-1 px-2 py-1 rounded hover:bg-accent-danger/10 transition-colors"
+                title="Cancel LoTW sync"
+              >
+                <X className="w-3 h-3" />
+                Cancel
+              </button>
+            </div>
+          </div>
+        )}
+
+        {/* LOTW Sync Progress */}
+        {lotwSyncProgress && !lotwSyncProgress.isComplete && lotwSyncProgress.total > 0 && (
+          <div className="bg-dark-700/80 rounded-lg p-3 border border-accent-info/30">
+            <div className="flex items-center justify-between mb-2">
+              <div className="flex items-center gap-2">
+                <Loader2 className="w-4 h-4 text-accent-info animate-spin" />
+                <span className="text-sm text-dark-200 font-ui">
+                  {lotwSyncProgress.message || `Uploading to LoTW...`}
+                </span>
+              </div>
+              <div className="flex items-center gap-3">
+                <span className="text-xs text-dark-300 font-mono">
+                  {lotwSyncProgress.completed} / {lotwSyncProgress.total}
+                </span>
+                <button
+                  onClick={handleCancelLotwSync}
+                  className="text-xs text-accent-danger hover:text-accent-danger/80 flex items-center gap-1 px-2 py-1 rounded hover:bg-accent-danger/10 transition-colors"
+                  title="Cancel sync"
+                >
+                  <X className="w-3 h-3" />
+                  Cancel
+                </button>
+              </div>
+            </div>
+            <div className="w-full bg-dark-600 rounded-full h-2 overflow-hidden">
+              <div
+                className="bg-accent-info h-full transition-all duration-300 ease-out"
+                style={{ width: `${(lotwSyncProgress.completed / lotwSyncProgress.total) * 100}%` }}
+              />
+            </div>
+            <div className="flex justify-between text-xs text-dark-300 mt-1 font-mono">
+              <span className="text-accent-success">{lotwSyncProgress.successful} uploaded</span>
+              {lotwSyncProgress.failed > 0 && (
+                <span className="text-accent-danger">{lotwSyncProgress.failed} failed</span>
+              )}
+            </div>
+          </div>
+        )}
+
+        {/* LOTW Sync Complete */}
+        {lotwSyncProgress?.isComplete && (
+          <div className={`bg-dark-700/80 rounded-lg p-3 border ${
+            lotwSyncProgress.message?.includes('cancelled')
+              ? 'border-accent-primary/30'
+              : 'border-accent-success/30'
+          }`}>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                <CloudUpload className={`w-4 h-4 ${
+                  lotwSyncProgress.message?.includes('cancelled')
+                    ? 'text-accent-primary'
+                    : 'text-accent-success'
+                }`} />
+                <span className="text-sm text-dark-200 font-ui">
+                  {lotwSyncProgress.message?.includes('cancelled')
+                    ? `LoTW sync cancelled: ${lotwSyncProgress.successful} of ${lotwSyncProgress.total} uploaded`
+                    : lotwSyncProgress.total === 0
+                      ? 'All QSOs already synced to LoTW'
+                      : `LoTW Sync Complete: ${lotwSyncProgress.successful} uploaded${lotwSyncProgress.failed > 0 ? `, ${lotwSyncProgress.failed} failed` : ''}`
+                  }
+                </span>
+              </div>
+              <button
+                onClick={() => setLotwSyncProgress(null)}
                 className="text-dark-300 hover:text-dark-200"
               >
                 <X className="w-4 h-4" />

@@ -566,6 +566,17 @@ export interface QrzSyncProgressEvent {
   message: string | null;
 }
 
+// LOTW Sync types
+export interface LotwSyncProgressEvent {
+  total: number;
+  completed: number;
+  successful: number;
+  failed: number;
+  isComplete: boolean;
+  currentCallsign: string | null;
+  message: string | null;
+}
+
 // ADIF Import types
 export interface AdifImportProgressEvent {
   total: number;
@@ -634,6 +645,8 @@ type EventHandlers = {
   onSmartUnlinkStatus?: (evt: SmartUnlinkStatusEvent) => void;
   // QRZ Sync handlers
   onQrzSyncProgress?: (evt: QrzSyncProgressEvent) => void;
+  // LOTW Sync handlers
+  onLotwSyncProgress?: (evt: LotwSyncProgressEvent) => void;
   // ADIF Import handlers
   onAdifImportProgress?: (evt: AdifImportProgressEvent) => void;
   // DX Cluster handlers
@@ -974,6 +987,11 @@ class SignalRService {
     // QRZ Sync events
     this.connection.on('OnQrzSyncProgress', (evt: QrzSyncProgressEvent) => {
       this.handlers.onQrzSyncProgress?.(evt);
+    });
+
+    // LOTW Sync events
+    this.connection.on('OnLotwSyncProgress', (evt: LotwSyncProgressEvent) => {
+      this.handlers.onLotwSyncProgress?.(evt);
     });
 
     // ADIF Import events

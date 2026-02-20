@@ -305,6 +305,11 @@
     border-color: rgb(var(--surface-600));
   }
 
+  /* Light mode: slightly darker body background so widget panels pop */
+  html:not(.dark) body {
+    background-color: rgb(var(--surface-700));
+  }
+
   body {
     @apply bg-dark-900 text-gray-100 antialiased;
     font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
@@ -441,6 +446,29 @@
 }
 
 /* ============================================================
+   LIGHT MODE: GLASS COMPONENT OVERRIDES
+   Override translucent accent borders with visible warm borders
+   ============================================================ */
+
+/* Glass panels: visible border in light mode */
+html:not(.dark) .glass-panel,
+html:not(.dark) .glass-panel-solid {
+  border-color: rgb(var(--surface-600));
+}
+
+/* Glass buttons: visible border in light mode */
+html:not(.dark) .glass-button,
+html:not(.dark) .glass-button-primary,
+html:not(.dark) .glass-button-success {
+  border-color: rgb(var(--surface-600));
+}
+
+/* Glass inputs: slightly darker border for form field definition */
+html:not(.dark) .glass-input {
+  border-color: rgb(var(--surface-500));
+}
+
+/* ============================================================
    FLEXLAYOUT OVERRIDES — themed via CSS custom properties
    ============================================================ */
 
@@ -532,6 +560,25 @@ html:not(.dark) .flexlayout__tabset_tabbar_outer {
 
 .dark .flexlayout__splitter:hover {
   background: rgb(var(--accent-secondary) / 0.3);
+}
+
+/* Light mode: splitter matches body background — removes the visible grey gap between widgets */
+html:not(.dark) .flexlayout__splitter {
+  background: rgb(var(--surface-700));
+}
+
+html:not(.dark) .flexlayout__splitter:hover {
+  background: rgb(var(--accent-primary) / 0.2);
+}
+
+/* Light mode: near-white widget content area for contrast against warm cream body */
+html:not(.dark) .flexlayout__tab {
+  background: rgb(var(--surface-800));
+}
+
+/* Light mode: stronger drop shadow on widget panels for visual separation */
+html:not(.dark) .flexlayout__tabset {
+  box-shadow: 0 2px 12px rgba(80, 60, 40, 0.18), 0 1px 4px rgba(80, 60, 40, 0.12);
 }
 
 .flexlayout__border {
@@ -643,11 +690,14 @@ html:not(.dark) .flexlayout__tab_toolbar_button:hover {
   --ag-range-selection-background-color: rgb(var(--accent-secondary) / 0.1);
 }
 
-/* Light mode: distinct grey header for AG Grid */
+/* Light mode: distinct header for AG Grid with stronger contrast */
 html:not(.dark) .ag-theme-alpine-dark {
-  --ag-header-background-color: #e0dcd4;
-  --ag-header-foreground-color: #3a3228;
-  --ag-header-column-separator-color: #c5bfb5;
+  --ag-background-color: rgb(var(--surface-800));
+  --ag-header-background-color: #c8c0b6;
+  --ag-header-foreground-color: #2a231e;
+  --ag-header-column-separator-color: #b5aea4;
+  --ag-odd-row-background-color: #eae6dd;
+  --ag-row-border-color: rgba(100, 85, 70, 0.25);
 }
 
 /* Dark mode: restore subtle AG Grid borders */
@@ -675,8 +725,8 @@ html:not(.dark) .ag-theme-alpine-dark {
 }
 
 html:not(.dark) .ag-theme-alpine-dark .ag-header {
-  background-color: #e0dcd4 !important;
-  border-bottom: 2px solid #c5bfb5 !important;
+  background-color: #c8c0b6 !important;
+  border-bottom: 2px solid #b5aea4 !important;
 }
 
 .dark .ag-theme-alpine-dark .ag-header {
@@ -749,6 +799,27 @@ html:not(.dark) .ag-theme-alpine-dark .ag-header {
 
 .ag-theme-alpine-dark .ag-overlay-no-rows-center {
   color: rgb(var(--surface-300)) !important;
+}
+
+/* Light mode: override !important background colors to match widget content */
+html:not(.dark) .ag-theme-alpine-dark .ag-root-wrapper {
+  background-color: rgb(var(--surface-800)) !important;
+}
+
+html:not(.dark) .ag-theme-alpine-dark .ag-row {
+  background-color: rgb(var(--surface-800)) !important;
+}
+
+html:not(.dark) .ag-theme-alpine-dark .ag-row-odd {
+  background-color: #eae6dd !important;
+}
+
+html:not(.dark) .ag-theme-alpine-dark .ag-body-viewport {
+  background-color: rgb(var(--surface-800)) !important;
+}
+
+html:not(.dark) .ag-theme-alpine-dark .ag-overlay-no-rows-wrapper {
+  background-color: rgb(var(--surface-800)) !important;
 }
 
 /* ============================================================

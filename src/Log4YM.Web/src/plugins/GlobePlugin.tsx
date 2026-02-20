@@ -12,6 +12,50 @@ import type { CallsignLookedUpEvent } from '../api/signalr';
 const DEFAULT_LAT = 52.6667; // IO52RN - Limerick
 const DEFAULT_LON = -8.6333;
 
+// Spherical linear interpolation (SLERP) along a great circle between two lat/lon points.
+// t=0 returns start, t=1 returns end.
+function interpolateGreatCircle(
+  lat1: number, lon1: number,
+  lat2: number, lon2: number,
+  t: number
+): { lat: number; lng: number } {
+  const toRad = Math.PI / 180;
+  const toDeg = 180 / Math.PI;
+
+  const lat1Rad = lat1 * toRad;
+  const lon1Rad = lon1 * toRad;
+  const lat2Rad = lat2 * toRad;
+  const lon2Rad = lon2 * toRad;
+
+  const x1 = Math.cos(lat1Rad) * Math.cos(lon1Rad);
+  const y1 = Math.cos(lat1Rad) * Math.sin(lon1Rad);
+  const z1 = Math.sin(lat1Rad);
+
+  const x2 = Math.cos(lat2Rad) * Math.cos(lon2Rad);
+  const y2 = Math.cos(lat2Rad) * Math.sin(lon2Rad);
+  const z2 = Math.sin(lat2Rad);
+
+  const dot = x1 * x2 + y1 * y2 + z1 * z2;
+  const omega = Math.acos(Math.max(-1, Math.min(1, dot)));
+
+  if (Math.abs(omega) < 1e-10) {
+    return { lat: lat1, lng: lon1 };
+  }
+
+  const sinOmega = Math.sin(omega);
+  const a = Math.sin((1 - t) * omega) / sinOmega;
+  const b = Math.sin(t * omega) / sinOmega;
+
+  const x = a * x1 + b * x2;
+  const y = a * y1 + b * y2;
+  const z = a * z1 + b * z2;
+
+  return {
+    lat: Math.atan2(z, Math.sqrt(x * x + y * y)) * toDeg,
+    lng: Math.atan2(y, x) * toDeg,
+  };
+}
+
 // Marker data structure for globe points
 interface GlobeMarkerData {
   lat: number;
@@ -148,15 +192,15 @@ export function GlobePlugin() {
     };
   }, []);
 
-  // Track target bearing separately from rotator azimuth
-  const targetBearingRef = useRef<number | null>(null);
+  // Track target DX station coordinates for the DE→DX path line
+  const targetCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
 
   // Track focused callsign info for label callback
   const focusedCallsignInfoRef = useRef<CallsignLookedUpEvent | null>(null);
   focusedCallsignInfoRef.current = focusedCallsignInfo;
 
-  // Render the beam visualization (rotator beam + target line)
-  const renderBeam = useCallback((azimuth: number, isConnected: boolean, targetBearing: number | null) => {
+  // Render the beam visualization (rotator beam + DE→DX line)
+  const renderBeam = useCallback((azimuth: number, isConnected: boolean) => {
     if (!globeRef.current) return;
 
     const pathsData: { path: [number, number, number][]; color: string; stroke: number }[] = [];
@@ -207,18 +251,19 @@ export function GlobePlugin() {
       });
     }
 
-    // Render target heading line (red/danger) - always show when we have a target
-    if (targetBearing !== null) {
+    // Render direct great-circle path from DE station to DX target
+    const targetCoords = targetCoordsRef.current;
+    if (targetCoords !== null) {
       const targetPath: [number, number, number][] = [];
       for (let i = 0; i <= numSegments; i++) {
-        const distance = (maxDistance / numSegments) * i;
-        const point = getDestinationPoint(stationLat, stationLon, targetBearing, distance);
+        const t = i / numSegments;
+        const point = interpolateGreatCircle(stationLat, stationLon, targetCoords.lat, targetCoords.lng, t);
         targetPath.push([point.lat, point.lng, 0.02]);
       }
 
       pathsData.push({
         path: targetPath,
-        color: 'rgba(255, 68, 102, 0.8)', // Danger red (#ff4466) for target
+        color: 'rgba(255, 68, 102, 0.8)', // Danger red (#ff4466) for DE→DX path
         stroke: 2
       });
     }
@@ -255,7 +300,7 @@ export function GlobePlugin() {
   const displayedAzimuthRef = useRef<number>(0);
 
   const animateBeam = useCallback(() => {
-    renderBeam(currentAzimuthRef.current, rotatorEnabledRef.current, targetBearingRef.current);
+    renderBeam(currentAzimuthRef.current, rotatorEnabledRef.current);
     animationRef.current = requestAnimationFrame(animateBeam);
   }, [renderBeam]);
 
@@ -571,12 +616,12 @@ export function GlobePlugin() {
     }
   }, [rotatorPosition]);
 
-  // Update target bearing when focused callsign has bearing info
+  // Update target DX coordinates when focused callsign changes
   useEffect(() => {
-    if (focusedCallsignInfo?.bearing != null) {
-      targetBearingRef.current = focusedCallsignInfo.bearing;
+    if (focusedCallsignInfo?.latitude != null && focusedCallsignInfo?.longitude != null) {
+      targetCoordsRef.current = { lat: focusedCallsignInfo.latitude, lng: focusedCallsignInfo.longitude };
     } else {
-      targetBearingRef.current = null;
+      targetCoordsRef.current = null;
     }
   }, [focusedCallsignInfo]);
 

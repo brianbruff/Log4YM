@@ -327,15 +327,20 @@ public class LogHub : Hub<ILogHubClient>
         if (tciRadios.Any())
         {
             var radioId = tciRadios.First().RadioId;
-            var tuned = await _tciRadioService.SetFrequencyAsync(radioId, frequencyHz);
+            var currentState = tciRadios.First();
+
+            // Apply frequency compensation when switching between CW and SSB modes
+            var adjustedFrequency = ApplyFrequencyCompensation(frequencyHz, currentState.Mode, evt.Mode);
+
+            var tuned = await _tciRadioService.SetFrequencyAsync(radioId, adjustedFrequency);
             if (tuned)
             {
-                _logger.LogInformation("Tuned TCI radio {RadioId} to {FrequencyMHz} MHz", radioId, evt.Frequency / 1000.0);
+                _logger.LogInformation("Tuned TCI radio {RadioId} to {FrequencyMHz} MHz", radioId, adjustedFrequency / 1000000.0);
 
                 // Also set mode if provided
                 if (!string.IsNullOrEmpty(evt.Mode))
                 {
-                    var modeSet = await _tciRadioService.SetModeAsync(radioId, evt.Mode, frequencyHz);
+                    var modeSet = await _tciRadioService.SetModeAsync(radioId, evt.Mode, adjustedFrequency);
                     if (modeSet)
                     {
                         _logger.LogInformation("Set TCI radio {RadioId} mode to {Mode}", radioId, evt.Mode);
@@ -345,16 +350,23 @@ public class LogHub : Hub<ILogHubClient>
         }
         else if (_hamlibService.IsConnected)
         {
+            // Get current radio state to determine current mode
+            var hamlibStates = _hamlibService.GetRadioStates().ToList();
+            var currentMode = hamlibStates.Any() ? hamlibStates.First().Mode : null;
+
+            // Apply frequency compensation when switching between CW and SSB modes
+            var adjustedFrequency = ApplyFrequencyCompensation(frequencyHz, currentMode, evt.Mode);
+
             // Tune Hamlib radio
-            var tuned = await _hamlibService.SetFrequencyAsync(frequencyHz);
+            var tuned = await _hamlibService.SetFrequencyAsync(adjustedFrequency);
             if (tuned)
             {
-                _logger.LogInformation("Tuned Hamlib radio to {FrequencyMHz} MHz", evt.Frequency / 1000.0);
+                _logger.LogInformation("Tuned Hamlib radio to {FrequencyMHz} MHz", adjustedFrequency / 1000000.0);
 
                 // Also set mode if provided
                 if (!string.IsNullOrEmpty(evt.Mode))
                 {
-                    var modeSet = await _hamlibService.SetModeAsync(evt.Mode, frequencyHz);
+                    var modeSet = await _hamlibService.SetModeAsync(evt.Mode, adjustedFrequency);
                     if (modeSet)
                     {
                         _logger.LogInformation("Set Hamlib radio mode to {Mode}", evt.Mode);
@@ -362,6 +374,72 @@ public class LogHub : Hub<ILogHubClient>
                 }
             }
         }
+    }
+
+    /// <summary>
+    /// Apply frequency compensation when switching between CW and SSB modes.
+    /// CW uses carrier frequency, SSB uses suppressed carrier frequency.
+    /// Standard offset is 700 Hz for USB and -700 Hz for LSB.
+    /// </summary>
+    internal long ApplyFrequencyCompensation(long targetFrequencyHz, string? currentMode, string? targetMode)
+    {
+        if (string.IsNullOrEmpty(targetMode)) return targetFrequencyHz;
+
+        const long offsetHz = 700;
+
+        var isCwMode = (string mode) => mode?.ToUpperInvariant() switch
+        {
+            "CW" => true,
+            "CWU" => true,
+            "CWL" => true,
+            "CWR" => true,
+            _ => false
+        };
+
+        var isSsbMode = (string mode) => mode?.ToUpperInvariant() switch
+        {
+            "SSB" => true,
+            "USB" => true,
+            "LSB" => true,
+            _ => false
+        };
+
+        var isLsbMode = (string mode) => mode?.ToUpperInvariant() switch
+        {
+            "LSB" => true,
+            "SSB" when targetFrequencyHz < 10_000_000 => true,
+            _ => false
+        };
+
+        var currentIsCw = currentMode != null && isCwMode(currentMode);
+        var currentIsSsb = currentMode != null && isSsbMode(currentMode);
+        var targetIsCw = isCwMode(targetMode);
+        var targetIsSsb = isSsbMode(targetMode);
+
+        // Switching from SSB to CW: subtract offset (CW carrier is below SSB audio)
+        // For LSB: add offset instead (LSB audio is below carrier)
+        if (currentIsSsb && targetIsCw)
+        {
+            var currentIsLsb = currentMode != null && isLsbMode(currentMode);
+            var adjustment = currentIsLsb ? offsetHz : -offsetHz;
+            _logger.LogDebug("Switching from {CurrentMode} to {TargetMode}: applying {Adjustment} Hz compensation",
+                currentMode, targetMode, adjustment);
+            return targetFrequencyHz + adjustment;
+        }
+
+        // Switching from CW to SSB: add offset (SSB audio is above CW carrier)
+        // For LSB: subtract offset instead
+        if (currentIsCw && targetIsSsb)
+        {
+            var targetIsLsb = isLsbMode(targetMode);
+            var adjustment = targetIsLsb ? -offsetHz : offsetHz;
+            _logger.LogDebug("Switching from {CurrentMode} to {TargetMode}: applying {Adjustment} Hz compensation",
+                currentMode, targetMode, adjustment);
+            return targetFrequencyHz + adjustment;
+        }
+
+        // No compensation needed for same-mode or other mode transitions
+        return targetFrequencyHz;
     }
 
     public async Task CommandRotator(RotatorCommandEvent evt)

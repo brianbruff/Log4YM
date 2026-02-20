@@ -31,6 +31,11 @@ const getDefaultRst = (mode: string): string => {
   return mode === 'CW' ? '599' : '59';
 };
 
+// CW doesn't use +dB enhancement
+const supportsDbEnhancement = (mode: string): boolean => {
+  return mode !== 'CW';
+};
+
 export function LogEntryPlugin() {
   const queryClient = useQueryClient();
   const { focusCallsign, persistCallsignMapImage } = useSignalR();
@@ -501,22 +506,25 @@ export function LogEntryPlugin() {
               <span className="text-accent-success">TX</span> RST
             </label>
             <div className="flex items-center gap-1">
-              <select
+              <input
+                type="text"
+                list="rst-sent-options"
                 value={formData.rstSent}
                 onChange={(e) => setFormData(prev => ({ ...prev, rstSent: e.target.value }))}
-                className="glass-input w-16 font-mono text-sm"
-              >
+                className="glass-input w-20 font-mono text-sm"
+              />
+              <datalist id="rst-sent-options">
                 {getRstOptions(formData.mode).map(rst => (
-                  <option key={rst} value={rst}>{rst}</option>
+                  <option key={rst} value={rst} />
                 ))}
-              </select>
-              {formData.rstSent.endsWith('9') && (
+              </datalist>
+              {supportsDbEnhancement(formData.mode) && formData.rstSent.endsWith('9') && (
                 <>
                   <span className="text-dark-300">+</span>
                   <select
                     value={formData.rstSentPlus}
                     onChange={(e) => setFormData(prev => ({ ...prev, rstSentPlus: e.target.value }))}
-                    className="glass-input w-16 font-mono text-sm"
+                    className="glass-input w-20 font-mono text-sm"
                   >
                     <option value="">--</option>
                     <option value="10">10</option>
@@ -540,22 +548,25 @@ export function LogEntryPlugin() {
               <span className="text-accent-secondary">RX</span> RST
             </label>
             <div className="flex items-center gap-1">
-              <select
+              <input
+                type="text"
+                list="rst-rcvd-options"
                 value={formData.rstRcvd}
                 onChange={(e) => setFormData(prev => ({ ...prev, rstRcvd: e.target.value }))}
-                className="glass-input w-16 font-mono text-sm"
-              >
+                className="glass-input w-20 font-mono text-sm"
+              />
+              <datalist id="rst-rcvd-options">
                 {getRstOptions(formData.mode).map(rst => (
-                  <option key={rst} value={rst}>{rst}</option>
+                  <option key={rst} value={rst} />
                 ))}
-              </select>
-              {formData.rstRcvd.endsWith('9') && (
+              </datalist>
+              {supportsDbEnhancement(formData.mode) && formData.rstRcvd.endsWith('9') && (
                 <>
                   <span className="text-dark-300">+</span>
                   <select
                     value={formData.rstRcvdPlus}
                     onChange={(e) => setFormData(prev => ({ ...prev, rstRcvdPlus: e.target.value }))}
-                    className="glass-input w-16 font-mono text-sm"
+                    className="glass-input w-20 font-mono text-sm"
                   >
                     <option value="">--</option>
                     <option value="10">10</option>

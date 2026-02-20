@@ -1218,27 +1218,33 @@ function EditQsoModal({
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block text-sm text-dark-300 mb-1 font-ui">RST Sent</label>
-              <select
+              <input
+                type="text"
+                list="edit-rst-sent-options"
                 value={formData.rstSent}
                 onChange={(e) => setFormData({ ...formData, rstSent: e.target.value })}
                 className="glass-input w-full font-mono"
-              >
+              />
+              <datalist id="edit-rst-sent-options">
                 {getRstOptions(formData.mode).map(rst => (
-                  <option key={rst} value={rst}>{rst}</option>
+                  <option key={rst} value={rst} />
                 ))}
-              </select>
+              </datalist>
             </div>
             <div>
               <label className="block text-sm text-dark-300 mb-1 font-ui">RST Rcvd</label>
-              <select
+              <input
+                type="text"
+                list="edit-rst-rcvd-options"
                 value={formData.rstRcvd}
                 onChange={(e) => setFormData({ ...formData, rstRcvd: e.target.value })}
                 className="glass-input w-full font-mono"
-              >
+              />
+              <datalist id="edit-rst-rcvd-options">
                 {getRstOptions(formData.mode).map(rst => (
-                  <option key={rst} value={rst}>{rst}</option>
+                  <option key={rst} value={rst} />
                 ))}
-              </select>
+              </datalist>
             </div>
           </div>
 

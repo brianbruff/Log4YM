@@ -466,7 +466,7 @@ public class QrzService : IQrzService
         var response = await _httpClient.PostAsync(QrzLogbookApiUrl, content);
         var responseText = await response.Content.ReadAsStringAsync();
 
-        _logger.LogDebug("QRZ logbook response: {Response}", responseText);
+        _logger.LogInformation("QRZ logbook response: {Response}", responseText);
 
         // Parse response - format is: RESULT=OK&LOGID=12345 or RESULT=FAIL&REASON=message
         // QRZ can also return RESULT=REPLACE&LOGID=xxx for duplicates

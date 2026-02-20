@@ -286,7 +286,7 @@ function ClusterSettingsPanel({
                   type="text"
                   value={conn.host}
                   onChange={(e) => onUpdateConnection(conn.id, { host: e.target.value })}
-                  placeholder="e.g., de.ve7cc.net"
+                  placeholder="e.g., ve7cc.net"
                   className="w-full px-2 py-1.5 bg-dark-900 border border-glass-100 rounded text-sm text-dark-200 placeholder-dark-400 focus:outline-none focus:border-accent-primary/50"
                 />
               </div>

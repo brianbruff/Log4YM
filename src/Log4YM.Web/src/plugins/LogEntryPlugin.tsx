@@ -21,6 +21,21 @@ const formatTimeForInput = (date: Date): string => {
 const BANDS = ['160m', '80m', '40m', '30m', '20m', '17m', '15m', '12m', '10m', '6m', '2m', '70cm'];
 const MODES = ['SSB', 'CW', 'FT8', 'FT4', 'RTTY', 'PSK31', 'AM', 'FM'];
 
+// Common RST values for phone modes (SSB, AM, FM)
+const RST_PHONE = ['59', '58', '57', '56', '55', '54', '53', '52', '51'];
+// Common RST values for CW and digital modes
+const RST_CW_DIGITAL = ['599', '589', '579', '569', '559', '549', '539', '529', '519'];
+
+// Get default RST based on mode
+const getDefaultRst = (mode: string): string => {
+  return mode === 'CW' ? '599' : '59';
+};
+
+// CW doesn't use +dB enhancement
+const supportsDbEnhancement = (mode: string): boolean => {
+  return mode !== 'CW';
+};
+
 export function LogEntryPlugin() {
   const queryClient = useQueryClient();
   const { focusCallsign, persistCallsignMapImage } = useSignalR();
@@ -116,6 +131,16 @@ export function LogEntryPlugin() {
     }
   }, [selectedSpot, setSelectedSpot]);
 
+  // Update RST defaults when mode changes
+  useEffect(() => {
+    const defaultRst = getDefaultRst(formData.mode);
+    setFormData(prev => ({
+      ...prev,
+      rstSent: defaultRst,
+      rstRcvd: defaultRst,
+    }));
+  }, [formData.mode]);
+
   // Helper to determine band from frequency in Hz
   const getBandFromFrequency = (freqHz: number): string | null => {
     const freqKhz = freqHz / 1000;
@@ -148,6 +173,11 @@ export function LogEntryPlugin() {
     if (upperMode.includes('FM') || upperMode.includes('NFM')) return 'FM';
     // Return original if in list, otherwise default
     return MODES.includes(upperMode) ? upperMode : 'SSB';
+  };
+
+  // Get RST options based on mode
+  const getRstOptions = (mode: string): string[] => {
+    return mode === 'CW' ? RST_CW_DIGITAL : RST_PHONE;
   };
 
   const toggleFollowRadio = () => {
@@ -478,18 +508,23 @@ export function LogEntryPlugin() {
             <div className="flex items-center gap-1">
               <input
                 type="text"
+                list="rst-sent-options"
                 value={formData.rstSent}
                 onChange={(e) => setFormData(prev => ({ ...prev, rstSent: e.target.value }))}
-                className="glass-input w-14 font-mono text-sm"
-                maxLength={3}
+                className="glass-input w-20 font-mono text-sm"
               />
-              {formData.rstSent.endsWith('9') && (
+              <datalist id="rst-sent-options">
+                {getRstOptions(formData.mode).map(rst => (
+                  <option key={rst} value={rst} />
+                ))}
+              </datalist>
+              {supportsDbEnhancement(formData.mode) && formData.rstSent.endsWith('9') && (
                 <>
                   <span className="text-dark-300">+</span>
                   <select
                     value={formData.rstSentPlus}
                     onChange={(e) => setFormData(prev => ({ ...prev, rstSentPlus: e.target.value }))}
-                    className="glass-input w-16 font-mono text-sm"
+                    className="glass-input w-20 font-mono text-sm"
                   >
                     <option value="">--</option>
                     <option value="10">10</option>
@@ -515,18 +550,23 @@ export function LogEntryPlugin() {
             <div className="flex items-center gap-1">
               <input
                 type="text"
+                list="rst-rcvd-options"
                 value={formData.rstRcvd}
                 onChange={(e) => setFormData(prev => ({ ...prev, rstRcvd: e.target.value }))}
-                className="glass-input w-14 font-mono text-sm"
-                maxLength={3}
+                className="glass-input w-20 font-mono text-sm"
               />
-              {formData.rstRcvd.endsWith('9') && (
+              <datalist id="rst-rcvd-options">
+                {getRstOptions(formData.mode).map(rst => (
+                  <option key={rst} value={rst} />
+                ))}
+              </datalist>
+              {supportsDbEnhancement(formData.mode) && formData.rstRcvd.endsWith('9') && (
                 <>
                   <span className="text-dark-300">+</span>
                   <select
                     value={formData.rstRcvdPlus}
                     onChange={(e) => setFormData(prev => ({ ...prev, rstRcvdPlus: e.target.value }))}
-                    className="glass-input w-16 font-mono text-sm"
+                    className="glass-input w-20 font-mono text-sm"
                   >
                     <option value="">--</option>
                     <option value="10">10</option>

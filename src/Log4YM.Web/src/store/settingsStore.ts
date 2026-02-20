@@ -104,6 +104,7 @@ export interface ClusterConnection {
   host: string;
   port: number;
   callsign: string | null;  // If null, uses station callsign
+  password: string | null;  // Optional password for closed clusters
   enabled: boolean;
   autoReconnect: boolean;
 }
@@ -414,6 +415,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
         host: '',
         port: 23,
         callsign: null,
+        password: null,
         enabled: true,
         autoReconnect: false,
       };

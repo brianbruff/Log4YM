@@ -315,6 +315,20 @@ function ClusterSettingsPanel({
                   className="w-full px-2 py-1.5 bg-dark-900 border border-glass-100 rounded text-sm font-mono text-dark-200 placeholder-dark-400 focus:outline-none focus:border-accent-primary/50"
                 />
               </div>
+
+              {/* Password */}
+              <div>
+                <label className="block text-xs font-ui text-dark-300 mb-1">
+                  Password <span className="text-dark-400">(optional)</span>
+                </label>
+                <input
+                  type="password"
+                  value={conn.password || ''}
+                  onChange={(e) => onUpdateConnection(conn.id, { password: e.target.value || null })}
+                  placeholder="For closed clusters"
+                  className="w-full px-2 py-1.5 bg-dark-900 border border-glass-100 rounded text-sm font-mono text-dark-200 placeholder-dark-400 focus:outline-none focus:border-accent-primary/50"
+                />
+              </div>
             </div>
 
             {/* Options Row */}

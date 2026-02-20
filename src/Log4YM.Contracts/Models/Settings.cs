@@ -281,6 +281,9 @@ public class ClusterConnection
     [BsonElement("callsign")]
     public string? Callsign { get; set; }  // If null, uses station callsign
 
+    [BsonElement("password")]
+    public string? Password { get; set; }  // Optional password for closed clusters
+
     [BsonElement("enabled")]
     public bool Enabled { get; set; } = true;
 

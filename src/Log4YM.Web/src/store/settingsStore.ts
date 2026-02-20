@@ -123,6 +123,12 @@ export interface AiSettings {
   includeSpotComments: boolean;
 }
 
+export interface LotwSettings {
+  enabled: boolean;
+  tqslPath: string;
+  stationLocation: string;
+}
+
 export interface Settings {
   station: StationSettings;
   qrz: QrzSettings;
@@ -133,9 +139,10 @@ export interface Settings {
   cluster: ClusterSettings;
   header: HeaderSettings;
   ai: AiSettings;
+  lotw: LotwSettings;
 }
 
-export type SettingsSection = 'station' | 'qrz' | 'rotator' | 'database' | 'appearance' | 'map' | 'header' | 'ai' | 'about';
+export type SettingsSection = 'station' | 'qrz' | 'lotw' | 'rotator' | 'database' | 'appearance' | 'map' | 'header' | 'ai' | 'about';
 
 interface SettingsState {
   // Settings data
@@ -167,6 +174,7 @@ interface SettingsState {
   updateClusterConnection: (connectionId: string, connection: Partial<ClusterConnection>) => void;
   updateHeaderSettings: (header: Partial<HeaderSettings>) => void;
   updateAiSettings: (ai: Partial<AiSettings>) => void;
+  updateLotwSettings: (lotw: Partial<LotwSettings>) => void;
   addClusterConnection: () => void;
   removeClusterConnection: (connectionId: string) => void;
 
@@ -267,6 +275,11 @@ const defaultSettings: Settings = {
     includeQrzProfile: true,
     includeQsoHistory: true,
     includeSpotComments: false,
+  },
+  lotw: {
+    enabled: false,
+    tqslPath: '',
+    stationLocation: '',
   },
 };
 
@@ -377,6 +390,16 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
       settings: {
         ...state.settings,
         ai: { ...state.settings.ai, ...ai },
+      },
+      isDirty: true,
+    })),
+
+  // LOTW settings
+  updateLotwSettings: (lotw) =>
+    set((state) => ({
+      settings: {
+        ...state.settings,
+        lotw: { ...state.settings.lotw, ...lotw },
       },
       isDirty: true,
     })),
@@ -517,6 +540,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
           cluster: { ...defaultSettings.cluster, ...settings.cluster },
           header: { ...defaultSettings.header, ...settings.header },
           ai: { ...defaultSettings.ai, ...settings.ai },
+          lotw: { ...defaultSettings.lotw, ...settings.lotw },
         };
         set({ settings: mergedSettings, isDirty: false, isLoaded: true });
       } else {

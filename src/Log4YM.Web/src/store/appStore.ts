@@ -114,6 +114,10 @@ interface AppState {
   qrzSyncProgress: QrzSyncProgress | null;
   setQrzSyncProgress: (progress: QrzSyncProgress | null) => void;
 
+  // LOTW Sync
+  lotwSyncProgress: LotwSyncProgress | null;
+  setLotwSyncProgress: (progress: LotwSyncProgress | null) => void;
+
   // ADIF Import
   adifImportProgress: AdifImportProgress | null;
   setAdifImportProgress: (progress: AdifImportProgress | null) => void;
@@ -183,6 +187,16 @@ export interface ClusterStatus {
 }
 
 export interface QrzSyncProgress {
+  total: number;
+  completed: number;
+  successful: number;
+  failed: number;
+  isComplete: boolean;
+  currentCallsign: string | null;
+  message: string | null;
+}
+
+export interface LotwSyncProgress {
   total: number;
   completed: number;
   successful: number;
@@ -455,6 +469,10 @@ export const useAppStore = create<AppState>((set) => ({
   // QRZ Sync
   qrzSyncProgress: null,
   setQrzSyncProgress: (progress) => set({ qrzSyncProgress: progress }),
+
+  // LOTW Sync
+  lotwSyncProgress: null,
+  setLotwSyncProgress: (progress) => set({ lotwSyncProgress: progress }),
 
   // ADIF Import
   adifImportProgress: null,

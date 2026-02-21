@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Send, Search, User, MapPin, Radio, Link, Unlink, Clock, Lock, LockOpen, Loader2, X } from 'lucide-react';
+import { Send, Search, User, MapPin, Radio, Link, Unlink, Clock, Lock, LockOpen, Loader2, X, ChevronDown } from 'lucide-react';
 import { api, CreateQsoRequest } from '../api/client';
 import { useSignalR } from '../hooks/useSignalR';
 import { useAppStore } from '../store/appStore';
@@ -35,6 +35,64 @@ const getDefaultRst = (mode: string): string => {
 const supportsDbEnhancement = (mode: string): boolean => {
   return mode !== 'CW';
 };
+
+function RstCombobox({ value, onChange, options, className }: {
+  value: string;
+  onChange: (v: string) => void;
+  options: string[];
+  className?: string;
+}) {
+  const [isOpen, setIsOpen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handler = (e: MouseEvent) => {
+      if (containerRef.current && !containerRef.current.contains(e.target as Node)) {
+        setIsOpen(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [isOpen]);
+
+  return (
+    <div ref={containerRef} className="relative">
+      <div className="flex">
+        <input
+          type="text"
+          value={value}
+          onChange={(e) => onChange(e.target.value)}
+          className={`${className} !rounded-r-none !border-r-0`}
+        />
+        <button
+          type="button"
+          onClick={() => setIsOpen(!isOpen)}
+          className="glass-input !rounded-l-none !border-l-0 px-1 hover:bg-dark-600 flex items-center"
+          tabIndex={-1}
+        >
+          <ChevronDown className={`w-3 h-3 text-dark-300 transition-transform ${isOpen ? 'rotate-180' : ''}`} />
+        </button>
+      </div>
+      {isOpen && (
+        <div className="absolute z-50 top-full left-0 right-0 mt-0.5 bg-dark-700 border border-glass-200 rounded shadow-lg max-h-48 overflow-y-auto">
+          {options.map(opt => (
+            <button
+              key={opt}
+              type="button"
+              onClick={() => { onChange(opt); setIsOpen(false); }}
+              className={`w-full px-2 py-1 text-left text-sm font-mono hover:bg-dark-600 transition-colors ${
+                opt === value ? 'text-accent-primary bg-dark-600/50' : 'text-gray-200'
+              }`}
+            >
+              {opt}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+}
 
 export function LogEntryPlugin() {
   const queryClient = useQueryClient();
@@ -506,18 +564,12 @@ export function LogEntryPlugin() {
               <span className="text-accent-success">TX</span> RST
             </label>
             <div className="flex items-center gap-1">
-              <input
-                type="text"
-                list="rst-sent-options"
+              <RstCombobox
                 value={formData.rstSent}
-                onChange={(e) => setFormData(prev => ({ ...prev, rstSent: e.target.value }))}
-                className="glass-input w-20 font-mono text-sm"
+                onChange={(v) => setFormData(prev => ({ ...prev, rstSent: v }))}
+                options={getRstOptions(formData.mode)}
+                className="glass-input w-16 font-mono text-sm"
               />
-              <datalist id="rst-sent-options">
-                {getRstOptions(formData.mode).map(rst => (
-                  <option key={rst} value={rst} />
-                ))}
-              </datalist>
               {supportsDbEnhancement(formData.mode) && formData.rstSent.endsWith('9') && (
                 <>
                   <span className="text-dark-300">+</span>
@@ -548,18 +600,12 @@ export function LogEntryPlugin() {
               <span className="text-accent-secondary">RX</span> RST
             </label>
             <div className="flex items-center gap-1">
-              <input
-                type="text"
-                list="rst-rcvd-options"
+              <RstCombobox
                 value={formData.rstRcvd}
-                onChange={(e) => setFormData(prev => ({ ...prev, rstRcvd: e.target.value }))}
-                className="glass-input w-20 font-mono text-sm"
+                onChange={(v) => setFormData(prev => ({ ...prev, rstRcvd: v }))}
+                options={getRstOptions(formData.mode)}
+                className="glass-input w-16 font-mono text-sm"
               />
-              <datalist id="rst-rcvd-options">
-                {getRstOptions(formData.mode).map(rst => (
-                  <option key={rst} value={rst} />
-                ))}
-              </datalist>
               {supportsDbEnhancement(formData.mode) && formData.rstRcvd.endsWith('9') && (
                 <>
                   <span className="text-dark-300">+</span>

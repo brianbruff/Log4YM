@@ -323,46 +323,49 @@ public class LogHub : Hub<ILogHubClient>
         var frequencyHz = (long)(evt.Frequency * 1000);
 
         // Try to tune connected radio (TCI first, then Hamlib)
+        // Set mode BEFORE frequency so the radio interprets the frequency
+        // in the correct mode context, avoiding ±700 Hz CW/SSB offset issues.
         var tciRadios = _tciRadioService.GetRadioStates().ToList();
         if (tciRadios.Any())
         {
             var radioId = tciRadios.First().RadioId;
+
+            // Set mode first to avoid frequency shift when crossing CW/SSB boundary
+            if (!string.IsNullOrEmpty(evt.Mode))
+            {
+                var modeSet = await _tciRadioService.SetModeAsync(radioId, evt.Mode, frequencyHz);
+                if (modeSet)
+                {
+                    _logger.LogInformation("Set TCI radio {RadioId} mode to {Mode}", radioId, evt.Mode);
+                }
+            }
+
             var tuned = await _tciRadioService.SetFrequencyAsync(radioId, frequencyHz);
             if (tuned)
             {
-                _logger.LogInformation("Tuned TCI radio {RadioId} to {FrequencyMHz} MHz", radioId, evt.Frequency / 1000.0);
-
-                // Also set mode if provided
-                if (!string.IsNullOrEmpty(evt.Mode))
-                {
-                    var modeSet = await _tciRadioService.SetModeAsync(radioId, evt.Mode, frequencyHz);
-                    if (modeSet)
-                    {
-                        _logger.LogInformation("Set TCI radio {RadioId} mode to {Mode}", radioId, evt.Mode);
-                    }
-                }
+                _logger.LogInformation("Tuned TCI radio {RadioId} to {FrequencyMHz} MHz", radioId, frequencyHz / 1000000.0);
             }
         }
         else if (_hamlibService.IsConnected)
         {
-            // Tune Hamlib radio
+            // Set mode first to avoid frequency shift when crossing CW/SSB boundary
+            if (!string.IsNullOrEmpty(evt.Mode))
+            {
+                var modeSet = await _hamlibService.SetModeAsync(evt.Mode, frequencyHz);
+                if (modeSet)
+                {
+                    _logger.LogInformation("Set Hamlib radio mode to {Mode}", evt.Mode);
+                }
+            }
+
             var tuned = await _hamlibService.SetFrequencyAsync(frequencyHz);
             if (tuned)
             {
-                _logger.LogInformation("Tuned Hamlib radio to {FrequencyMHz} MHz", evt.Frequency / 1000.0);
-
-                // Also set mode if provided
-                if (!string.IsNullOrEmpty(evt.Mode))
-                {
-                    var modeSet = await _hamlibService.SetModeAsync(evt.Mode, frequencyHz);
-                    if (modeSet)
-                    {
-                        _logger.LogInformation("Set Hamlib radio mode to {Mode}", evt.Mode);
-                    }
-                }
+                _logger.LogInformation("Tuned Hamlib radio to {FrequencyMHz} MHz", frequencyHz / 1000000.0);
             }
         }
     }
+
 
     public async Task CommandRotator(RotatorCommandEvent evt)
     {

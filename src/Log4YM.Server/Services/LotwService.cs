@@ -52,7 +52,8 @@ public partial class LotwService : ILotwService
         {
             pathsToCheck.Add("tqsl");
             pathsToCheck.Add("/Applications/TrustedQSL.app/Contents/MacOS/tqsl");
-            pathsToCheck.Add("/usr/local/bin/tqsl");
+            pathsToCheck.Add("/opt/homebrew/bin/tqsl");   // Apple Silicon Macs
+            pathsToCheck.Add("/usr/local/bin/tqsl");       // Intel Macs / Homebrew x86
         }
         else // Linux
         {
@@ -67,9 +68,13 @@ public partial class LotwService : ILotwService
             {
                 var (exitCode, output, error) = await RunTqslCommandAsync(tqslPath, "--version");
 
-                if (exitCode == 0 && !string.IsNullOrEmpty(output))
+                // TQSL (wxWidgets app) writes version info to stderr on macOS/Linux;
+                // accept output from either stream.
+                var versionText = !string.IsNullOrWhiteSpace(output) ? output : error;
+
+                if (exitCode == 0 || !string.IsNullOrWhiteSpace(versionText))
                 {
-                    var version = ParseTqslVersion(output);
+                    var version = ParseTqslVersion(versionText ?? string.Empty);
 
                     // Cache the result
                     lotwSettings.TqslInstalled = true;

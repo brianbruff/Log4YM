@@ -619,9 +619,11 @@ internal class ClusterConnectionHandler
             var mode = ExtractMode(comment) ?? InferModeFromFrequency(frequency);
             var timestamp = ParseSpotTime(timeStr);
 
+            var (countryName, continent) = GetCountryFromPrefix(dxCall);
+
             var spot = new ParsedSpot(
                 dxCall, spotter, frequency, mode, comment, timestamp,
-                null, null, null, grid
+                countryName, continent, null, grid
             );
 
             await _onSpotReceived(spot, _id, _name);

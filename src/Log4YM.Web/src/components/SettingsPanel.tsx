@@ -1534,8 +1534,8 @@ function AppearanceSettingsSection() {
       id: 'light' as const,
       label: 'Light',
       icon: <Sun className="w-5 h-5" />,
-      description: 'Clean, minimal design',
-      preview: { bg: '#f6f7f9', panel: '#ffffff', accent: '#4a3d8f', text: '#4b5563' },
+      description: 'High-contrast charcoal & cream',
+      preview: { bg: '#423f38', panel: '#e1ddd6', accent: '#d76c26', text: '#bcb9b2' },
     },
     {
       id: 'amber' as const,

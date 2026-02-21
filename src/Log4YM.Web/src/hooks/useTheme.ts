@@ -26,7 +26,7 @@ export function useTheme() {
     if (meta) {
       const colors: Record<string, string> = {
         dark: '#0a0e14',
-        light: '#faf8f3',
+        light: '#eceae6',
         amber: '#080604',
       };
       meta.setAttribute('content', colors[theme]);

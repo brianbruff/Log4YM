@@ -308,8 +308,16 @@ public class DxClusterService : IDxClusterService, IHostedService, IDisposable
         }
 
         // Determine spot status (new DXCC, new band, worked, etc.)
-        var spotStatus = _spotStatusService.GetSpotStatus(
-            parsedSpot.DxCall, parsedSpot.Country, parsedSpot.Frequency, parsedSpot.Mode);
+        string? spotStatus = null;
+        try
+        {
+            spotStatus = _spotStatusService.GetSpotStatus(
+                parsedSpot.DxCall, parsedSpot.Country, parsedSpot.Frequency, parsedSpot.Mode);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to determine spot status for {DxCall}", parsedSpot.DxCall);
+        }
 
         // Broadcast to clients (spots are kept in memory on frontend only, not persisted)
         var evt = new SpotReceivedEvent(
@@ -475,7 +483,6 @@ internal class ClusterConnectionHandler
         await tcpClient.ConnectAsync(_host, _port, ct);
 
         using var stream = tcpClient.GetStream();
-        using var reader = new StreamReader(stream, Encoding.ASCII);
         using var writer = new StreamWriter(stream, Encoding.ASCII) { AutoFlush = true };
 
         _logger.LogInformation("Connected to cluster {Name}", _name);
@@ -486,82 +493,128 @@ internal class ClusterConnectionHandler
         var ccModeEnabled = false;
         var ft8Enabled = false;
 
+        // Use chunk-based reading instead of ReadLineAsync to handle telnet-style
+        // prompts (login:, password:) that don't end with newlines
+        var readBuffer = new byte[4096];
+        var pending = new StringBuilder();
+
         while (!ct.IsCancellationRequested && tcpClient.Connected && !_disconnectRequested)
         {
-            var line = await reader.ReadLineAsync(ct);
-            if (line == null)
+            var bytesRead = await stream.ReadAsync(readBuffer, ct);
+            if (bytesRead == 0)
             {
                 _logger.LogWarning("Cluster {Name} connection closed by server", _name);
                 break;
             }
 
-            // Log all incoming lines for debugging
-            _logger.LogDebug("Cluster {Name} recv: {Line}", _name, line);
+            pending.Append(Encoding.ASCII.GetString(readBuffer, 0, bytesRead));
 
-            // Handle login prompt
-            if (!loginSent && (line.Contains("login:") || line.Contains("call:") || line.Contains("Please enter your call")))
-            {
-                _logger.LogInformation("Sending login to {Name}: {Callsign}", _name, _callsign);
-                await writer.WriteLineAsync(_callsign);
-                loginSent = true;
-                continue;
-            }
+            // Extract and process all complete lines (delimited by \n)
+            var content = pending.ToString();
+            var lastNewline = content.LastIndexOf('\n');
 
-            // Handle password prompt (for closed clusters)
-            if (loginSent && !passwordSent && (line.Contains("password:") || line.Contains("Password:")))
+            if (lastNewline >= 0)
             {
-                if (!string.IsNullOrEmpty(_password))
+                var completePart = content[..lastNewline];
+                pending.Clear();
+                pending.Append(content[(lastNewline + 1)..]);
+
+                var lines = completePart.Split('\n');
+                foreach (var rawLine in lines)
                 {
-                    _logger.LogInformation("Sending password to {Name}", _name);
-                    await writer.WriteLineAsync(_password);
+                    var line = rawLine.TrimEnd('\r');
+                    _logger.LogDebug("Cluster {Name} recv: {Line}", _name, line);
+
+                    if (HandleInteractivePrompt(line, writer, ref loginSent, ref passwordSent,
+                            ref ccModeEnabled, ref ft8Enabled, ct))
+                        continue;
+
+                    // Skip empty lines and prompts
+                    if (string.IsNullOrWhiteSpace(line) || line.EndsWith(">"))
+                        continue;
+
+                    // Try to parse spot
+                    await ProcessLineAsync(line);
                 }
-                else
-                {
-                    _logger.LogWarning("Cluster {Name} requires password but none configured", _name);
-                    throw new Exception("Password required but not configured");
-                }
-                passwordSent = true;
-                continue;
             }
 
-            // Enable CC cluster mode for extended info after seeing the prompt
-            if (loginSent && !ccModeEnabled && line.Contains("CCC >"))
+            // Check the pending (incomplete) buffer for telnet-style prompts
+            // that arrive without trailing newlines (e.g. "login: ", "password: ")
+            var pendingText = pending.ToString();
+            if (HandleInteractivePrompt(pendingText, writer, ref loginSent, ref passwordSent,
+                    ref ccModeEnabled, ref ft8Enabled, ct))
             {
-                await Task.Delay(500, ct);
-                _logger.LogInformation("Enabling CC cluster mode on {Name}", _name);
-                await writer.WriteLineAsync("set/ve7cc");
-                ccModeEnabled = true;
-                continue;
+                pending.Clear();
             }
-
-            // Disable skimmers after CC mode is confirmed
-            if (ccModeEnabled && !ft8Enabled && line.Contains("Enhanced Spots Enabled"))
-            {
-                await Task.Delay(200, ct);
-                await writer.WriteLineAsync("set/noskimmer");
-                await Task.Delay(200, ct);
-                await writer.WriteLineAsync("set/noft8");
-                ft8Enabled = true;
-                _logger.LogInformation("Skimmers disabled on {Name}", _name);
-                continue;
-            }
-
-            // Handle invalid callsign response
-            if (line.Contains("not a valid callsign") || line.Contains("invalid call"))
-            {
-                _logger.LogError("Cluster {Name} rejected callsign '{Callsign}'", _name, _callsign);
-                throw new Exception($"Invalid callsign: {_callsign}");
-            }
-
-            // Skip empty lines and prompts
-            if (string.IsNullOrWhiteSpace(line) || line.EndsWith(">"))
-            {
-                continue;
-            }
-
-            // Try to parse spot
-            await ProcessLineAsync(line);
         }
+    }
+
+    /// <summary>
+    /// Checks a chunk of text for interactive prompts (login, password, etc.)
+    /// and responds accordingly. Returns true if a prompt was handled.
+    /// </summary>
+    private bool HandleInteractivePrompt(string text, StreamWriter writer,
+        ref bool loginSent, ref bool passwordSent,
+        ref bool ccModeEnabled, ref bool ft8Enabled,
+        CancellationToken ct)
+    {
+        // Handle login prompt
+        if (!loginSent && (text.Contains("login:") || text.Contains("call:") || text.Contains("Please enter your call")))
+        {
+            _logger.LogInformation("Sending login to {Name}: {Callsign}", _name, _callsign);
+            writer.WriteLine(_callsign);
+            loginSent = true;
+            return true;
+        }
+
+        // Handle password prompt (for closed clusters)
+        if (loginSent && !passwordSent && (text.Contains("password:") || text.Contains("Password:")))
+        {
+            if (!string.IsNullOrEmpty(_password))
+            {
+                _logger.LogInformation("Sending password to {Name}", _name);
+                writer.WriteLine(_password);
+            }
+            else
+            {
+                _logger.LogWarning("Cluster {Name} requires password but none configured", _name);
+                throw new Exception("Password required but not configured");
+            }
+            passwordSent = true;
+            return true;
+        }
+
+        // Handle invalid callsign response
+        if (text.Contains("not a valid callsign") || text.Contains("invalid call"))
+        {
+            _logger.LogError("Cluster {Name} rejected callsign '{Callsign}'", _name, _callsign);
+            throw new Exception($"Invalid callsign: {_callsign}");
+        }
+
+        // Enable CC cluster mode for extended info after seeing the cluster prompt
+        // DXSpider prompts end with ">" (e.g. "EI6LF de HB9VQQ-2 ... dxspider >")
+        if (loginSent && !ccModeEnabled && text.TrimEnd().EndsWith(">"))
+        {
+            Task.Delay(500, ct).Wait(ct);
+            _logger.LogInformation("Enabling CC cluster mode on {Name}", _name);
+            writer.WriteLine("set/ve7cc");
+            ccModeEnabled = true;
+            return true;
+        }
+
+        // Disable skimmers after CC mode is confirmed
+        if (ccModeEnabled && !ft8Enabled && text.Contains("Enhanced Spots Enabled"))
+        {
+            Task.Delay(200, ct).Wait(ct);
+            writer.WriteLine("set/noskimmer");
+            Task.Delay(200, ct).Wait(ct);
+            writer.WriteLine("set/noft8");
+            ft8Enabled = true;
+            _logger.LogInformation("Skimmers disabled on {Name}", _name);
+            return true;
+        }
+
+        return false;
     }
 
     private async Task ProcessLineAsync(string line)

@@ -34,6 +34,7 @@ import {
   Sun,
   Moon,
   Flame,
+  CloudUpload,
 } from 'lucide-react';
 import { useSettingsStore, SettingsSection, StationSettings } from '../store/settingsStore';
 import { gridToLatLon } from '../utils/maidenhead';
@@ -54,6 +55,12 @@ const SETTINGS_SECTIONS: { id: SettingsSection; name: string; icon: React.ReactN
     name: 'QRZ.com',
     icon: <Globe className="w-5 h-5" />,
     description: 'QRZ lookup credentials',
+  },
+  {
+    id: 'lotw',
+    name: 'LoTW',
+    icon: <CloudUpload className="w-5 h-5" />,
+    description: 'Logbook of the World upload',
   },
   {
     id: 'rotator',
@@ -455,6 +462,273 @@ function QrzSettingsSection() {
             </span>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// LOTW Settings Section
+function LotwSettingsSection() {
+  const { settings, updateLotwSettings } = useSettingsStore();
+  const [tqslStatus, setTqslStatus] = useState<{
+    checked: boolean;
+    isInstalled: boolean;
+    version?: string;
+    path?: string;
+    message?: string;
+  }>({ checked: false, isInstalled: false });
+  const [stationLocations, setStationLocations] = useState<string[]>([]);
+  const [loadingLocations, setLoadingLocations] = useState(false);
+  const [verifyStatus, setVerifyStatus] = useState<'idle' | 'verifying' | 'success' | 'error'>('idle');
+  const [verifyMessage, setVerifyMessage] = useState('');
+
+  const lotw = settings.lotw;
+
+  // Check TQSL installation on mount
+  useEffect(() => {
+    const checkInstallation = async () => {
+      try {
+        const response = await fetch('/api/lotw/installation');
+        if (response.ok) {
+          const data = await response.json();
+          setTqslStatus({
+            checked: true,
+            isInstalled: data.isInstalled,
+            version: data.version,
+            path: data.tqslPath,
+            message: data.message,
+          });
+        }
+      } catch {
+        setTqslStatus({ checked: true, isInstalled: false, message: 'Failed to check TQSL installation' });
+      }
+    };
+    checkInstallation();
+  }, []);
+
+  // Load station locations when enabled or path changes
+  const loadStationLocations = async () => {
+    setLoadingLocations(true);
+    try {
+      const response = await fetch('/api/lotw/locations');
+      if (response.ok) {
+        const data = await response.json();
+        setStationLocations(data.locations || []);
+      } else {
+        setStationLocations([]);
+      }
+    } catch {
+      setStationLocations([]);
+    } finally {
+      setLoadingLocations(false);
+    }
+  };
+
+  useEffect(() => {
+    if (lotw.enabled) {
+      loadStationLocations();
+    }
+  }, [lotw.enabled]);
+
+  const handleVerifyAndSave = async () => {
+    setVerifyStatus('verifying');
+    setVerifyMessage('');
+    try {
+      const response = await fetch('/api/lotw/settings', {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          enabled: lotw.enabled,
+          tqslPath: lotw.tqslPath || undefined,
+          stationLocation: lotw.stationLocation || undefined,
+        }),
+      });
+      const data = await response.json();
+      if (data.tqslInstalled) {
+        setVerifyStatus('success');
+        setVerifyMessage(data.message || 'TQSL verified successfully');
+        // Update installation status display
+        setTqslStatus((prev) => ({
+          ...prev,
+          isInstalled: true,
+          version: data.version,
+        }));
+        // Refresh locations after successful save
+        await loadStationLocations();
+      } else {
+        setVerifyStatus('error');
+        setVerifyMessage(data.message || 'TQSL not found or not configured');
+      }
+    } catch {
+      setVerifyStatus('error');
+      setVerifyMessage('Failed to connect to server');
+    }
+    setTimeout(() => setVerifyStatus('idle'), 5000);
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold font-ui text-dark-200 mb-1">Logbook of the World (LoTW)</h3>
+        <p className="text-sm text-dark-300">
+          Upload QSOs to ARRL's Logbook of the World via TQSL. Requires TQSL to be installed and configured with a station location.
+        </p>
+      </div>
+
+      {/* TQSL Installation Status */}
+      {tqslStatus.checked && (
+        <div className={`flex items-center gap-2 p-3 rounded-lg border ${
+          tqslStatus.isInstalled
+            ? 'bg-accent-success/10 border-accent-success/30 text-accent-success'
+            : 'bg-accent-danger/10 border-accent-danger/30 text-accent-danger'
+        }`}>
+          {tqslStatus.isInstalled ? (
+            <>
+              <CheckCircle className="w-4 h-4 flex-shrink-0" />
+              <span className="text-sm">
+                TQSL {tqslStatus.version ? `v${tqslStatus.version}` : ''} detected
+                {tqslStatus.path ? ` at ${tqslStatus.path}` : ''}
+              </span>
+            </>
+          ) : (
+            <>
+              <AlertCircle className="w-4 h-4 flex-shrink-0" />
+              <span className="text-sm">
+                {tqslStatus.message || 'TQSL not found. Install TQSL from LoTW website.'}
+              </span>
+            </>
+          )}
+        </div>
+      )}
+
+      {/* Enable toggle */}
+      <div className="flex items-center justify-between p-4 bg-dark-700/50 rounded-lg border border-glass-100">
+        <div>
+          <p className="font-medium font-ui text-dark-200">Enable LoTW Uploads</p>
+          <p className="text-sm text-dark-300">Sync QSOs to ARRL Logbook of the World via TQSL</p>
+        </div>
+        <button
+          onClick={() => updateLotwSettings({ enabled: !lotw.enabled })}
+          className={`relative w-11 h-6 rounded-full transition-colors ${
+            lotw.enabled ? 'bg-accent-success' : 'bg-dark-600 border border-dark-400'
+          }`}
+        >
+          <span
+            className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 ${
+              lotw.enabled ? 'translate-x-5' : 'translate-x-0'
+            }`}
+          />
+        </button>
+      </div>
+
+      {/* Configuration */}
+      <div className={`space-y-4 ${!lotw.enabled ? 'opacity-50 pointer-events-none' : ''}`}>
+        {/* Custom TQSL Path */}
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 text-sm font-medium font-ui text-dark-200">
+            <Terminal className="w-4 h-4 text-accent-primary" />
+            TQSL Executable Path (optional)
+          </label>
+          <input
+            type="text"
+            value={lotw.tqslPath}
+            onChange={(e) => updateLotwSettings({ tqslPath: e.target.value })}
+            placeholder="Leave blank to use auto-detected path"
+            className="glass-input w-full font-mono text-sm"
+            disabled={!lotw.enabled}
+          />
+          <p className="text-xs text-dark-300">
+            Auto-detected on Windows, macOS, and Linux. Override only if TQSL is in a non-standard location.
+          </p>
+        </div>
+
+        {/* Station Location */}
+        <div className="space-y-2">
+          <div className="flex items-center justify-between">
+            <label className="flex items-center gap-2 text-sm font-medium font-ui text-dark-200">
+              <MapPin className="w-4 h-4 text-accent-primary" />
+              Station Location
+            </label>
+            <button
+              onClick={loadStationLocations}
+              disabled={loadingLocations}
+              className="text-xs text-accent-primary hover:text-accent-secondary flex items-center gap-1 disabled:opacity-50"
+            >
+              {loadingLocations ? (
+                <div className="w-3 h-3 border border-accent-primary border-t-transparent rounded-full animate-spin" />
+              ) : (
+                <RefreshCw className="w-3 h-3" />
+              )}
+              Refresh
+            </button>
+          </div>
+          {stationLocations.length > 0 ? (
+            <select
+              value={lotw.stationLocation}
+              onChange={(e) => updateLotwSettings({ stationLocation: e.target.value })}
+              className="glass-input w-full"
+              disabled={!lotw.enabled}
+            >
+              <option value="">Select a station location...</option>
+              {stationLocations.map((loc) => (
+                <option key={loc} value={loc}>{loc}</option>
+              ))}
+            </select>
+          ) : (
+            <div className="glass-input w-full text-dark-300 text-sm">
+              {loadingLocations ? 'Loading locations...' : (
+                lotw.enabled
+                  ? 'No station locations found. Ensure TQSL is configured with a station location.'
+                  : 'Enable LoTW to load station locations.'
+              )}
+            </div>
+          )}
+          <p className="text-xs text-dark-300">
+            Station locations are configured in TQSL. Each location corresponds to a callsign and certificate.
+          </p>
+        </div>
+
+        {/* Verify & Save */}
+        <div className="pt-4 flex items-center gap-4">
+          <button
+            onClick={handleVerifyAndSave}
+            disabled={verifyStatus === 'verifying'}
+            className="glass-button px-4 py-2 flex items-center gap-2 disabled:opacity-50"
+          >
+            {verifyStatus === 'verifying' && (
+              <div className="w-4 h-4 border-2 border-accent-primary border-t-transparent rounded-full animate-spin" />
+            )}
+            {verifyStatus === 'success' && <CheckCircle className="w-4 h-4 text-accent-success" />}
+            {verifyStatus === 'error' && <AlertCircle className="w-4 h-4 text-accent-danger" />}
+            {verifyStatus === 'idle' && <CloudUpload className="w-4 h-4" />}
+            <span>
+              {verifyStatus === 'verifying'
+                ? 'Verifying...'
+                : verifyStatus === 'success'
+                  ? 'TQSL Verified!'
+                  : verifyStatus === 'error'
+                    ? 'Verification Failed'
+                    : 'Verify TQSL Setup'}
+            </span>
+          </button>
+          {verifyMessage && (
+            <span className={`text-sm ${verifyStatus === 'success' ? 'text-accent-success' : 'text-accent-danger'}`}>
+              {verifyMessage}
+            </span>
+          )}
+        </div>
+      </div>
+
+      {/* Help text */}
+      <div className="pt-2 border-t border-glass-100">
+        <p className="text-xs text-dark-300">
+          LoTW uses TQSL to digitally sign and upload ADIF logs. QSOs are uploaded using your station's certificate.
+          After enabling, use "Push to LoTW" in the Log History panel to upload unsynced QSOs.
+        </p>
+        <p className="text-xs text-dark-300 mt-1">
+          Download TQSL from{' '}
+          <span className="text-accent-primary">lotw.arrl.org</span>.
+        </p>
       </div>
     </div>
   );
@@ -1987,6 +2261,8 @@ export function SettingsPanel() {
         return <StationSettingsSection />;
       case 'qrz':
         return <QrzSettingsSection />;
+      case 'lotw':
+        return <LotwSettingsSection />;
       case 'rotator':
         return <RotatorSettingsSection />;
       case 'database':

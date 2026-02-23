@@ -123,6 +123,11 @@ public class LiteQsoRepository : IQsoRepository
             qso.QrzSyncStatus = SyncStatus.Modified;
         }
 
+        if (qso.LotwSyncStatus == SyncStatus.Synced)
+        {
+            qso.LotwSyncStatus = SyncStatus.Modified;
+        }
+
         qso.Id = id;
         var success = _context.Qsos.Update(qso);
         _context.Database.Checkpoint();
@@ -221,6 +226,41 @@ public class LiteQsoRepository : IQsoRepository
         var success = _context.Qsos.Update(qso);
         _context.Database.Checkpoint();
         return Task.FromResult(success);
+    }
+
+    public Task<IEnumerable<Qso>> GetUnsyncedToLotwAsync()
+    {
+        var results = _context.Qsos.Find(q =>
+            q.LotwSyncStatus == SyncStatus.NotSynced ||
+            q.LotwSyncStatus == SyncStatus.Modified)
+            .OrderByDescending(q => q.QsoDate)
+            .ThenByDescending(q => q.TimeOn)
+            .ToList();
+
+        return Task.FromResult<IEnumerable<Qso>>(results);
+    }
+
+    public Task<bool> UpdateLotwSyncStatusAsync(string id)
+    {
+        var qso = _context.Qsos.FindById(new BsonValue(id));
+        if (qso == null) return Task.FromResult(false);
+
+        qso.LotwSyncedAt = DateTime.UtcNow;
+        qso.LotwSyncStatus = SyncStatus.Synced;
+        qso.UpdatedAt = DateTime.UtcNow;
+
+        var success = _context.Qsos.Update(qso);
+        _context.Database.Checkpoint();
+        return Task.FromResult(success);
+    }
+
+    public Task<int> GetPendingLotwSyncCountAsync()
+    {
+        var count = _context.Qsos.Count(q =>
+            q.LotwSyncStatus == SyncStatus.NotSynced ||
+            q.LotwSyncStatus == SyncStatus.Modified);
+
+        return Task.FromResult(count);
     }
 
     public Task<long> DeleteAllAsync()

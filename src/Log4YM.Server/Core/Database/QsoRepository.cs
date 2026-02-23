@@ -20,6 +20,9 @@ public interface IQsoRepository
     Task<IEnumerable<Qso>> GetByIdsAsync(IEnumerable<string> ids);
     Task<bool> UpdateQrzSyncStatusAsync(string id, string qrzLogId);
     Task<int> GetPendingSyncCountAsync();
+    Task<IEnumerable<Qso>> GetUnsyncedToLotwAsync();
+    Task<bool> UpdateLotwSyncStatusAsync(string id);
+    Task<int> GetPendingLotwSyncCountAsync();
     Task<long> DeleteAllAsync();
 }
 
@@ -111,6 +114,11 @@ public class QsoRepository : IQsoRepository
         if (qso.QrzSyncStatus == SyncStatus.Synced)
         {
             qso.QrzSyncStatus = SyncStatus.Modified;
+        }
+
+        if (qso.LotwSyncStatus == SyncStatus.Synced)
+        {
+            qso.LotwSyncStatus = SyncStatus.Modified;
         }
 
         var result = await _collection.ReplaceOneAsync(q => q.Id == id, qso);
@@ -223,6 +231,40 @@ public class QsoRepository : IQsoRepository
 
         var result = await _collection.UpdateOneAsync(q => q.Id == id, update);
         return result.ModifiedCount > 0;
+    }
+
+    public async Task<IEnumerable<Qso>> GetUnsyncedToLotwAsync()
+    {
+        // Get QSOs that need syncing to LOTW: NotSynced OR Modified
+        var filter = Builders<Qso>.Filter.Or(
+            Builders<Qso>.Filter.Eq(q => q.LotwSyncStatus, SyncStatus.NotSynced),
+            Builders<Qso>.Filter.Eq(q => q.LotwSyncStatus, SyncStatus.Modified)
+        );
+        return await _collection
+            .Find(filter)
+            .SortByDescending(q => q.QsoDate)
+            .ThenByDescending(q => q.TimeOn)
+            .ToListAsync();
+    }
+
+    public async Task<bool> UpdateLotwSyncStatusAsync(string id)
+    {
+        var update = Builders<Qso>.Update
+            .Set(q => q.LotwSyncedAt, DateTime.UtcNow)
+            .Set(q => q.LotwSyncStatus, SyncStatus.Synced)
+            .Set(q => q.UpdatedAt, DateTime.UtcNow);
+
+        var result = await _collection.UpdateOneAsync(q => q.Id == id, update);
+        return result.ModifiedCount > 0;
+    }
+
+    public async Task<int> GetPendingLotwSyncCountAsync()
+    {
+        var filter = Builders<Qso>.Filter.Or(
+            Builders<Qso>.Filter.Eq(q => q.LotwSyncStatus, SyncStatus.NotSynced),
+            Builders<Qso>.Filter.Eq(q => q.LotwSyncStatus, SyncStatus.Modified)
+        );
+        return (int)await _collection.CountDocumentsAsync(filter);
     }
 
     public async Task<long> DeleteAllAsync()

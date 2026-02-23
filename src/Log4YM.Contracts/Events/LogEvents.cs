@@ -899,3 +899,78 @@ public record ActivateChannelTunerGeniusCommand(
     string DeviceSerial,
     int Channel   // 1 or 2
 );
+
+// ===== UDP Provider Events =====
+
+/// <summary>
+/// UDP provider status changed
+/// </summary>
+public record UdpProviderStatusChangedEvent(
+    string ProviderId,
+    string ProviderName,
+    bool IsRunning,
+    bool IsListening,
+    int? ListeningPort,
+    bool? IsMulticastEnabled,
+    string? ErrorMessage = null
+);
+
+/// <summary>
+/// WSJT-X status update received
+/// </summary>
+public record WsjtxStatusReceivedEvent(
+    string Id,
+    long DialFrequency,
+    string Mode,
+    string DxCall,
+    string DxGrid,
+    string DeCall,
+    string DeGrid,
+    bool TxEnabled,
+    bool Transmitting,
+    bool Decoding,
+    int RxDf,
+    int TxDf,
+    string SubMode,
+    int FreqTolerance,
+    double TrPeriod,
+    string Report,
+    string TxMessage
+);
+
+/// <summary>
+/// WSJT-X decode message received
+/// </summary>
+public record WsjtxDecodeReceivedEvent(
+    string Id,
+    bool IsNew,
+    DateTime Time,
+    int Snr,
+    double DeltaTime,
+    int DeltaFrequency,
+    string Mode,
+    string Message,
+    bool LowConfidence,
+    bool OffAir
+);
+
+/// <summary>
+/// WSJT-X QSO logged event
+/// </summary>
+public record WsjtxQsoLoggedEvent(
+    string Id,
+    string DxCall,
+    string DxGrid,
+    long TxFrequency,
+    string Mode,
+    string ReportSent,
+    string ReportReceived,
+    string TxPower,
+    DateTime TimeOn,
+    DateTime TimeOff,
+    string MyCall,
+    string MyGrid,
+    string? Comments = null,
+    string? ExchangeSent = null,
+    string? ExchangeReceived = null
+);

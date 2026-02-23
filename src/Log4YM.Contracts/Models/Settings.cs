@@ -36,6 +36,9 @@ public class UserSettings
     [BsonElement("ai")]
     public AiSettings Ai { get; set; } = new();
 
+    [BsonElement("udpProviders")]
+    public UdpProviderSettings UdpProviders { get; set; } = new();
+
     [BsonElement("layoutJson")]
     public string? LayoutJson { get; set; }
 

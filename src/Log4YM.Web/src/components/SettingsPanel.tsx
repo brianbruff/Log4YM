@@ -92,6 +92,12 @@ const SETTINGS_SECTIONS: { id: SettingsSection; name: string; icon: React.ReactN
     description: 'LLM API settings for talk points',
   },
   {
+    id: 'udp',
+    name: 'UDP Integrations',
+    icon: <Wifi className="w-5 h-5" />,
+    description: 'WSJT-X, JTDX, MSHV, and other UDP apps',
+  },
+  {
     id: 'about',
     name: 'About',
     icon: <Info className="w-5 h-5" />,

@@ -71,24 +71,6 @@ export interface QsoStatistics {
   qsosByMode: Record<string, number>;
 }
 
-export interface Spot {
-  id: string;
-  dxCall: string;
-  spotter: string;
-  frequency: number;
-  mode?: string;
-  comment?: string;
-  source?: string;
-  timestamp: string;
-  country?: string;
-  dxStation?: {
-    country?: string;
-    dxcc?: number;
-    grid?: string;
-    continent?: string;
-  };
-}
-
 export interface RbnSpot {
   callsign: string;      // Skimmer callsign
   dx: string;            // Spotted station
@@ -121,12 +103,6 @@ export interface PaginatedQsoResponse {
   page: number;
   pageSize: number;
   totalPages: number;
-}
-
-export interface SpotQuery {
-  band?: string;
-  mode?: string;
-  limit?: number;
 }
 
 class ApiClient {
@@ -185,16 +161,6 @@ class ApiClient {
 
   async getStatistics(): Promise<QsoStatistics> {
     return this.fetch<QsoStatistics>('/qsos/statistics');
-  }
-
-  // Spots
-  async getSpots(query?: SpotQuery): Promise<Spot[]> {
-    const params = new URLSearchParams();
-    if (query?.band) params.append('band', query.band);
-    if (query?.mode) params.append('mode', query.mode);
-    if (query?.limit) params.append('limit', query.limit.toString());
-    const qs = params.toString();
-    return this.fetch<Spot[]>(`/spots${qs ? `?${qs}` : ''}`);
   }
 
   // RBN

@@ -53,6 +53,7 @@ export interface SpotReceivedEvent {
   spotterDxcc?: number;
   spotterGrid?: string;
   spotterContinent?: string;
+  spotStatus?: 'newDxcc' | 'newBand' | 'worked';
 }
 
 export interface SpotSelectedEvent {

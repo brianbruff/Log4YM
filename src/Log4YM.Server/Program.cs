@@ -193,6 +193,11 @@ builder.Services.AddHostedService(sp => sp.GetRequiredService<SmartUnlinkService
 builder.Services.AddSingleton<RotatorService>();
 builder.Services.AddHostedService(sp => sp.GetRequiredService<RotatorService>());
 
+// Register Spot Status service (must be registered before DxClusterService which depends on it)
+builder.Services.AddSingleton<SpotStatusService>();
+builder.Services.AddSingleton<ISpotStatusService>(sp => sp.GetRequiredService<SpotStatusService>());
+builder.Services.AddHostedService(sp => sp.GetRequiredService<SpotStatusService>());
+
 // Register DX Cluster service
 builder.Services.AddSingleton<DxClusterService>();
 builder.Services.AddSingleton<IDxClusterService>(sp => sp.GetRequiredService<DxClusterService>());

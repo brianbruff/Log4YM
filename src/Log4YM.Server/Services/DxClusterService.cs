@@ -31,6 +31,7 @@ public class DxClusterService : IDxClusterService, IHostedService, IDisposable
     private readonly ILogger<DxClusterService> _logger;
     private readonly IHubContext<LogHub, ILogHubClient> _hubContext;
     private readonly IServiceProvider _serviceProvider;
+    private readonly ISpotStatusService _spotStatusService;
     private readonly ConcurrentDictionary<string, ClusterConnectionHandler> _connections = new();
     private readonly ConcurrentDictionary<string, ClusterConnectionStatus> _statuses = new();
     private readonly ConcurrentDictionary<string, DateTime> _recentSpots = new();
@@ -42,11 +43,13 @@ public class DxClusterService : IDxClusterService, IHostedService, IDisposable
     public DxClusterService(
         ILogger<DxClusterService> logger,
         IHubContext<LogHub, ILogHubClient> hubContext,
-        IServiceProvider serviceProvider)
+        IServiceProvider serviceProvider,
+        ISpotStatusService spotStatusService)
     {
         _logger = logger;
         _hubContext = hubContext;
         _serviceProvider = serviceProvider;
+        _spotStatusService = spotStatusService;
     }
 
     public async Task StartAsync(CancellationToken cancellationToken)
@@ -304,6 +307,10 @@ public class DxClusterService : IDxClusterService, IHostedService, IDisposable
                 parsedSpot.Spotter, ex.Message);
         }
 
+        // Determine spot status (new DXCC, new band, worked, etc.)
+        var spotStatus = _spotStatusService.GetSpotStatus(
+            parsedSpot.DxCall, parsedSpot.Country, parsedSpot.Frequency, parsedSpot.Mode);
+
         // Broadcast to clients (spots are kept in memory on frontend only, not persisted)
         var evt = new SpotReceivedEvent(
             spotId,
@@ -320,7 +327,8 @@ public class DxClusterService : IDxClusterService, IHostedService, IDisposable
             spotterCountry,
             spotterDxcc,
             spotterGrid,
-            spotterContinent
+            spotterContinent,
+            spotStatus
         );
 
         await _hubContext.Clients.All.OnSpotReceived(evt);

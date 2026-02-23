@@ -124,17 +124,6 @@ describe('ApiClient', () => {
   });
 
   describe('URL construction', () => {
-    it('constructs correct URL for getSpots with query params', async () => {
-      mockFetch.mockResolvedValueOnce(mockResponse([]));
-
-      await api.getSpots({ band: '20m', mode: 'CW', limit: 100 });
-      const calledUrl = mockFetch.mock.calls[0][0] as string;
-      expect(calledUrl).toContain('/api/spots');
-      expect(calledUrl).toContain('band=20m');
-      expect(calledUrl).toContain('mode=CW');
-      expect(calledUrl).toContain('limit=100');
-    });
-
     it('constructs correct URL for getHealth', async () => {
       mockFetch.mockResolvedValueOnce(mockResponse({ status: 'healthy', timestamp: '' }));
 

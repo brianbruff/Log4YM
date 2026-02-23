@@ -17,6 +17,7 @@ public partial class AdifService : IAdifService
     private readonly ISettingsRepository _settingsRepository;
     private readonly IHubContext<LogHub, ILogHubClient> _hub;
     private readonly ILogger<AdifService> _logger;
+    private readonly ISpotStatusService? _spotStatusService;
 
     // ADIF field pattern: <fieldname:length>value or <fieldname:length:type>value
     [GeneratedRegex(@"<(\w+):(\d+)(?::\w)?>([\s\S]*?)(?=<[A-Za-z_]|\Z)", RegexOptions.IgnoreCase)]
@@ -41,12 +42,14 @@ public partial class AdifService : IAdifService
         IQsoRepository qsoRepository,
         ISettingsRepository settingsRepository,
         IHubContext<LogHub, ILogHubClient> hub,
-        ILogger<AdifService> logger)
+        ILogger<AdifService> logger,
+        ISpotStatusService? spotStatusService = null)
     {
         _qsoRepository = qsoRepository;
         _settingsRepository = settingsRepository;
         _hub = hub;
         _logger = logger;
+        _spotStatusService = spotStatusService;
     }
 
     public IEnumerable<Qso> ParseAdif(string adifContent)
@@ -207,6 +210,12 @@ public partial class AdifService : IAdifService
         _logger.LogInformation(
             "ADIF import complete: {Imported} imported, {Skipped} duplicates skipped, {Errors} errors",
             importedCount, skippedDuplicates, errorCount);
+
+        // Rebuild spot status cache after import
+        if (_spotStatusService != null && importedCount > 0)
+        {
+            _ = _spotStatusService.InvalidateCacheAsync();
+        }
 
         // Send final progress update
         await _hub.BroadcastAdifImportProgress(new AdifImportProgressEvent(

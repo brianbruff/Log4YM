@@ -74,7 +74,8 @@ public record SpotReceivedEvent(
     string? SpotterCountry = null,
     int? SpotterDxcc = null,
     string? SpotterGrid = null,
-    string? SpotterContinent = null
+    string? SpotterContinent = null,
+    string? SpotStatus = null
 );
 
 /// <summary>

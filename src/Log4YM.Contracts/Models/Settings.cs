@@ -30,6 +30,9 @@ public class UserSettings
     [BsonElement("cluster")]
     public ClusterSettings Cluster { get; set; } = new();
 
+    [BsonElement("spotStatus")]
+    public SpotStatusSettings SpotStatus { get; set; } = new();
+
     [BsonElement("header")]
     public HeaderSettings Header { get; set; } = new();
 
@@ -254,6 +257,32 @@ public class RbnSettings
 
     [BsonElement("modes")]
     public List<string> Modes { get; set; } = new() { "CW", "RTTY" };
+}
+
+[BsonIgnoreExtraElements]
+public class SpotStatusSettings
+{
+    [BsonElement("enabled")]
+    public bool Enabled { get; set; } = true;
+
+    [BsonElement("colors")]
+    public SpotStatusColors Colors { get; set; } = new();
+
+    [BsonElement("dimWorked")]
+    public bool DimWorked { get; set; } = true;
+}
+
+[BsonIgnoreExtraElements]
+public class SpotStatusColors
+{
+    [BsonElement("newDxcc")]
+    public string NewDxcc { get; set; } = "#ff3a09";
+
+    [BsonElement("newBand")]
+    public string NewBand { get; set; } = "#4cc850";
+
+    [BsonElement("worked")]
+    public string Worked { get; set; } = "#6d6d6d";
 }
 
 [BsonIgnoreExtraElements]

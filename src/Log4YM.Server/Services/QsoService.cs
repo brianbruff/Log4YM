@@ -11,11 +11,13 @@ public class QsoService : IQsoService
 {
     private readonly IQsoRepository _repository;
     private readonly IHubContext<LogHub, ILogHubClient> _hub;
+    private readonly ISpotStatusService? _spotStatusService;
 
-    public QsoService(IQsoRepository repository, IHubContext<LogHub, ILogHubClient> hub)
+    public QsoService(IQsoRepository repository, IHubContext<LogHub, ILogHubClient> hub, ISpotStatusService? spotStatusService = null)
     {
         _repository = repository;
         _hub = hub;
+        _spotStatusService = spotStatusService;
     }
 
     public async Task<QsoResponse?> GetByIdAsync(string id)
@@ -61,6 +63,13 @@ public class QsoService : IQsoService
         };
 
         var created = await _repository.CreateAsync(qso);
+
+        // Update spot status cache incrementally
+        _spotStatusService?.OnQsoLogged(
+            created.Callsign,
+            created.Country,
+            created.Band,
+            created.Mode);
 
         // Broadcast to all clients via SignalR
         await _hub.BroadcastQso(new QsoLoggedEvent(

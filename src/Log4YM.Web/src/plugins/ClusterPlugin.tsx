@@ -1,14 +1,14 @@
-import { useState, useMemo } from 'react';
+import { useState, useMemo, useCallback } from 'react';
 import { Zap, Map, Settings, Plus, Trash2, X, Search } from 'lucide-react';
 import { AgGridReact } from 'ag-grid-react';
-import { ColDef, ICellRendererParams, RowClickedEvent, CellMouseOverEvent, CellMouseOutEvent } from 'ag-grid-community';
+import { ColDef, ICellRendererParams, RowClickedEvent, CellMouseOverEvent, CellMouseOutEvent, RowStyle } from 'ag-grid-community';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-alpine.css';
 import { useSignalR } from '../hooks/useSignalR';
 import { GlassPanel } from '../components/GlassPanel';
 import { MultiSelectDropdown, MultiSelectOption } from '../components/MultiSelectDropdown';
 import { getCountryFlag } from '../core/countryFlags';
-import { useSettingsStore, ClusterConnection } from '../store/settingsStore';
+import { useSettingsStore, ClusterConnection, type SpotStatusColors, type SpotStatusEnabled } from '../store/settingsStore';
 import { useAppStore, Spot } from '../store/appStore';
 
 const BAND_RANGES: Record<string, [number, number]> = {
@@ -46,6 +46,13 @@ const MODE_OPTIONS: MultiSelectOption[] = [
   { value: 'FT4', label: 'FT4' },
   { value: 'RTTY', label: 'RTTY' },
   { value: 'DIGI', label: 'Digital' },
+];
+
+const STATUS_OPTIONS: MultiSelectOption[] = [
+  { value: 'newDxcc', label: 'New DXCC' },
+  { value: 'newBand', label: 'New Band' },
+  { value: 'worked', label: 'Worked' },
+  { value: 'none', label: 'Unknown' },
 ];
 
 const getBandFromFrequency = (freq: number): string => {
@@ -87,11 +94,6 @@ const getAge = (dateStr: string) => {
   }
 };
 
-// Custom cell renderer for DX callsign
-const DxCallCellRenderer = (props: ICellRendererParams<Spot>) => {
-  return <span className="font-mono font-bold text-accent-primary">{props.value}</span>;
-};
-
 // Infer mode from frequency if not provided
 const inferModeFromFrequency = (freq: number): string | null => {
   // Common FT8 frequencies (in kHz)
@@ -129,6 +131,20 @@ const inferModeFromFrequency = (freq: number): string | null => {
     return 'SSB';
   }
   return null;
+};
+
+// Custom cell renderer for DX callsign with status dot
+const DxCallCellRenderer = (props: ICellRendererParams<Spot>) => {
+  const status = props.data?.status;
+  const spotStatusSettings = useSettingsStore.getState().settings.spotStatus;
+  const isStatusActive = status && spotStatusSettings.enabled && spotStatusSettings.show[status];
+  const color = isStatusActive ? spotStatusSettings.colors[status] : undefined;
+  return (
+    <span className="flex items-center gap-1.5">
+      {color && <span className="inline-block w-2 h-2 rounded-full flex-shrink-0" style={{ backgroundColor: color }} />}
+      <span className="font-mono font-bold text-accent-primary">{props.value}</span>
+    </span>
+  );
 };
 
 // Custom cell renderer for mode badges
@@ -192,6 +208,86 @@ const TimeCellRenderer = (props: ICellRendererParams<Spot>) => {
 
 // Cluster connection status type
 type ClusterStatusType = 'connected' | 'connecting' | 'disconnected' | 'error';
+
+// Spot Status Color Config Component
+function SpotStatusColorConfig({
+  colors,
+  enabled,
+  show,
+  dimWorked,
+  onColorChange,
+  onEnabledChange,
+  onShowChange,
+  onDimWorkedChange,
+}: {
+  colors: SpotStatusColors;
+  enabled: boolean;
+  show: SpotStatusEnabled;
+  dimWorked: boolean;
+  onColorChange: (key: keyof SpotStatusColors, value: string) => void;
+  onEnabledChange: (enabled: boolean) => void;
+  onShowChange: (key: keyof SpotStatusEnabled, value: boolean) => void;
+  onDimWorkedChange: (dimWorked: boolean) => void;
+}) {
+  const colorEntries: { key: keyof SpotStatusColors; label: string }[] = [
+    { key: 'newDxcc', label: 'New DXCC' },
+    { key: 'newBand', label: 'New Band' },
+    { key: 'worked', label: 'Worked' },
+  ];
+
+  return (
+    <div className="space-y-3">
+      <div className="flex items-center justify-between">
+        <h5 className="text-sm font-medium font-ui text-dark-200">Spot Status Colors</h5>
+        <label className="flex items-center gap-2 cursor-pointer">
+          <input
+            type="checkbox"
+            checked={enabled}
+            onChange={(e) => onEnabledChange(e.target.checked)}
+            className="w-4 h-4 rounded border-glass-200 bg-dark-900 text-accent-primary focus:ring-accent-primary/40"
+          />
+          <span className="text-sm font-ui text-dark-300">Enabled</span>
+        </label>
+      </div>
+
+      {enabled && (
+        <>
+          <div className="grid grid-cols-3 gap-3">
+            {colorEntries.map(({ key, label }) => (
+              <div key={key} className="flex items-center gap-2">
+                <input
+                  type="checkbox"
+                  checked={show[key]}
+                  onChange={(e) => onShowChange(key, e.target.checked)}
+                  className="w-3.5 h-3.5 rounded border-glass-200 bg-dark-900 text-accent-primary focus:ring-accent-primary/40"
+                />
+                <input
+                  type="color"
+                  value={colors[key]}
+                  onChange={(e) => onColorChange(key, e.target.value)}
+                  className="w-7 h-7 rounded border border-glass-100 bg-transparent cursor-pointer"
+                  disabled={!show[key]}
+                  style={{ opacity: show[key] ? 1 : 0.4 }}
+                />
+                <span className={`text-xs font-ui ${show[key] ? 'text-dark-300' : 'text-dark-500'}`}>{label}</span>
+              </div>
+            ))}
+          </div>
+
+          <label className="flex items-center gap-2 cursor-pointer">
+            <input
+              type="checkbox"
+              checked={dimWorked}
+              onChange={(e) => onDimWorkedChange(e.target.checked)}
+              className="w-4 h-4 rounded border-glass-200 bg-dark-900 text-accent-primary focus:ring-accent-primary/40"
+            />
+            <span className="text-sm font-ui text-dark-300">Dim worked spots</span>
+          </label>
+        </>
+      )}
+    </div>
+  );
+}
 
 // Cluster Settings Panel Component
 function ClusterSettingsPanel({
@@ -408,6 +504,7 @@ export function ClusterPlugin() {
   const { selectSpot } = useSignalR();
   const [selectedBands, setSelectedBands] = useState<string[]>([]);
   const [selectedModes, setSelectedModes] = useState<string[]>([]);
+  const [selectedStatuses, setSelectedStatuses] = useState<string[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [showSettings, setShowSettings] = useState(false);
 
@@ -425,11 +522,16 @@ export function ClusterPlugin() {
     updateClusterConnection,
     addClusterConnection,
     removeClusterConnection,
+    updateSpotStatusSettings,
     saveSettings,
   } = useSettingsStore();
 
   const clusterConnections = settings.cluster.connections;
   const stationCallsign = settings.station.callsign;
+  const spotStatusSettings = settings.spotStatus;
+  const spotStatusEnabled = spotStatusSettings.enabled;
+  const spotStatusColors = spotStatusSettings.colors;
+  const spotStatusShow = spotStatusSettings.show;
 
   // Get cluster statuses from app store (populated via SignalR)
   const clusterStatusesFromStore = useAppStore((state) => state.clusterStatuses);
@@ -443,7 +545,7 @@ export function ClusterPlugin() {
     return statuses;
   }, [clusterStatusesFromStore]);
 
-  // Filter spots based on selected bands, modes, and search query
+  // Filter spots based on selected bands, modes, statuses, and search query
   const filteredSpots = useMemo(() => {
     if (!spots) return [];
 
@@ -482,9 +584,30 @@ export function ClusterPlugin() {
         if (!spotMode || !selectedModes.includes(spotMode)) return false;
       }
 
+      // Status filter
+      if (selectedStatuses.length > 0) {
+        const spotStatus = spot.status || 'none';
+        if (!selectedStatuses.includes(spotStatus)) return false;
+      }
+
       return true;
     });
-  }, [spots, selectedBands, selectedModes, searchQuery]);
+  }, [spots, selectedBands, selectedModes, selectedStatuses, searchQuery]);
+
+  // Row style callback for status coloring
+  const getRowStyle = useCallback((params: { data?: Spot }): RowStyle | undefined => {
+    if (!spotStatusEnabled) return undefined;
+    const status = params.data?.status;
+    if (!status || !spotStatusShow[status]) return undefined;
+    const color = spotStatusColors[status];
+    if (!color) return undefined;
+
+    const style: RowStyle = { backgroundColor: `${color}20` }; // 12% opacity
+    if (status === 'worked' && spotStatusSettings.dimWorked) {
+      style.opacity = '0.6';
+    }
+    return style;
+  }, [spotStatusEnabled, spotStatusColors, spotStatusShow, spotStatusSettings.dimWorked]);
 
   const handleRowClick = async (event: RowClickedEvent<Spot>) => {
     const spot = event.data;
@@ -526,11 +649,12 @@ export function ClusterPlugin() {
   const clearAllFilters = () => {
     setSelectedBands([]);
     setSelectedModes([]);
+    setSelectedStatuses([]);
     setSearchQuery('');
   };
 
-  const hasActiveFilters = selectedBands.length > 0 || selectedModes.length > 0 || searchQuery.trim().length > 0;
-  const totalActiveFilters = selectedBands.length + selectedModes.length + (searchQuery.trim() ? 1 : 0);
+  const hasActiveFilters = selectedBands.length > 0 || selectedModes.length > 0 || selectedStatuses.length > 0 || searchQuery.trim().length > 0;
+  const totalActiveFilters = selectedBands.length + selectedModes.length + selectedStatuses.length + (searchQuery.trim() ? 1 : 0);
 
   // Count connected clusters
   const connectedCount = Object.values(clusterStatuses).filter(s => s === 'connected').length;
@@ -651,14 +775,14 @@ export function ClusterPlugin() {
         <div
           className={`
             absolute inset-0 z-20 flex flex-col
-            bg-dark-900/97 backdrop-blur-sm
+            bg-dark-900
             transition-opacity duration-200
             ${showSettings ? 'opacity-100 pointer-events-auto' : 'opacity-0 pointer-events-none'}
           `}
         >
           {/* Overlay Header */}
           <div className="flex items-center justify-between px-4 py-3 border-b border-glass-100 flex-shrink-0">
-            <h4 className="text-sm font-medium font-ui text-dark-200">Cluster Connections</h4>
+            <h4 className="text-sm font-medium font-ui text-dark-200">Cluster Settings</h4>
             <button
               onClick={() => setShowSettings(false)}
               className="p-1.5 text-dark-300 hover:text-dark-200 hover:bg-dark-700 rounded transition-colors"
@@ -669,31 +793,51 @@ export function ClusterPlugin() {
           </div>
 
           {/* Scrollable Settings Content */}
-          <div className="flex-1 overflow-y-auto p-4">
-            <ClusterSettingsPanel
-              connections={clusterConnections}
-              onUpdateConnection={handleUpdateConnection}
-              onAddConnection={handleAddConnection}
-              onRemoveConnection={handleRemoveConnection}
-              onConnect={handleConnect}
-              onDisconnect={handleDisconnect}
-              statuses={clusterStatuses}
-              stationCallsign={stationCallsign}
+          <div className="flex-1 overflow-y-auto p-4 space-y-6">
+            {/* Spot Status Colors Section */}
+            <SpotStatusColorConfig
+              colors={spotStatusColors}
+              enabled={spotStatusEnabled}
+              show={spotStatusShow}
+              dimWorked={spotStatusSettings.dimWorked}
+              onColorChange={(key, value) => {
+                updateSpotStatusSettings({ colors: { ...spotStatusColors, [key]: value } });
+              }}
+              onEnabledChange={(enabled) => updateSpotStatusSettings({ enabled })}
+              onShowChange={(key, value) => {
+                updateSpotStatusSettings({ show: { ...spotStatusShow, [key]: value } });
+              }}
+              onDimWorkedChange={(dimWorked) => updateSpotStatusSettings({ dimWorked })}
             />
+
+            <div className="border-t border-glass-100" />
+
+            {/* Cluster Connections Section */}
+            <div>
+              <h5 className="text-sm font-medium font-ui text-dark-200 mb-3">Cluster Connections</h5>
+              <ClusterSettingsPanel
+                connections={clusterConnections}
+                onUpdateConnection={handleUpdateConnection}
+                onAddConnection={handleAddConnection}
+                onRemoveConnection={handleRemoveConnection}
+                onConnect={handleConnect}
+                onDisconnect={handleDisconnect}
+                statuses={clusterStatuses}
+                stationCallsign={stationCallsign}
+              />
+            </div>
           </div>
 
           {/* Sticky Save Footer — always visible regardless of content height */}
-          {clusterConnections.length > 0 && (
-            <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-t border-glass-100 bg-dark-900/80">
-              <span className="text-xs text-dark-400 font-ui">Changes take effect after saving</span>
-              <button
-                onClick={async () => { await saveSettings(); setShowSettings(false); }}
-                className="px-4 py-2 bg-accent-primary text-white rounded-lg text-sm font-medium font-ui hover:bg-accent-primary/80 transition-colors"
-              >
-                Save &amp; Close
-              </button>
-            </div>
-          )}
+          <div className="flex-shrink-0 flex items-center justify-between px-4 py-3 border-t border-glass-100 bg-dark-900">
+            <span className="text-xs text-dark-400 font-ui">Changes take effect after saving</span>
+            <button
+              onClick={async () => { await saveSettings(); setShowSettings(false); }}
+              className="px-4 py-2 bg-accent-primary text-white rounded-lg text-sm font-medium font-ui hover:bg-accent-primary/80 transition-colors"
+            >
+              Save &amp; Close
+            </button>
+          </div>
         </div>
 
         {/* Filters */}
@@ -732,6 +876,14 @@ export function ClusterPlugin() {
               selected={selectedModes}
               onChange={setSelectedModes}
               placeholder="All Modes"
+              className="w-32"
+            />
+
+            <MultiSelectDropdown
+              options={STATUS_OPTIONS}
+              selected={selectedStatuses}
+              onChange={setSelectedStatuses}
+              placeholder="All Status"
               className="w-32"
             />
 
@@ -778,6 +930,7 @@ export function ClusterPlugin() {
                 suppressCellFocus={true}
                 animateRows={true}
                 onRowClicked={handleRowClick}
+                getRowStyle={getRowStyle}
                 onCellMouseOver={(event: CellMouseOverEvent<Spot>) => {
                   if (event.data?.id) setHoveredSpotId(event.data.id);
                 }}

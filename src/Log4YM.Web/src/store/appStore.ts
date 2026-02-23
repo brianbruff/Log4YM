@@ -161,6 +161,7 @@ export interface Spot {
   source?: string;
   timestamp: string;
   country?: string;
+  status?: 'newDxcc' | 'newBand' | 'worked';
   dxStation?: {
     country?: string;
     dxcc?: number;
@@ -498,9 +499,13 @@ export const useAppStore = create<AppState>((set) => ({
   // DX Cluster spots (ephemeral, in-memory only)
   dxClusterSpots: [],
   addDxClusterSpot: (spot) => set((state) => {
-    // Keep only the most recent 200 spots to prevent memory bloat
-    const updatedSpots = [spot, ...state.dxClusterSpots].slice(0, 200);
-    return { dxClusterSpots: updatedSpots };
+    const maxAgeMs = 30 * 60 * 1000; // 30 minutes
+    const cutoff = Date.now() - maxAgeMs;
+    // Prune stale spots, then prepend the new one (max 200)
+    const fresh = state.dxClusterSpots.filter(
+      (s) => new Date(s.timestamp).getTime() > cutoff
+    );
+    return { dxClusterSpots: [spot, ...fresh].slice(0, 200) };
   }),
 
   // Callsign map images

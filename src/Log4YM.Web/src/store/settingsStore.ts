@@ -113,6 +113,25 @@ export interface ClusterSettings {
   connections: ClusterConnection[];
 }
 
+export interface SpotStatusColors {
+  newDxcc: string;
+  newBand: string;
+  worked: string;
+}
+
+export interface SpotStatusEnabled {
+  newDxcc: boolean;
+  newBand: boolean;
+  worked: boolean;
+}
+
+export interface SpotStatusSettings {
+  enabled: boolean;
+  colors: SpotStatusColors;
+  show: SpotStatusEnabled;
+  dimWorked: boolean;
+}
+
 export interface AiSettings {
   provider: 'anthropic' | 'openai';
   apiKey: string;
@@ -131,6 +150,7 @@ export interface Settings {
   radio: RadioSettings;
   map: MapSettings;
   cluster: ClusterSettings;
+  spotStatus: SpotStatusSettings;
   header: HeaderSettings;
   ai: AiSettings;
 }
@@ -167,6 +187,7 @@ interface SettingsState {
   updateClusterConnection: (connectionId: string, connection: Partial<ClusterConnection>) => void;
   updateHeaderSettings: (header: Partial<HeaderSettings>) => void;
   updateAiSettings: (ai: Partial<AiSettings>) => void;
+  updateSpotStatusSettings: (spotStatus: Partial<SpotStatusSettings>) => void;
   addClusterConnection: () => void;
   removeClusterConnection: (connectionId: string) => void;
 
@@ -253,6 +274,20 @@ const defaultSettings: Settings = {
   },
   cluster: {
     connections: [],
+  },
+  spotStatus: {
+    enabled: true,
+    colors: {
+      newDxcc: '#ff3a09',
+      newBand: '#4cc850',
+      worked: '#6d6d6d',
+    },
+    show: {
+      newDxcc: true,
+      newBand: true,
+      worked: true,
+    },
+    dimWorked: true,
   },
   header: {
     timeFormat: '24h',
@@ -377,6 +412,25 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
       settings: {
         ...state.settings,
         ai: { ...state.settings.ai, ...ai },
+      },
+      isDirty: true,
+    })),
+
+  // Spot status settings
+  updateSpotStatusSettings: (spotStatus) =>
+    set((state) => ({
+      settings: {
+        ...state.settings,
+        spotStatus: {
+          ...state.settings.spotStatus,
+          ...spotStatus,
+          colors: spotStatus.colors
+            ? { ...state.settings.spotStatus.colors, ...spotStatus.colors }
+            : state.settings.spotStatus.colors,
+          show: spotStatus.show
+            ? { ...state.settings.spotStatus.show, ...spotStatus.show }
+            : state.settings.spotStatus.show,
+        },
       },
       isDirty: true,
     })),
@@ -515,6 +569,12 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
             rbn: { ...defaultSettings.map.rbn, ...settings.map?.rbn },
           },
           cluster: { ...defaultSettings.cluster, ...settings.cluster },
+          spotStatus: {
+            ...defaultSettings.spotStatus,
+            ...settings.spotStatus,
+            colors: { ...defaultSettings.spotStatus.colors, ...settings.spotStatus?.colors },
+            show: { ...defaultSettings.spotStatus.show, ...settings.spotStatus?.show },
+          },
           header: { ...defaultSettings.header, ...settings.header },
           ai: { ...defaultSettings.ai, ...settings.ai },
         };

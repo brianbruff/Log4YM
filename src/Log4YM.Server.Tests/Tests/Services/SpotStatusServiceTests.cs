@@ -303,6 +303,35 @@ public class SpotStatusServiceTests
             .Should().Be("worked");
     }
 
+    [Fact]
+    public async Task GetSpotStatus_CtyDatNameMismatch_GermanyWorked_FedRepNotNewDxcc()
+    {
+        // QSO log stores "Germany" but CtyService returns "Fed. Rep. of Germany" for DL callsigns.
+        // Both names should be indexed during cache build via CtyService callsign lookup.
+        _qsoRepository.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<Qso>
+        {
+            MakeQso("DL1ABC", country: "Germany", band: "20m", mode: "SSB"),
+        });
+        await _service.StartAsync(CancellationToken.None);
+
+        // Spot arrives with cty.dat name "Fed. Rep. of Germany" — should NOT be newDxcc
+        _service.GetSpotStatus("DL2RH", "Fed. Rep. of Germany", 14000.0, "SSB")
+            .Should().Be("worked");
+    }
+
+    [Fact]
+    public async Task OnQsoLogged_CtyDatNameMismatch_AlsoIndexesCtyName()
+    {
+        await _service.StartAsync(CancellationToken.None);
+
+        // Log a QSO with common name "Germany" for a DL callsign
+        _service.OnQsoLogged("DL1ABC", "Germany", "20m", "CW");
+
+        // Spot lookup uses cty.dat name "Fed. Rep. of Germany" — should still match
+        _service.GetSpotStatus("DL2RH", "Fed. Rep. of Germany", 14000.0, "CW")
+            .Should().Be("worked");
+    }
+
     #endregion
 
     #region Frequency to band mapping

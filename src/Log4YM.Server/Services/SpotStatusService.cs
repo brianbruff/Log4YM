@@ -79,16 +79,31 @@ public class SpotStatusService : ISpotStatusService, IHostedService
     {
         lock (_cacheLock)
         {
+            var normalizedMode = NormalizeMode(mode);
+
             if (!string.IsNullOrEmpty(country))
             {
                 var normalizedCountry = NormalizeCountryName(country);
                 _workedCountries.Add(normalizedCountry);
                 _workedCountryBands.Add($"{normalizedCountry}:{band}");
 
-                var normalizedMode = NormalizeMode(mode);
                 if (!string.IsNullOrEmpty(normalizedMode))
                 {
                     _workedCountryBandModes.Add($"{normalizedCountry}:{band}:{normalizedMode}");
+                }
+            }
+
+            // Also index by CtyService-resolved country name
+            var (ctyCountry, _) = CtyService.GetCountryFromCallsign(callsign);
+            if (!string.IsNullOrEmpty(ctyCountry) && !string.Equals(ctyCountry, country, StringComparison.OrdinalIgnoreCase))
+            {
+                var normalizedCtyCountry = NormalizeCountryName(ctyCountry);
+                _workedCountries.Add(normalizedCtyCountry);
+                _workedCountryBands.Add($"{normalizedCtyCountry}:{band}");
+
+                if (!string.IsNullOrEmpty(normalizedMode))
+                {
+                    _workedCountryBandModes.Add($"{normalizedCtyCountry}:{band}:{normalizedMode}");
                 }
             }
         }
@@ -133,6 +148,21 @@ public class SpotStatusService : ISpotStatusService, IHostedService
                     if (!string.IsNullOrEmpty(mode))
                     {
                         newCountryBandModes.Add($"{normalizedCountry}:{band}:{mode}");
+                    }
+                }
+
+                // Also index by CtyService-resolved country name to handle naming
+                // mismatches (e.g. QSO stores "Germany" but cty.dat uses "Fed. Rep. of Germany")
+                var (ctyCountry, _) = CtyService.GetCountryFromCallsign(callsign);
+                if (!string.IsNullOrEmpty(ctyCountry) && !string.Equals(ctyCountry, country, StringComparison.OrdinalIgnoreCase))
+                {
+                    var normalizedCtyCountry = NormalizeCountryName(ctyCountry);
+                    newCountries.Add(normalizedCtyCountry);
+                    newCountryBands.Add($"{normalizedCtyCountry}:{band}");
+
+                    if (!string.IsNullOrEmpty(mode))
+                    {
+                        newCountryBandModes.Add($"{normalizedCtyCountry}:{band}:{mode}");
                     }
                 }
             }

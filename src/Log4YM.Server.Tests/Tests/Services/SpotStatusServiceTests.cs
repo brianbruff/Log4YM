@@ -255,10 +255,9 @@ public class SpotStatusServiceTests
     #region GetSpotStatus — country name normalization
 
     [Theory]
-    [InlineData("England", "United Kingdom")]         // PrefixToCountry uses "United Kingdom", ADIF uses "England"
-    [InlineData("Bosnia and Herzegovina", "Bosnia-Herzegovina")]
     [InlineData("United Arab Emirates", "UAE")]
     [InlineData("Trinidad and Tobago", "Trinidad & Tobago")]
+    [InlineData("Cote d'Ivoire", "Ivory Coast")]
     public async Task GetSpotStatus_CountryAliasNormalization_MatchesWorked(string qsoCountry, string spotCountry)
     {
         _qsoRepository.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<Qso>
@@ -273,9 +272,9 @@ public class SpotStatusServiceTests
     }
 
     [Fact]
-    public async Task GetSpotStatus_UnitedKingdomSpot_EnglandInLog_ReturnsWorked()
+    public async Task GetSpotStatus_EnglandSpot_EnglandInLog_ReturnsWorked()
     {
-        // Real-world scenario: QSO logged as "England" (ADIF), spot comes from prefix lookup as "United Kingdom"
+        // CtyService returns "England" (ADIF entity name) directly — no alias needed
         _qsoRepository.Setup(r => r.GetAllAsync()).ReturnsAsync(new List<Qso>
         {
             MakeQso("G4ABC", country: "England", band: "20m", mode: "CW"),
@@ -283,24 +282,24 @@ public class SpotStatusServiceTests
         });
         await _service.StartAsync(CancellationToken.None);
 
-        _service.GetSpotStatus("M7JTV", "United Kingdom", 14000.0, "CW")
+        _service.GetSpotStatus("M7JTV", "England", 14000.0, "CW")
             .Should().Be("worked");
 
         // Different band → newBand (not newDxcc)
-        _service.GetSpotStatus("M7JTV", "United Kingdom", 28000.0, "CW")
+        _service.GetSpotStatus("M7JTV", "England", 28000.0, "CW")
             .Should().Be("newBand");
     }
 
     [Fact]
-    public async Task OnQsoLogged_CountryAlias_MatchesSpotLookup()
+    public async Task OnQsoLogged_SameEntityName_MatchesSpotLookup()
     {
         await _service.StartAsync(CancellationToken.None);
 
         // Log a QSO with ADIF entity name
         _service.OnQsoLogged("G4ABC", "England", "20m", "SSB");
 
-        // Spot lookup with prefix dict name should match
-        _service.GetSpotStatus("M0ABC", "United Kingdom", 14000.0, "SSB")
+        // Spot lookup now also uses "England" from CtyService
+        _service.GetSpotStatus("M0ABC", "England", 14000.0, "SSB")
             .Should().Be("worked");
     }
 

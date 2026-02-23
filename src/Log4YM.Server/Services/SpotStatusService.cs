@@ -155,14 +155,12 @@ public class SpotStatusService : ISpotStatusService, IHostedService
     }
 
     /// <summary>
-    /// Maps common alternative country names to the ADIF entity names stored in the QSO database.
-    /// The PrefixToCountry dictionary in DxClusterService uses informal names (e.g. "United Kingdom")
-    /// while ADIF imports store DXCC entity names (e.g. "England").
+    /// Maps alternative country names (from CC cluster feeds or other sources) to the ADIF entity
+    /// names stored in the QSO database. CtyService now returns ADIF-standard names directly,
+    /// so these aliases handle CC cluster abbreviations and informal naming differences.
     /// </summary>
     private static readonly Dictionary<string, string> CountryAliases = new(StringComparer.OrdinalIgnoreCase)
     {
-        ["United Kingdom"] = "England",
-        ["Bosnia-Herzegovina"] = "Bosnia and Herzegovina",
         ["UAE"] = "United Arab Emirates",
         ["Trinidad & Tobago"] = "Trinidad and Tobago",
         ["Ivory Coast"] = "Cote d'Ivoire",

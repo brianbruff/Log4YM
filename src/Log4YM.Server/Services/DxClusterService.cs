@@ -598,11 +598,22 @@ internal class ClusterConnectionHandler
 
             var mode = ExtractMode(comment) ?? InferModeFromFrequency(frequency);
             var timestamp = ParseSpotTime(timeStr);
-            var (countryName, continent) = GetCountryFromPrefix(country);
+            // CC clusters provide country name directly; look up continent from CtyService
+            var countryName = !string.IsNullOrEmpty(country) ? country : null;
+            var continent = countryName != null ? CtyService.GetContinentFromCountryName(countryName) : null;
+
+            // If continent lookup failed, the "country" field is likely a DXCC prefix (e.g. "J5")
+            // rather than a real country name — fall back to callsign lookup for both
+            if (continent == null)
+            {
+                var (ctyCountry, ctyContinent) = CtyService.GetCountryFromCallsign(dxCall);
+                countryName = ctyCountry;
+                continent = ctyContinent;
+            }
 
             var spot = new ParsedSpot(
                 dxCall, spotter, frequency, mode, comment, timestamp,
-                countryName ?? country, continent, null, grid
+                countryName, continent, null, grid
             );
 
             await _onSpotReceived(spot, _id, _name);
@@ -627,7 +638,7 @@ internal class ClusterConnectionHandler
             var mode = ExtractMode(comment) ?? InferModeFromFrequency(frequency);
             var timestamp = ParseSpotTime(timeStr);
 
-            var (countryName, continent) = GetCountryFromPrefix(dxCall);
+            var (countryName, continent) = CtyService.GetCountryFromCallsign(dxCall);
 
             var spot = new ParsedSpot(
                 dxCall, spotter, frequency, mode, comment, timestamp,
@@ -707,122 +718,4 @@ internal class ClusterConnectionHandler
         return DateTime.UtcNow;
     }
 
-    private static readonly Dictionary<string, (string Country, string Continent)> PrefixToCountry = new(StringComparer.OrdinalIgnoreCase)
-    {
-        // North America
-        ["K"] = ("United States", "NA"), ["W"] = ("United States", "NA"), ["N"] = ("United States", "NA"), ["A"] = ("United States", "NA"),
-        ["VE"] = ("Canada", "NA"), ["VA"] = ("Canada", "NA"), ["VY"] = ("Canada", "NA"),
-        ["XE"] = ("Mexico", "NA"), ["XA"] = ("Mexico", "NA"),
-        ["KH6"] = ("Hawaii", "OC"), ["KL7"] = ("Alaska", "NA"), ["KP4"] = ("Puerto Rico", "NA"),
-
-        // South America
-        ["PY"] = ("Brazil", "SA"), ["PP"] = ("Brazil", "SA"), ["PT"] = ("Brazil", "SA"), ["PU"] = ("Brazil", "SA"),
-        ["LU"] = ("Argentina", "SA"), ["CE"] = ("Chile", "SA"), ["CX"] = ("Uruguay", "SA"),
-        ["HC"] = ("Ecuador", "SA"), ["OA"] = ("Peru", "SA"), ["HK"] = ("Colombia", "SA"), ["YV"] = ("Venezuela", "SA"),
-        ["CP"] = ("Bolivia", "SA"), ["ZP"] = ("Paraguay", "SA"),
-
-        // Europe
-        ["G"] = ("United Kingdom", "EU"), ["M"] = ("United Kingdom", "EU"), ["2E"] = ("United Kingdom", "EU"),
-        ["GI"] = ("Northern Ireland", "EU"), ["GM"] = ("Scotland", "EU"), ["GW"] = ("Wales", "EU"),
-        ["GD"] = ("Isle of Man", "EU"), ["GJ"] = ("Jersey", "EU"), ["GH"] = ("Jersey", "EU"), ["GU"] = ("Guernsey", "EU"),
-        ["DL"] = ("Germany", "EU"), ["DA"] = ("Germany", "EU"), ["DB"] = ("Germany", "EU"), ["DC"] = ("Germany", "EU"), ["DD"] = ("Germany", "EU"), ["DF"] = ("Germany", "EU"), ["DG"] = ("Germany", "EU"), ["DH"] = ("Germany", "EU"), ["DJ"] = ("Germany", "EU"), ["DK"] = ("Germany", "EU"), ["DM"] = ("Germany", "EU"), ["DO"] = ("Germany", "EU"),
-        ["F"] = ("France", "EU"), ["I"] = ("Italy", "EU"), ["IS"] = ("Sardinia", "EU"),
-        ["EA"] = ("Spain", "EU"), ["EA6"] = ("Balearic Islands", "EU"), ["CT"] = ("Portugal", "EU"),
-        ["PA"] = ("Netherlands", "EU"), ["PD"] = ("Netherlands", "EU"), ["PE"] = ("Netherlands", "EU"), ["PH"] = ("Netherlands", "EU"),
-        ["ON"] = ("Belgium", "EU"), ["OZ"] = ("Denmark", "EU"), ["OY"] = ("Faroe Islands", "EU"),
-        ["SM"] = ("Sweden", "EU"), ["SA"] = ("Sweden", "EU"),
-        ["OH"] = ("Finland", "EU"), ["OH0"] = ("Aland Islands", "EU"),
-        ["LA"] = ("Norway", "EU"), ["JW"] = ("Svalbard", "EU"),
-        ["SP"] = ("Poland", "EU"), ["SQ"] = ("Poland", "EU"),
-        ["OK"] = ("Czech Republic", "EU"), ["OL"] = ("Czech Republic", "EU"), ["HA"] = ("Hungary", "EU"),
-        ["YO"] = ("Romania", "EU"), ["LZ"] = ("Bulgaria", "EU"),
-        ["SV"] = ("Greece", "EU"), ["SV5"] = ("Dodecanese", "EU"), ["SV9"] = ("Crete", "EU"),
-        ["9A"] = ("Croatia", "EU"), ["S5"] = ("Slovenia", "EU"), ["OE"] = ("Austria", "EU"),
-        ["HB"] = ("Switzerland", "EU"), ["HB0"] = ("Liechtenstein", "EU"),
-        ["LX"] = ("Luxembourg", "EU"), ["9H"] = ("Malta", "EU"), ["T7"] = ("San Marino", "EU"),
-        ["3A"] = ("Monaco", "EU"), ["C3"] = ("Andorra", "EU"),
-        ["TF"] = ("Iceland", "EU"),
-        ["UA"] = ("Russia", "EU"), ["RA"] = ("Russia", "EU"), ["R"] = ("Russia", "EU"), ["RU"] = ("Russia", "EU"), ["RV"] = ("Russia", "EU"), ["RW"] = ("Russia", "EU"), ["RX"] = ("Russia", "EU"), ["RZ"] = ("Russia", "EU"),
-        ["UR"] = ("Ukraine", "EU"), ["UT"] = ("Ukraine", "EU"), ["UX"] = ("Ukraine", "EU"), ["US"] = ("Ukraine", "EU"),
-        ["EI"] = ("Ireland", "EU"), ["EW"] = ("Belarus", "EU"), ["EU"] = ("Belarus", "EU"), ["ES"] = ("Estonia", "EU"),
-        ["YL"] = ("Latvia", "EU"), ["LY"] = ("Lithuania", "EU"), ["OM"] = ("Slovakia", "EU"),
-        ["YU"] = ("Serbia", "EU"), ["Z3"] = ("North Macedonia", "EU"), ["ZA"] = ("Albania", "EU"),
-        ["E7"] = ("Bosnia-Herzegovina", "EU"), ["4O"] = ("Montenegro", "EU"),
-        ["Z6"] = ("Republic of Kosovo", "EU"),
-
-        // Asia
-        ["JA"] = ("Japan", "AS"), ["JH"] = ("Japan", "AS"), ["JR"] = ("Japan", "AS"), ["JE"] = ("Japan", "AS"), ["JF"] = ("Japan", "AS"), ["JG"] = ("Japan", "AS"), ["JI"] = ("Japan", "AS"), ["JJ"] = ("Japan", "AS"), ["JK"] = ("Japan", "AS"), ["JL"] = ("Japan", "AS"), ["JM"] = ("Japan", "AS"), ["JN"] = ("Japan", "AS"), ["JO"] = ("Japan", "AS"), ["JP"] = ("Japan", "AS"), ["JQ"] = ("Japan", "AS"), ["JS"] = ("Japan", "AS"),
-        ["HL"] = ("South Korea", "AS"), ["DS"] = ("South Korea", "AS"),
-        ["BY"] = ("China", "AS"), ["BV"] = ("Taiwan", "AS"), ["VU"] = ("India", "AS"),
-        ["HS"] = ("Thailand", "AS"), ["9M2"] = ("Malaysia", "AS"), ["9M"] = ("Malaysia", "AS"), ["9V"] = ("Singapore", "AS"),
-        ["DU"] = ("Philippines", "AS"), ["YB"] = ("Indonesia", "AS"), ["XV"] = ("Vietnam", "AS"),
-        ["XW"] = ("Laos", "AS"), ["XU"] = ("Cambodia", "AS"),
-        ["UN"] = ("Kazakhstan", "AS"), ["UK"] = ("Uzbekistan", "AS"),
-        ["EX"] = ("Kyrgyzstan", "AS"), ["EY"] = ("Tajikistan", "AS"), ["EZ"] = ("Turkmenistan", "AS"),
-        ["4J"] = ("Azerbaijan", "AS"), ["4K"] = ("Azerbaijan", "AS"),
-        ["4L"] = ("Georgia", "AS"),
-        ["A4"] = ("Oman", "AS"), ["A6"] = ("UAE", "AS"), ["A7"] = ("Qatar", "AS"), ["A9"] = ("Bahrain", "AS"),
-        ["HZ"] = ("Saudi Arabia", "AS"), ["7Z"] = ("Saudi Arabia", "AS"), ["9K"] = ("Kuwait", "AS"),
-        ["4X"] = ("Israel", "AS"), ["OD"] = ("Lebanon", "AS"), ["TA"] = ("Turkey", "AS"),
-        ["EP"] = ("Iran", "AS"), ["YI"] = ("Iraq", "AS"), ["JT"] = ("Mongolia", "AS"),
-
-        // Africa
-        ["ZS"] = ("South Africa", "AF"), ["5Z"] = ("Kenya", "AF"), ["5H"] = ("Tanzania", "AF"),
-        ["9J"] = ("Zambia", "AF"), ["7Q"] = ("Malawi", "AF"), ["A2"] = ("Botswana", "AF"),
-        ["V5"] = ("Namibia", "AF"), ["3B"] = ("Mauritius", "AF"), ["TR"] = ("Gabon", "AF"),
-        ["TU"] = ("Ivory Coast", "AF"), ["6W"] = ("Senegal", "AF"), ["CN"] = ("Morocco", "AF"),
-        ["SU"] = ("Egypt", "AF"), ["ST"] = ("Sudan", "AF"), ["ET"] = ("Ethiopia", "AF"),
-        ["5N"] = ("Nigeria", "AF"), ["5U"] = ("Niger", "AF"), ["TZ"] = ("Mali", "AF"),
-        ["9G"] = ("Ghana", "AF"), ["EL"] = ("Liberia", "AF"),
-        ["5R"] = ("Madagascar", "AF"), ["FR"] = ("Reunion", "AF"),
-        ["3V"] = ("Tunisia", "AF"), ["7X"] = ("Algeria", "AF"), ["D4"] = ("Cape Verde", "AF"),
-        ["EA8"] = ("Canary Islands", "AF"), ["EA9"] = ("Ceuta and Melilla", "AF"), ["CT3"] = ("Madeira Island", "AF"),
-        ["TJ"] = ("Cameroon", "AF"), ["TL"] = ("Central African Republic", "AF"), ["TN"] = ("Congo", "AF"),
-        ["9L"] = ("Sierra Leone", "AF"), ["XT"] = ("Burkina Faso", "AF"),
-
-        // Oceania
-        ["VK"] = ("Australia", "OC"), ["ZL"] = ("New Zealand", "OC"),
-        ["P2"] = ("Papua New Guinea", "OC"), ["3D"] = ("Fiji", "OC"), ["FK"] = ("New Caledonia", "OC"),
-        ["KH2"] = ("Guam", "OC"), ["V7"] = ("Marshall Islands", "OC"), ["T8"] = ("Palau", "OC"),
-        ["YJ"] = ("Vanuatu", "OC"), ["A3"] = ("Tonga", "OC"),
-
-        // Caribbean & Central America
-        ["VP2M"] = ("Montserrat", "NA"), ["VP2V"] = ("British Virgin Islands", "NA"), ["VP2E"] = ("Anguilla", "NA"),
-        ["VP5"] = ("Turks and Caicos Islands", "NA"), ["VP9"] = ("Bermuda", "NA"),
-        ["V2"] = ("Antigua and Barbuda", "NA"), ["V4"] = ("St Kitts and Nevis", "NA"),
-        ["ZF"] = ("Cayman Islands", "NA"),
-        ["8P"] = ("Barbados", "NA"), ["J3"] = ("Grenada", "NA"), ["J6"] = ("Saint Lucia", "NA"),
-        ["J7"] = ("Dominica", "NA"), ["J8"] = ("Saint Vincent", "NA"),
-        ["PJ2"] = ("Curacao", "NA"), ["PJ4"] = ("Bonaire", "NA"), ["PJ5"] = ("Saba, St Eustatius", "NA"), ["PJ7"] = ("St. Maarten", "NA"),
-        ["HI"] = ("Dominican Republic", "NA"), ["CO"] = ("Cuba", "NA"), ["6Y"] = ("Jamaica", "NA"),
-        ["9Y"] = ("Trinidad & Tobago", "SA"), ["8R"] = ("Guyana", "SA"),
-        ["TI"] = ("Costa Rica", "NA"), ["TG"] = ("Guatemala", "NA"), ["HP"] = ("Panama", "NA"),
-        ["HR"] = ("Honduras", "NA"), ["YN"] = ("Nicaragua", "NA"), ["YS"] = ("El Salvador", "NA"),
-        ["HH"] = ("Haiti", "NA"),
-        ["FG"] = ("Guadeloupe", "NA"), ["FM"] = ("Martinique", "NA"), ["FY"] = ("French Guiana", "SA"),
-
-        // Additional
-        ["8Q"] = ("Maldives", "AS"), ["4S"] = ("Sri Lanka", "AS"), ["AP"] = ("Pakistan", "AS"),
-        ["YT"] = ("Serbia", "EU"),
-        ["B"] = ("China", "AS"), ["BD"] = ("China", "AS"), ["BH"] = ("China", "AS"),
-        ["BU"] = ("Taiwan", "AS"),
-    };
-
-    private static (string? Country, string? Continent) GetCountryFromPrefix(string prefix)
-    {
-        if (string.IsNullOrEmpty(prefix))
-            return (null, null);
-
-        if (PrefixToCountry.TryGetValue(prefix, out var result))
-            return result;
-
-        for (int len = Math.Min(prefix.Length, 4); len >= 1; len--)
-        {
-            var shortPrefix = prefix.Substring(0, len);
-            if (PrefixToCountry.TryGetValue(shortPrefix, out result))
-                return result;
-        }
-
-        return (null, null);
-    }
 }

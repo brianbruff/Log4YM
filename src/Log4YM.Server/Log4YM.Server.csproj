@@ -27,6 +27,10 @@
     <ProjectReference Include="..\Log4YM.Contracts\Log4YM.Contracts.csproj" />
   </ItemGroup>
 
+  <ItemGroup>
+    <EmbeddedResource Include="Data\cty.dat" />
+  </ItemGroup>
+
   <!-- Native Hamlib libraries - copy to output preserving directory structure -->
   <ItemGroup>
     <Content Include="runtimes\**\native\*" CopyToOutputDirectory="PreserveNewest" Link="runtimes\%(RecursiveDir)%(Filename)%(Extension)" />

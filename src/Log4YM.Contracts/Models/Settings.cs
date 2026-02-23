@@ -268,6 +268,9 @@ public class SpotStatusSettings
     [BsonElement("colors")]
     public SpotStatusColors Colors { get; set; } = new();
 
+    [BsonElement("show")]
+    public SpotStatusEnabled Show { get; set; } = new();
+
     [BsonElement("dimWorked")]
     public bool DimWorked { get; set; } = true;
 }
@@ -283,6 +286,19 @@ public class SpotStatusColors
 
     [BsonElement("worked")]
     public string Worked { get; set; } = "#6d6d6d";
+}
+
+[BsonIgnoreExtraElements]
+public class SpotStatusEnabled
+{
+    [BsonElement("newDxcc")]
+    public bool NewDxcc { get; set; } = true;
+
+    [BsonElement("newBand")]
+    public bool NewBand { get; set; } = true;
+
+    [BsonElement("worked")]
+    public bool Worked { get; set; } = true;
 }
 
 [BsonIgnoreExtraElements]

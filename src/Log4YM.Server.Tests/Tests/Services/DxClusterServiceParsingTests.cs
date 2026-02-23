@@ -1,5 +1,6 @@
 using System.Text.RegularExpressions;
 using FluentAssertions;
+using Log4YM.Server.Services;
 using Xunit;
 
 namespace Log4YM.Server.Tests.Tests.Services;
@@ -194,67 +195,72 @@ public class DxClusterServiceParsingTests
 
     #endregion
 
-    #region Country Prefix Lookup
+    #region Country Lookup via CtyService
 
     [Theory]
-    [InlineData("K", "United States")]
-    [InlineData("W", "United States")]
-    [InlineData("N", "United States")]
-    [InlineData("VE", "Canada")]
-    [InlineData("VA", "Canada")]
-    [InlineData("DL", "Germany")]
-    [InlineData("G", "United Kingdom")]
-    [InlineData("JA", "Japan")]
-    [InlineData("VK", "Australia")]
-    [InlineData("ZL", "New Zealand")]
-    [InlineData("PY", "Brazil")]
-    [InlineData("EA", "Spain")]
-    [InlineData("F", "France")]
-    [InlineData("I", "Italy")]
-    [InlineData("OH", "Finland")]
-    [InlineData("SM", "Sweden")]
-    [InlineData("ZS", "South Africa")]
-    public void GetCountryFromPrefix_KnownPrefixes_ReturnsCorrectCountry(string prefix, string expectedCountry)
+    [InlineData("K1ABC", "United States")]
+    [InlineData("W1AW", "United States")]
+    [InlineData("N5DX", "United States")]
+    [InlineData("VE3ABC", "Canada")]
+    [InlineData("DL1ABC", "Fed. Rep. of Germany")]
+    [InlineData("G4ABC", "England")]
+    [InlineData("JA1YXP", "Japan")]
+    [InlineData("VK2ABC", "Australia")]
+    [InlineData("ZL1ABC", "New Zealand")]
+    [InlineData("PY2ABC", "Brazil")]
+    [InlineData("EA1ABC", "Spain")]
+    [InlineData("F5ABC", "France")]
+    [InlineData("I2ABC", "Italy")]
+    [InlineData("OH2ABC", "Finland")]
+    [InlineData("SM5ABC", "Sweden")]
+    [InlineData("ZS6ABC", "South Africa")]
+    public void CtyService_KnownCallsigns_ReturnsCorrectCountry(string callsign, string expectedCountry)
     {
-        var (country, _) = GetCountryFromPrefix(prefix);
+        var (country, _) = CtyService.GetCountryFromCallsign(callsign);
         country.Should().Be(expectedCountry);
     }
 
     [Theory]
-    [InlineData("K", "NA")]
-    [InlineData("VE", "NA")]
-    [InlineData("DL", "EU")]
-    [InlineData("JA", "AS")]
-    [InlineData("VK", "OC")]
-    [InlineData("PY", "SA")]
-    [InlineData("ZS", "AF")]
-    public void GetCountryFromPrefix_KnownPrefixes_ReturnsCorrectContinent(string prefix, string expectedContinent)
+    [InlineData("K1ABC", "NA")]
+    [InlineData("VE3ABC", "NA")]
+    [InlineData("DL1ABC", "EU")]
+    [InlineData("JA1YXP", "AS")]
+    [InlineData("VK2ABC", "OC")]
+    [InlineData("PY2ABC", "SA")]
+    [InlineData("ZS6ABC", "AF")]
+    public void CtyService_KnownCallsigns_ReturnsCorrectContinent(string callsign, string expectedContinent)
     {
-        var (_, continent) = GetCountryFromPrefix(prefix);
+        var (_, continent) = CtyService.GetCountryFromCallsign(callsign);
         continent.Should().Be(expectedContinent);
     }
 
     [Fact]
-    public void GetCountryFromPrefix_UnknownPrefix_ReturnsNull()
+    public void CtyService_UnknownCallsign_ReturnsNull()
     {
-        var (country, continent) = GetCountryFromPrefix("ZZZ");
+        var (country, continent) = CtyService.GetCountryFromCallsign("QQ0ZZZ");
         country.Should().BeNull();
         continent.Should().BeNull();
     }
 
     [Fact]
-    public void GetCountryFromPrefix_EmptyPrefix_ReturnsNull()
+    public void CtyService_EmptyCallsign_ReturnsNull()
     {
-        var (country, continent) = GetCountryFromPrefix("");
+        var (country, continent) = CtyService.GetCountryFromCallsign("");
         country.Should().BeNull();
         continent.Should().BeNull();
     }
 
     [Fact]
-    public void GetCountryFromPrefix_LongerPrefixFallsBack()
+    public void CtyService_LongestPrefixMatch_EA8IsCanaryIslands()
     {
-        // "KH6" is Hawaii specifically, while "K" is generic US
-        var (country, _) = GetCountryFromPrefix("KH6");
+        var (country, _) = CtyService.GetCountryFromCallsign("EA8TJ");
+        country.Should().Be("Canary Islands");
+    }
+
+    [Fact]
+    public void CtyService_LongestPrefixMatch_KH6IsHawaii()
+    {
+        var (country, _) = CtyService.GetCountryFromCallsign("KH6ABC");
         country.Should().Be("Hawaii");
     }
 
@@ -391,44 +397,6 @@ public class DxClusterServiceParsingTests
         }
 
         return DateTime.UtcNow;
-    }
-
-    private static readonly Dictionary<string, (string Country, string Continent)> PrefixToCountry = new(StringComparer.OrdinalIgnoreCase)
-    {
-        ["K"] = ("United States", "NA"), ["W"] = ("United States", "NA"), ["N"] = ("United States", "NA"), ["A"] = ("United States", "NA"),
-        ["VE"] = ("Canada", "NA"), ["VA"] = ("Canada", "NA"), ["VY"] = ("Canada", "NA"),
-        ["XE"] = ("Mexico", "NA"), ["XA"] = ("Mexico", "NA"),
-        ["KH6"] = ("Hawaii", "OC"), ["KL7"] = ("Alaska", "NA"), ["KP4"] = ("Puerto Rico", "NA"),
-        ["PY"] = ("Brazil", "SA"), ["PP"] = ("Brazil", "SA"),
-        ["LU"] = ("Argentina", "SA"), ["CE"] = ("Chile", "SA"),
-        ["G"] = ("United Kingdom", "EU"), ["M"] = ("United Kingdom", "EU"),
-        ["DL"] = ("Germany", "EU"), ["DA"] = ("Germany", "EU"), ["DB"] = ("Germany", "EU"),
-        ["F"] = ("France", "EU"), ["I"] = ("Italy", "EU"), ["EA"] = ("Spain", "EU"), ["CT"] = ("Portugal", "EU"),
-        ["PA"] = ("Netherlands", "EU"), ["ON"] = ("Belgium", "EU"), ["OZ"] = ("Denmark", "EU"),
-        ["SM"] = ("Sweden", "EU"), ["OH"] = ("Finland", "EU"), ["LA"] = ("Norway", "EU"),
-        ["SP"] = ("Poland", "EU"), ["OK"] = ("Czech Republic", "EU"), ["HA"] = ("Hungary", "EU"),
-        ["UA"] = ("Russia", "EU"), ["JA"] = ("Japan", "AS"), ["HL"] = ("South Korea", "AS"),
-        ["BY"] = ("China", "AS"), ["BV"] = ("Taiwan", "AS"), ["VU"] = ("India", "AS"),
-        ["VK"] = ("Australia", "OC"), ["ZL"] = ("New Zealand", "OC"),
-        ["ZS"] = ("South Africa", "AF"), ["5Z"] = ("Kenya", "AF"),
-    };
-
-    private static (string? Country, string? Continent) GetCountryFromPrefix(string prefix)
-    {
-        if (string.IsNullOrEmpty(prefix))
-            return (null, null);
-
-        if (PrefixToCountry.TryGetValue(prefix, out var result))
-            return result;
-
-        for (int len = Math.Min(prefix.Length, 4); len >= 1; len--)
-        {
-            var shortPrefix = prefix.Substring(0, len);
-            if (PrefixToCountry.TryGetValue(shortPrefix, out result))
-                return result;
-        }
-
-        return (null, null);
     }
 
     private static string GenerateDeduplicationKey(string dxCall, double frequency, DateTime timestamp)

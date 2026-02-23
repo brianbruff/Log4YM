@@ -33,6 +33,7 @@ public class SettingsService : ISettingsService
         settings.Radio ??= new();
         settings.Map ??= new();
         settings.Cluster ??= new();
+        settings.SpotStatus ??= new();
         settings.Ai ??= new();
 
         return settings;

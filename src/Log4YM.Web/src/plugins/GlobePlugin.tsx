@@ -863,6 +863,23 @@ export function GlobePlugin() {
                   </p>
                 )}
               </div>
+              {rotatorEnabled && focusedCallsignInfo.bearing != null && (
+                <button
+                  onClick={() => {
+                    const bearing = focusedCallsignInfo.bearing!;
+                    lastCommandTimeRef.current = Date.now();
+                    commandedAzimuthRef.current = bearing;
+                    displayedAzimuthRef.current = bearing;
+                    setCurrentAzimuth(bearing);
+                    commandRotator(bearing, 'globe');
+                  }}
+                  className="glass-button-success px-2 py-1 flex items-center gap-1 text-xs ml-2"
+                  title={`Rotate to ${focusedCallsignInfo.callsign}`}
+                >
+                  <Navigation className="w-3 h-3" />
+                  <span className="font-mono">{focusedCallsignInfo.bearing.toFixed(0)}°</span>
+                </button>
+              )}
             </div>
           </div>
         )}

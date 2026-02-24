@@ -289,7 +289,10 @@ function QrzSettingsSection() {
       setTestStatus('error');
       setTestMessage('Failed to connect to server');
     }
-    setTimeout(() => setTestStatus('idle'), 5000);
+    setTimeout(() => {
+      setTestStatus('idle');
+      setTestMessage('');
+    }, 5000);
   };
 
   return (
@@ -508,32 +511,31 @@ function RotatorSettingsSection() {
     setTestStatus('testing');
     setTestMessage('');
     try {
-      // Try to connect to the rotctld socket
-      await fetch(`http://${rotator.ipAddress}:${rotator.port}`, {
-        method: 'GET',
-        signal: AbortSignal.timeout(3000),
+      // Test via backend API - it does a real TCP connection to rotctld
+      const response = await fetch(`/api/hamlib/test-rotator?host=${encodeURIComponent(rotator.ipAddress ?? '127.0.0.1')}&port=${rotator.port}`, {
+        signal: AbortSignal.timeout(5000),
       });
-      // If we get any response, even an error, the server is reachable
-      setTestStatus('success');
-      setTestMessage('Connection successful! Rotctld is reachable.');
-    } catch (error) {
-      // Check if it's a timeout or network error
-      if (error instanceof Error) {
-        if (error.name === 'TimeoutError') {
-          setTestStatus('error');
-          setTestMessage('Connection timeout. Check if rotctld is running and firewall settings.');
-        } else {
-          // For rotctld, connection refused or CORS errors are actually expected
-          // because rotctld doesn't serve HTTP - but this means the host is reachable
-          setTestStatus('success');
-          setTestMessage('Host is reachable. Enable rotator control to connect.');
-        }
+      const result = await response.json();
+      if (result.success) {
+        setTestStatus('success');
+        setTestMessage(result.message ?? 'Connected to rotctld successfully!');
       } else {
         setTestStatus('error');
-        setTestMessage('Connection failed. Verify IP address and port.');
+        setTestMessage(result.message ?? 'Failed to connect to rotctld.');
+      }
+    } catch (error) {
+      if (error instanceof Error && error.name === 'TimeoutError') {
+        setTestStatus('error');
+        setTestMessage('Connection timeout. Check if rotctld is running and firewall settings.');
+      } else {
+        setTestStatus('error');
+        setTestMessage('Failed to reach backend. Is the server running?');
       }
     }
-    setTimeout(() => setTestStatus('idle'), 5000);
+    setTimeout(() => {
+      setTestStatus('idle');
+      setTestMessage('');
+    }, 5000);
   };
 
   // Filter models based on search term
@@ -836,49 +838,8 @@ function RotatorSettingsSection() {
         </button>
       </div>
 
-      {/* Rotator Model Selection */}
+      {/* Connection Type Selector */}
       <div className={`space-y-4 ${!rotator.enabled ? 'opacity-50 pointer-events-none' : ''}`}>
-        <div className="space-y-2">
-          <label className="flex items-center gap-2 text-sm font-medium font-ui text-dark-200">
-            <Compass className="w-4 h-4 text-accent-primary" />
-            Rotator Model
-          </label>
-          <div className="flex gap-2">
-            <select
-              value={rotator.hamlibModelId ?? ''}
-              onChange={(e) => {
-                const modelId = e.target.value ? parseInt(e.target.value) : null;
-                const model = rotatorModels.find((m) => m.modelId === modelId);
-                updateRotatorSettings({
-                  hamlibModelId: modelId,
-                  hamlibModelName: model?.displayName ?? '',
-                });
-              }}
-              disabled={!rotator.enabled || loadingModels}
-              className="glass-input flex-1 min-w-0 font-mono text-sm"
-            >
-              <option value="">Select rotator model...</option>
-              {rotatorModels.map((model) => (
-                <option key={model.modelId} value={model.modelId}>
-                  {model.modelId} - {model.displayName}
-                </option>
-              ))}
-            </select>
-            <button
-              onClick={() => setShowModelBrowser(true)}
-              disabled={!rotator.enabled || loadingModels}
-              className="glass-button px-4 py-2 whitespace-nowrap disabled:opacity-50"
-            >
-              Browse Models
-            </button>
-          </div>
-          <p className="text-xs text-dark-300">
-            Select your rotator model from Hamlib's supported list.
-            {loadingModels && ' Loading models...'}
-          </p>
-        </div>
-
-        {/* Connection Type Selector */}
         <div className="space-y-2">
           <label className="text-sm font-medium font-ui text-dark-200">Connection Type</label>
           <div className="grid grid-cols-2 gap-3">
@@ -914,6 +875,49 @@ function RotatorSettingsSection() {
             </button>
           </div>
         </div>
+
+        {/* Rotator Model Selection - only needed for serial (rotctld handles model on network) */}
+        {rotator.connectionType === 'serial' && (
+          <div className="space-y-2">
+            <label className="flex items-center gap-2 text-sm font-medium font-ui text-dark-200">
+              <Compass className="w-4 h-4 text-accent-primary" />
+              Rotator Model
+            </label>
+            <div className="flex gap-2">
+              <select
+                value={rotator.hamlibModelId ?? ''}
+                onChange={(e) => {
+                  const modelId = e.target.value ? parseInt(e.target.value) : null;
+                  const model = rotatorModels.find((m) => m.modelId === modelId);
+                  updateRotatorSettings({
+                    hamlibModelId: modelId,
+                    hamlibModelName: model?.displayName ?? '',
+                  });
+                }}
+                disabled={!rotator.enabled || loadingModels}
+                className="glass-input flex-1 min-w-0 font-mono text-sm"
+              >
+                <option value="">Select rotator model...</option>
+                {rotatorModels.map((model) => (
+                  <option key={model.modelId} value={model.modelId}>
+                    {model.modelId} - {model.displayName}
+                  </option>
+                ))}
+              </select>
+              <button
+                onClick={() => setShowModelBrowser(true)}
+                disabled={!rotator.enabled || loadingModels}
+                className="glass-button px-4 py-2 whitespace-nowrap disabled:opacity-50"
+              >
+                Browse Models
+              </button>
+            </div>
+            <p className="text-xs text-dark-300">
+              Select your rotator model from Hamlib's supported list.
+              {loadingModels && ' Loading models...'}
+            </p>
+          </div>
+        )}
       </div>
 
       {/* Network Connection Settings */}

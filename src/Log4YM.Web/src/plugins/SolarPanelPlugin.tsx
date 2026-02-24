@@ -4,12 +4,12 @@ import { GlassPanel } from '../components/GlassPanel';
 
 // NASA SDO/AIA Wavelengths
 const WAVELENGTHS = {
-  '0094': { name: 'Corona (94Å)', color: '#00ff00' },
-  '0193': { name: 'Chromosphere (193Å)', color: '#ffff00' },
-  '0171': { name: 'Quiet Corona (171Å)', color: '#ff8800' },
-  '0131': { name: 'Flaring (131Å)', color: '#ff0000' },
-  '0304': { name: 'Chromosphere (304Å)', color: '#ff00ff' },
-  '0211': { name: 'Active Regions (211Å)', color: '#8800ff' },
+  '0094': { name: 'Corona', color: '#00ff00' },
+  '0193': { name: 'Chromosphere', color: '#ffff00' },
+  '0171': { name: 'Quiet Corona', color: '#ff8800' },
+  '0131': { name: 'Flaring', color: '#ff0000' },
+  '0304': { name: 'Chromosphere', color: '#ff00ff' },
+  '0211': { name: 'Active Regions', color: '#8800ff' },
 } as const;
 
 type WavelengthKey = keyof typeof WAVELENGTHS;
@@ -123,7 +123,7 @@ function SolarImageView() {
         </select>
       </div>
 
-      <div className="flex-1 flex items-center justify-center bg-dark-800 rounded-lg overflow-hidden relative">
+      <div className="flex-1 flex items-center justify-center overflow-hidden relative">
         {!imageLoaded && (
           <div className="absolute inset-0 flex items-center justify-center">
             <div className="w-12 h-12 border-4 border-accent-primary/30 border-t-accent-primary rounded-full animate-spin" />
@@ -132,7 +132,15 @@ function SolarImageView() {
         <img
           src={imageUrl}
           alt={`Solar image - ${WAVELENGTHS[wavelength].name}`}
-          className="w-full h-full object-contain"
+          style={{
+            maxHeight: '100%',
+            maxWidth: '100%',
+            width: 'auto',
+            height: 'auto',
+            objectFit: 'contain',
+            borderRadius: '50%',
+            border: '2px solid rgba(136, 153, 170, 0.3)',
+          }}
           onLoad={() => setImageLoaded(true)}
           onError={() => setImageLoaded(true)}
         />

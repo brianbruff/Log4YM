@@ -857,14 +857,26 @@ export function MapPlugin() {
                         {focusedCallsignInfo.bearing.toFixed(0)}° / {Math.round(focusedCallsignInfo.distance ?? 0).toLocaleString()} km
                       </div>
                     )}
-                    <a
-                      href={`https://www.qrz.com/db/${focusedCallsignInfo?.callsign}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="map-popup-qrz-btn"
-                    >
-                      QRZ.com ↗
-                    </a>
+                    <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
+                      {rotatorEnabled && focusedCallsignInfo?.bearing != null && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); commandRotator(focusedCallsignInfo.bearing!, 'map'); }}
+                          className="map-popup-qrz-btn"
+                          style={{ flex: 1, cursor: 'pointer', background: 'rgba(0, 221, 255, 0.15)', borderColor: 'rgba(0, 221, 255, 0.3)', color: '#00ddff' }}
+                        >
+                          Rotate {focusedCallsignInfo.bearing.toFixed(0)}°
+                        </button>
+                      )}
+                      <a
+                        href={`https://www.qrz.com/db/${focusedCallsignInfo?.callsign}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="map-popup-qrz-btn"
+                        style={{ flex: 1 }}
+                      >
+                        QRZ.com ↗
+                      </a>
+                    </div>
                   </div>
                 </Popup>
               </Marker>
@@ -881,14 +893,26 @@ export function MapPlugin() {
                         {focusedCallsignInfo.bearing.toFixed(0)}° / {Math.round(focusedCallsignInfo.distance ?? 0).toLocaleString()} km
                       </div>
                     )}
-                    <a
-                      href={`https://www.qrz.com/db/${focusedCallsignInfo?.callsign}`}
-                      target="_blank"
-                      rel="noopener noreferrer"
-                      className="map-popup-qrz-btn"
-                    >
-                      QRZ.com ↗
-                    </a>
+                    <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
+                      {rotatorEnabled && focusedCallsignInfo?.bearing != null && (
+                        <button
+                          onClick={(e) => { e.stopPropagation(); commandRotator(focusedCallsignInfo.bearing!, 'map'); }}
+                          className="map-popup-qrz-btn"
+                          style={{ flex: 1, cursor: 'pointer', background: 'rgba(0, 221, 255, 0.15)', borderColor: 'rgba(0, 221, 255, 0.3)', color: '#00ddff' }}
+                        >
+                          Rotate {focusedCallsignInfo.bearing.toFixed(0)}°
+                        </button>
+                      )}
+                      <a
+                        href={`https://www.qrz.com/db/${focusedCallsignInfo?.callsign}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="map-popup-qrz-btn"
+                        style={{ flex: 1 }}
+                      >
+                        QRZ.com ↗
+                      </a>
+                    </div>
                   </div>
                 </Popup>
               </Marker>

@@ -160,7 +160,7 @@ export function RotatorPlugin() {
                   className={`glass-button px-2 py-1 text-xs ${
                     Math.abs(currentAzimuth - preset.azimuth) < 5 ? 'border-accent-primary text-accent-primary' : ''
                   }`}
-                  title={`${preset.azimuth}\u00B0`}
+                  title={`${preset.azimuth}°`}
                 >
                   <span className="font-ui font-medium">{preset.name}</span>
                 </button>
@@ -232,7 +232,7 @@ export function RotatorPlugin() {
                     title={`Rotate to ${focusedCallsignInfo?.callsign} (${pathMode === 'short' ? 'SP' : 'LP'})`}
                   >
                     <Target className="w-3.5 h-3.5" />
-                    <span className="font-mono">{selectedBearing?.toFixed(0)}\u00B0</span>
+                    <span className="font-mono">{selectedBearing?.toFixed(0)}°</span>
                   </button>
                 </>
               )}

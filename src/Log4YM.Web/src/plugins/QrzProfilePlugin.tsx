@@ -50,14 +50,14 @@ export function QrzProfilePlugin() {
 
         {/* Profile content */}
         {!isLookingUpCallsign && focusedCallsignInfo && (
-          <div className="flex-1 flex flex-col">
-            {/* Profile image */}
-            <div className="flex justify-center mb-4">
+          <div className="flex-1 flex flex-col min-h-0">
+            {/* Profile image - takes remaining space */}
+            <div className="flex-1 flex justify-center items-center mb-4 min-h-0 overflow-hidden">
               {focusedCallsignInfo.imageUrl ? (
                 <img
                   src={focusedCallsignInfo.imageUrl}
                   alt={focusedCallsignInfo.callsign}
-                  className="w-32 h-32 rounded-xl object-cover border-2 border-glass-100 shadow-lg"
+                  className="max-w-full max-h-full rounded-xl object-contain border-2 border-glass-100 shadow-lg"
                 />
               ) : (
                 <div className="w-32 h-32 rounded-xl bg-dark-700 border-2 border-glass-100 flex items-center justify-center">
@@ -66,6 +66,8 @@ export function QrzProfilePlugin() {
               )}
             </div>
 
+            {/* Bottom section - always visible */}
+            <div className="flex-shrink-0">
             {/* Callsign and name */}
             <div className="text-center mb-4">
               <div className="flex items-center justify-center gap-3 mb-2">
@@ -150,8 +152,9 @@ export function QrzProfilePlugin() {
                 className="mt-4 w-full glass-button py-2 flex items-center justify-center gap-2 text-accent-primary hover:bg-dark-600 transition-colors font-ui"
               >
                 <ExternalLink className="w-4 h-4" />
-                <span className="text-sm font-medium">View Full QRZ Profile</span>
+                <span className="text-sm font-medium">QRZ.com</span>
               </button>
+            </div>
             </div>
           </div>
         )}

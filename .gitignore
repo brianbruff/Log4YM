@@ -80,6 +80,7 @@ coverage/
 
 # MongoDB
 data/
+!src/Log4YM.Server/Data/
 .playwright-mcp/
 
 # Electron Desktop build artifacts

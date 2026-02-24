@@ -862,6 +862,15 @@ export function MapPlugin() {
                         </span>
                       </>
                     )}
+                    <br />
+                    <a
+                      href={`https://www.qrz.com/db/${focusedCallsignInfo?.callsign}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: '#ffb432', fontSize: '11px', textDecoration: 'none' }}
+                    >
+                      QRZ.com ↗
+                    </a>
                   </div>
                 </Popup>
               </Marker>
@@ -882,6 +891,15 @@ export function MapPlugin() {
                         </span>
                       </>
                     )}
+                    <br />
+                    <a
+                      href={`https://www.qrz.com/db/${focusedCallsignInfo?.callsign}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      style={{ color: '#ffb432', fontSize: '11px', textDecoration: 'none' }}
+                    >
+                      QRZ.com ↗
+                    </a>
                   </div>
                 </Popup>
               </Marker>
@@ -907,6 +925,15 @@ export function MapPlugin() {
                   {img.grid && (
                     <><br /><span className="text-xs font-mono" style={{ color: '#8899aa' }}>{img.grid}</span></>
                   )}
+                  <br />
+                  <a
+                    href={`https://www.qrz.com/db/${img.callsign}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    style={{ color: '#00ddff', fontSize: '11px', textDecoration: 'none' }}
+                  >
+                    QRZ.com ↗
+                  </a>
                 </div>
               </Popup>
             </Marker>

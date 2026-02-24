@@ -1,6 +1,6 @@
 import { useState, useCallback, useEffect, useRef } from 'react';
 import { useMutation, useQueryClient } from '@tanstack/react-query';
-import { Send, Search, User, MapPin, Radio, Link, Unlink, Clock, Lock, LockOpen, Loader2, X, ChevronDown } from 'lucide-react';
+import { Send, Search, User, MapPin, Radio, Link, Unlink, Clock, Lock, LockOpen, Loader2, X, ChevronDown, ExternalLink } from 'lucide-react';
 import { api, CreateQsoRequest } from '../api/client';
 import { useSignalR } from '../hooks/useSignalR';
 import { useAppStore } from '../store/appStore';
@@ -488,6 +488,14 @@ export function LogEntryPlugin() {
               <div className="text-3xl" title={focusedCallsignInfo.country || 'Unknown country'}>
                 {getCountryFlag(focusedCallsignInfo.country, '')}
               </div>
+              <button
+                type="button"
+                onClick={() => window.open(`https://www.qrz.com/db/${focusedCallsignInfo.callsign}`, '_blank', 'noopener,noreferrer')}
+                className="p-1.5 rounded transition-colors text-accent-primary hover:bg-dark-600"
+                title="QRZ.com"
+              >
+                <ExternalLink className="w-4 h-4" />
+              </button>
             </div>
           </div>
         )}

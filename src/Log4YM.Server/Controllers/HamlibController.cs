@@ -37,6 +37,46 @@ public class HamlibController : ControllerBase
     }
 
     /// <summary>
+    /// Test TCP connection to a rotctld instance and verify it responds to protocol commands
+    /// </summary>
+    [HttpGet("test-rotator")]
+    [ProducesResponseType(typeof(object), StatusCodes.Status200OK)]
+    public async Task<ActionResult> TestRotatorConnection([FromQuery] string host = "127.0.0.1", [FromQuery] int port = 4533)
+    {
+        try
+        {
+            using var client = new System.Net.Sockets.TcpClient();
+            using var cts = new CancellationTokenSource(TimeSpan.FromSeconds(3));
+            await client.ConnectAsync(host, port, cts.Token);
+
+            using var stream = client.GetStream();
+            using var reader = new System.IO.StreamReader(stream, System.Text.Encoding.ASCII);
+            using var writer = new System.IO.StreamWriter(stream, System.Text.Encoding.ASCII) { AutoFlush = true };
+
+            // Send get_pos command to verify rotctld protocol
+            await writer.WriteLineAsync("p");
+            var azLine = await reader.ReadLineAsync(cts.Token);
+            var elLine = await reader.ReadLineAsync(cts.Token);
+
+            if (azLine != null && double.TryParse(azLine, out var azimuth))
+            {
+                azimuth = ((azimuth % 360) + 360) % 360;
+                return Ok(new { success = true, message = $"Connected! Rotator at {azimuth:F0}\u00B0", azimuth });
+            }
+
+            return Ok(new { success = false, message = $"Connected but unexpected response: {azLine}" });
+        }
+        catch (OperationCanceledException)
+        {
+            return Ok(new { success = false, message = "Connection timeout. Check if rotctld is running." });
+        }
+        catch (Exception ex)
+        {
+            return Ok(new { success = false, message = $"Cannot connect: {ex.Message}" });
+        }
+    }
+
+    /// <summary>
     /// Execute rotctl -l command and parse the output to get supported rotator models
     /// </summary>
     private async Task<List<RotatorModel>> GetHamlibRotatorListAsync()

@@ -997,3 +997,91 @@ html:not(.dark) .ag-theme-alpine-dark .ag-overlay-no-rows-center {
   border: none !important;
   overflow: visible !important;
 }
+
+/* ============================================================
+   LEAFLET POPUP OVERRIDES — dark themed
+   ============================================================ */
+
+.dark .leaflet-popup-content-wrapper {
+  background: rgba(10, 14, 20, 0.92);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 180, 50, 0.15);
+  border-radius: 10px;
+  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 12px rgba(255, 180, 50, 0.08);
+  color: #dce4ee;
+}
+
+.dark .leaflet-popup-content {
+  margin: 10px 14px;
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+.dark .leaflet-popup-tip {
+  background: rgba(10, 14, 20, 0.92);
+  border: 1px solid rgba(255, 180, 50, 0.15);
+  border-top: none;
+  border-left: none;
+  box-shadow: none;
+}
+
+.dark .leaflet-popup-close-button {
+  color: rgba(165, 180, 200, 0.7) !important;
+  font-size: 18px !important;
+  width: 22px !important;
+  height: 22px !important;
+  top: 4px !important;
+  right: 6px !important;
+}
+
+.dark .leaflet-popup-close-button:hover {
+  color: #ffb432 !important;
+}
+
+/* Light mode popup styling */
+html:not(.dark) .leaflet-popup-content-wrapper {
+  border-radius: 10px;
+  box-shadow: 0 4px 16px rgba(0, 0, 0, 0.15);
+}
+
+html:not(.dark) .leaflet-popup-content {
+  margin: 10px 14px;
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-size: 13px;
+  line-height: 1.5;
+}
+
+/* Map popup QRZ button */
+.map-popup-qrz-btn {
+  display: inline-block;
+  margin-top: 6px;
+  padding: 3px 12px;
+  border-radius: 6px;
+  font-family: 'Space Grotesk', system-ui, sans-serif;
+  font-size: 11px;
+  font-weight: 600;
+  text-decoration: none;
+  transition: background 0.15s, box-shadow 0.15s;
+}
+
+.dark .map-popup-qrz-btn {
+  background: rgba(255, 180, 50, 0.12);
+  border: 1px solid rgba(255, 180, 50, 0.25);
+  color: #ffb432;
+}
+
+.dark .map-popup-qrz-btn:hover {
+  background: rgba(255, 180, 50, 0.22);
+  box-shadow: 0 0 8px rgba(255, 180, 50, 0.2);
+}
+
+html:not(.dark) .map-popup-qrz-btn {
+  background: rgba(192, 82, 22, 0.08);
+  border: 1px solid rgba(192, 82, 22, 0.2);
+  color: #c05216;
+}
+
+html:not(.dark) .map-popup-qrz-btn:hover {
+  background: rgba(192, 82, 22, 0.15);
+}

@@ -790,9 +790,8 @@ export function MapPlugin() {
           <Marker position={[stationLat, stationLon]} icon={stationIcon}>
             <Popup>
               <div className="text-center">
-                <strong style={{ color: '#ffb432' }} className="font-mono">{stationGrid || 'Station'}</strong>
-                <br />
-                <span className="text-xs font-ui" style={{ color: '#5a7090' }}>Your Location</span>
+                <div style={{ fontSize: '15px', fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: '#00ddff', marginBottom: 2 }}>{stationGrid || 'Station'}</div>
+                <div style={{ fontSize: '11px', color: '#a5b4c8' }}>Your Location</div>
               </div>
             </Popup>
           </Marker>
@@ -846,28 +845,23 @@ export function MapPlugin() {
               >
                 <Popup>
                   <div className="text-center">
-                    <strong style={{ color: '#ffb432' }} className="font-mono">{focusedCallsignInfo?.callsign}</strong>
-                    <br />
+                    <div style={{ fontSize: '15px', fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: '#ffb432', marginBottom: 2 }}>{focusedCallsignInfo?.callsign}</div>
                     {focusedCallsignInfo?.name && (
-                      <><span className="text-xs" style={{ color: '#aabbcc' }}>{focusedCallsignInfo.name}</span><br /></>
+                      <div style={{ fontSize: '12px', color: '#cdd7e4', marginBottom: 2 }}>{focusedCallsignInfo.name}</div>
                     )}
                     {focusedCallsignInfo?.grid && (
-                      <span className="text-xs font-mono" style={{ color: '#8899aa' }}>{focusedCallsignInfo.grid}</span>
+                      <div style={{ fontSize: '11px', fontFamily: "'JetBrains Mono', monospace", color: '#a5b4c8' }}>{focusedCallsignInfo.grid}</div>
                     )}
                     {focusedCallsignInfo?.bearing != null && (
-                      <>
-                        <br />
-                        <span className="text-xs font-mono" style={{ color: '#00ddff' }}>
-                          {focusedCallsignInfo.bearing.toFixed(0)}° / {Math.round(focusedCallsignInfo.distance ?? 0)} km
-                        </span>
-                      </>
+                      <div style={{ fontSize: '11px', fontFamily: "'JetBrains Mono', monospace", color: '#00ddff', marginTop: 2 }}>
+                        {focusedCallsignInfo.bearing.toFixed(0)}° / {Math.round(focusedCallsignInfo.distance ?? 0).toLocaleString()} km
+                      </div>
                     )}
-                    <br />
                     <a
                       href={`https://www.qrz.com/db/${focusedCallsignInfo?.callsign}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      style={{ color: '#ffb432', fontSize: '11px', textDecoration: 'none' }}
+                      className="map-popup-qrz-btn"
                     >
                       QRZ.com ↗
                     </a>
@@ -878,25 +872,20 @@ export function MapPlugin() {
               <Marker position={[targetLat, targetLon]} icon={targetIcon}>
                 <Popup>
                   <div className="text-center">
-                    <strong style={{ color: '#ffb432' }} className="font-mono">{focusedCallsignInfo?.callsign}</strong>
-                    <br />
+                    <div style={{ fontSize: '15px', fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: '#ffb432', marginBottom: 2 }}>{focusedCallsignInfo?.callsign}</div>
                     {focusedCallsignInfo?.grid && (
-                      <span className="text-xs font-mono" style={{ color: '#8899aa' }}>{focusedCallsignInfo.grid}</span>
+                      <div style={{ fontSize: '11px', fontFamily: "'JetBrains Mono', monospace", color: '#a5b4c8' }}>{focusedCallsignInfo.grid}</div>
                     )}
                     {focusedCallsignInfo?.bearing != null && (
-                      <>
-                        <br />
-                        <span className="text-xs font-mono" style={{ color: '#00ddff' }}>
-                          {focusedCallsignInfo.bearing.toFixed(0)}° / {Math.round(focusedCallsignInfo.distance ?? 0)} km
-                        </span>
-                      </>
+                      <div style={{ fontSize: '11px', fontFamily: "'JetBrains Mono', monospace", color: '#00ddff', marginTop: 2 }}>
+                        {focusedCallsignInfo.bearing.toFixed(0)}° / {Math.round(focusedCallsignInfo.distance ?? 0).toLocaleString()} km
+                      </div>
                     )}
-                    <br />
                     <a
                       href={`https://www.qrz.com/db/${focusedCallsignInfo?.callsign}`}
                       target="_blank"
                       rel="noopener noreferrer"
-                      style={{ color: '#ffb432', fontSize: '11px', textDecoration: 'none' }}
+                      className="map-popup-qrz-btn"
                     >
                       QRZ.com ↗
                     </a>
@@ -915,22 +904,21 @@ export function MapPlugin() {
             >
               <Popup>
                 <div className="text-center">
-                  <strong style={{ color: '#00ddff' }} className="font-mono">{img.callsign}</strong>
+                  <div style={{ fontSize: '15px', fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: '#00ddff', marginBottom: 2 }}>{img.callsign}</div>
                   {img.name && (
-                    <><br /><span className="text-xs" style={{ color: '#aabbcc' }}>{img.name}</span></>
+                    <div style={{ fontSize: '12px', color: '#cdd7e4', marginBottom: 2 }}>{img.name}</div>
                   )}
                   {img.country && (
-                    <><br /><span className="text-xs" style={{ color: '#8899aa' }}>{img.country}</span></>
+                    <div style={{ fontSize: '11px', color: '#a5b4c8' }}>{img.country}</div>
                   )}
                   {img.grid && (
-                    <><br /><span className="text-xs font-mono" style={{ color: '#8899aa' }}>{img.grid}</span></>
+                    <div style={{ fontSize: '11px', fontFamily: "'JetBrains Mono', monospace", color: '#a5b4c8' }}>{img.grid}</div>
                   )}
-                  <br />
                   <a
                     href={`https://www.qrz.com/db/${img.callsign}`}
                     target="_blank"
                     rel="noopener noreferrer"
-                    style={{ color: '#00ddff', fontSize: '11px', textDecoration: 'none' }}
+                    className="map-popup-qrz-btn"
                   >
                     QRZ.com ↗
                   </a>

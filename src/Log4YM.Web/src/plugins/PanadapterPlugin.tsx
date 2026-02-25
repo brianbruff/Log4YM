@@ -59,9 +59,14 @@ export function PanadapterPlugin() {
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
 
-    const w = canvas.width;
-    const h = canvas.height;
-    if (w === 0 || h === 0) return;
+    const dpr = window.devicePixelRatio || 1;
+    const w = canvas.width / dpr;
+    const h = canvas.height / dpr;
+    if (w === 0 || h === 0) {
+      // Tab is hidden (FlexLayout display:none) — keep the loop alive
+      rafIdRef.current = requestAnimationFrame(render);
+      return;
+    }
 
     const spectrumH = Math.floor((h - AXIS_HEIGHT) * SPECTRUM_RATIO);
     const waterfallY = spectrumH + AXIS_HEIGHT;
@@ -298,7 +303,7 @@ export function PanadapterPlugin() {
         </button>
       }
     >
-      <div ref={containerRef} className="w-full h-full relative" style={{ minHeight: 120 }}>
+      <div ref={containerRef} className="w-full h-full relative overflow-hidden" style={{ minHeight: 120 }}>
         <canvas
           ref={canvasRef}
           className="absolute inset-0 cursor-crosshair"

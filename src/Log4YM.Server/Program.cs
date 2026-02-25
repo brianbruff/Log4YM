@@ -208,6 +208,10 @@ builder.Services.AddSingleton<RbnService>();
 builder.Services.AddSingleton<IRbnService>(sp => sp.GetRequiredService<RbnService>());
 builder.Services.AddHostedService(sp => sp.GetRequiredService<RbnService>());
 
+// Register Spectrum service (N1MM+ Spectrum Display UDP)
+builder.Services.AddSingleton<SpectrumService>();
+builder.Services.AddHostedService(sp => sp.GetRequiredService<SpectrumService>());
+
 // Register CW Keyer service
 builder.Services.AddSingleton<CwKeyerService>();
 

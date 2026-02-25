@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { Layout, Model, TabNode, TabSetNode, BorderNode, ITabSetRenderValues, Actions, DockLocation } from 'flexlayout-react';
-import { X, Radio, Book, Zap, LayoutGrid, Antenna, Plus, Map, Compass, Gauge, User, Calendar, Sun, Clock, Bot, MapPin, Search } from 'lucide-react';
+import { X, Radio, Book, Zap, LayoutGrid, Antenna, Plus, Map, Compass, Gauge, User, Calendar, Sun, Clock, Bot, MapPin, Search, BarChart3 } from 'lucide-react';
 import { StatusBar } from './components/StatusBar';
 import { SettingsPanel } from './components/SettingsPanel';
 import { ConnectionOverlay } from './components/ConnectionOverlay';
@@ -8,7 +8,7 @@ import { SetupWizard } from './components/SetupWizard';
 import { SplashScreen } from './components/SplashScreen';
 import { PluginErrorBoundary } from './components/PluginErrorBoundary';
 import { useSignalRConnection } from './hooks/useSignalR';
-import { LogEntryPlugin, LogHistoryPlugin, ClusterPlugin, MapPlugin, RotatorPlugin, GlobePlugin, AntennaGeniusPlugin, PgxlPlugin, TunerGeniusPlugin, SmartUnlinkPlugin, RigPlugin, QrzProfilePlugin, ContestsPlugin, SolarPanelPlugin, AnalogClockPlugin, HeaderPlugin, DXpeditionsPlugin, ChatAiPlugin, POTAPlugin, PropagationPanelPlugin, CwKeyerPlugin } from './plugins';
+import { LogEntryPlugin, LogHistoryPlugin, ClusterPlugin, MapPlugin, RotatorPlugin, GlobePlugin, AntennaGeniusPlugin, PgxlPlugin, TunerGeniusPlugin, SmartUnlinkPlugin, RigPlugin, QrzProfilePlugin, ContestsPlugin, SolarPanelPlugin, AnalogClockPlugin, HeaderPlugin, DXpeditionsPlugin, ChatAiPlugin, POTAPlugin, PropagationPanelPlugin, CwKeyerPlugin, PanadapterPlugin } from './plugins';
 import { Globe as Globe3D } from 'lucide-react';
 import { useLayoutStore, defaultLayout } from './store/layoutStore';
 import { useSettingsStore } from './store/settingsStore';
@@ -174,6 +174,13 @@ const PLUGINS: Record<string, PluginDef> = {
     component: CwKeyerPlugin,
     category: 'Radio & Equipment',
     tags: ['morse', 'cw'],
+  },
+  'panadapter': {
+    name: 'Panadapter',
+    icon: <BarChart3 className="w-4 h-4" />,
+    component: PanadapterPlugin,
+    category: 'Radio & Equipment',
+    tags: ['spectrum', 'waterfall', 'fft', 'sdr', 'panadapter'],
   },
 };
 

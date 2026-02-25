@@ -69,6 +69,9 @@ public interface ILogHubClient
 
     // RBN events
     Task OnRbnSpot(RbnSpot spot);
+
+    // Spectrum events
+    Task OnSpectrumData(SpectrumDataEvent evt);
 }
 
 public class LogHub : Hub<ILogHubClient>
@@ -366,6 +369,31 @@ public class LogHub : Hub<ILogHubClient>
         }
     }
 
+
+    public async Task TuneToFrequency(long frequencyHz)
+    {
+        _logger.LogInformation("Tune to frequency: {FrequencyMHz} MHz", frequencyHz / 1000000.0);
+
+        // Try TCI first, then Hamlib (frequency-only, no mode change)
+        var tciRadios = _tciRadioService.GetRadioStates().ToList();
+        if (tciRadios.Any())
+        {
+            var radioId = tciRadios.First().RadioId;
+            var tuned = await _tciRadioService.SetFrequencyAsync(radioId, frequencyHz);
+            if (tuned)
+            {
+                _logger.LogInformation("Tuned TCI radio {RadioId} to {FrequencyMHz} MHz", radioId, frequencyHz / 1000000.0);
+            }
+        }
+        else if (_hamlibService.IsConnected)
+        {
+            var tuned = await _hamlibService.SetFrequencyAsync(frequencyHz);
+            if (tuned)
+            {
+                _logger.LogInformation("Tuned Hamlib radio to {FrequencyMHz} MHz", frequencyHz / 1000000.0);
+            }
+        }
+    }
 
     public async Task CommandRotator(RotatorCommandEvent evt)
     {
@@ -1075,5 +1103,10 @@ public static class LogHubExtensions
     public static async Task BroadcastClusterStatusChanged(this IHubContext<LogHub, ILogHubClient> hub, ClusterStatusChangedEvent evt)
     {
         await hub.Clients.All.OnClusterStatusChanged(evt);
+    }
+
+    public static async Task BroadcastSpectrumData(this IHubContext<LogHub, ILogHubClient> hub, SpectrumDataEvent evt)
+    {
+        await hub.Clients.All.OnSpectrumData(evt);
     }
 }

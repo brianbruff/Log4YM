@@ -8,21 +8,36 @@ interface Props {
 interface State {
   hasError: boolean;
   error: Error | null;
+  retryCount: number;
 }
 
-export class PluginErrorBoundary extends Component<Props, State> {
-  state: State = { hasError: false, error: null };
+const MAX_AUTO_RETRIES = 3;
+const AUTO_RETRY_DELAY_MS = 500;
 
-  static getDerivedStateFromError(error: Error): State {
+export class PluginErrorBoundary extends Component<Props, State> {
+  state: State = { hasError: false, error: null, retryCount: 0 };
+  private autoRetryTimer: ReturnType<typeof setTimeout> | null = null;
+
+  static getDerivedStateFromError(error: Error): Partial<State> {
     return { hasError: true, error };
   }
 
   componentDidCatch(error: Error, info: ErrorInfo) {
     console.error(`Plugin "${this.props.pluginId}" crashed:`, error, info.componentStack);
+    // Auto-retry a few times before showing the manual retry UI
+    if (this.state.retryCount < MAX_AUTO_RETRIES) {
+      this.autoRetryTimer = setTimeout(() => {
+        this.setState((s) => ({ hasError: false, error: null, retryCount: s.retryCount + 1 }));
+      }, AUTO_RETRY_DELAY_MS);
+    }
+  }
+
+  componentWillUnmount() {
+    if (this.autoRetryTimer) clearTimeout(this.autoRetryTimer);
   }
 
   handleRetry = () => {
-    this.setState({ hasError: false, error: null });
+    this.setState({ hasError: false, error: null, retryCount: 0 });
   };
 
   render() {

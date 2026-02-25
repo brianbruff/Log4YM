@@ -390,6 +390,11 @@ interface SpotPathData {
   spotterPathPoints?: [number, number][][]; // Path from spotter to DX station
 }
 
+/** Guard against NaN / undefined / null coordinates that crash Leaflet */
+function isValidCoord(v: number | null | undefined): v is number {
+  return typeof v === 'number' && Number.isFinite(v);
+}
+
 export function MapPlugin() {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
@@ -522,8 +527,8 @@ export function MapPlugin() {
     const targetLat = focusedCallsignInfo?.latitude;
     const targetLon = focusedCallsignInfo?.longitude;
 
-    // Only fly if we have valid target coordinates
-    if (targetLat == null || targetLon == null) return;
+    // Only fly if we have valid target coordinates (guards against NaN from POTA spots etc.)
+    if (!isValidCoord(targetLat) || !isValidCoord(targetLon)) return;
 
     // Calculate distance for animation duration
     let duration = 2; // Default duration
@@ -656,7 +661,7 @@ export function MapPlugin() {
 
   // Generate great circle path from station to focused callsign (amber)
   const targetPathSegments = useMemo<[number, number][][]>(() => {
-    if (targetLat == null || targetLon == null) return [];
+    if (!isValidCoord(targetLat) || !isValidCoord(targetLon)) return [];
     return generateGreatCirclePoints(stationLat, stationLon, targetLat, targetLon);
   }, [stationLat, stationLon, targetLat, targetLon]);
 
@@ -837,7 +842,7 @@ export function MapPlugin() {
           ))}
 
           {/* Target marker - show callsign image icon (2x) with image or placeholder, or standard dot if callsign images disabled */}
-          {targetLat != null && targetLon != null && (
+          {isValidCoord(targetLat) && isValidCoord(targetLon) && (
             settings.map.showCallsignImages ? (
               <Marker
                 position={[targetLat, targetLon]}
@@ -1022,7 +1027,7 @@ export function MapPlugin() {
 
           {/* POTA markers - show when enabled and we have spot data with coordinates */}
           {settings.map.showPotaOverlay && potaSpots.map((spot) => {
-            if (!spot.latitude || !spot.longitude) return null;
+            if (!isValidCoord(spot.latitude) || !isValidCoord(spot.longitude)) return null;
             const spBearing = calculateBearing(stationLat, stationLon, spot.latitude, spot.longitude);
             const lpBearing = (spBearing + 180) % 360;
             const dist = calculateDistance(stationLat, stationLon, spot.latitude, spot.longitude);

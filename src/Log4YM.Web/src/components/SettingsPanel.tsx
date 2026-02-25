@@ -1934,6 +1934,16 @@ function SpectrumSettingsSection() {
         </p>
       </div>
 
+      {/* Pre-release warning */}
+      <div className="flex items-start gap-2 p-3 bg-amber-900/20 border border-amber-700/40 rounded-lg">
+        <AlertTriangle className="w-4 h-4 text-amber-400 mt-0.5 flex-shrink-0" />
+        <p className="text-xs text-amber-300/90">
+          <span className="font-semibold">Experimental feature.</span> The panadapter has been tested with
+          Thetis (ANAN / Hermes Lite 2) only. Other N1MM+ compatible sources (FlexRadio, Icom, SDRPlay,
+          CW Skimmer, etc.) should work but are untested. Please report any issues.
+        </p>
+      </div>
+
       {/* Enable toggle */}
       <div className="flex items-center justify-between p-3 bg-dark-700 rounded-lg">
         <div>

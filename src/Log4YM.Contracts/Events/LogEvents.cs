@@ -108,6 +108,15 @@ public record RotatorCommandEvent(
 );
 
 /// <summary>
+/// Pre-computed FFT spectrum data from N1MM+ Spectrum Display protocol
+/// </summary>
+public record SpectrumDataEvent(
+    long LowFrequencyHz,
+    long HighFrequencyHz,
+    int[] Data
+);
+
+/// <summary>
 /// Current rig frequency/mode
 /// </summary>
 public record RigStatusEvent(

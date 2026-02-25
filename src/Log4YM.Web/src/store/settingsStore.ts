@@ -132,6 +132,12 @@ export interface SpotStatusSettings {
   dimWorked: boolean;
 }
 
+export interface SpectrumSettings {
+  enabled: boolean;
+  listenPort: number;
+  sourceIp: string;  // Optional: only accept packets from this IP (e.g. Thetis machine)
+}
+
 export interface AiSettings {
   provider: 'anthropic' | 'openai';
   apiKey: string;
@@ -153,9 +159,10 @@ export interface Settings {
   spotStatus: SpotStatusSettings;
   header: HeaderSettings;
   ai: AiSettings;
+  spectrum: SpectrumSettings;
 }
 
-export type SettingsSection = 'station' | 'qrz' | 'rotator' | 'database' | 'appearance' | 'map' | 'header' | 'ai' | 'about';
+export type SettingsSection = 'station' | 'qrz' | 'rotator' | 'database' | 'appearance' | 'map' | 'header' | 'ai' | 'spectrum' | 'about';
 
 interface SettingsState {
   // Settings data
@@ -187,6 +194,7 @@ interface SettingsState {
   updateClusterConnection: (connectionId: string, connection: Partial<ClusterConnection>) => void;
   updateHeaderSettings: (header: Partial<HeaderSettings>) => void;
   updateAiSettings: (ai: Partial<AiSettings>) => void;
+  updateSpectrumSettings: (spectrum: Partial<SpectrumSettings>) => void;
   updateSpotStatusSettings: (spotStatus: Partial<SpotStatusSettings>) => void;
   addClusterConnection: () => void;
   removeClusterConnection: (connectionId: string) => void;
@@ -303,6 +311,11 @@ const defaultSettings: Settings = {
     includeQsoHistory: true,
     includeSpotComments: false,
   },
+  spectrum: {
+    enabled: false,
+    listenPort: 13064,
+    sourceIp: '',
+  },
 };
 
 // Settings are stored in MongoDB only - no localStorage persistence
@@ -412,6 +425,16 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
       settings: {
         ...state.settings,
         ai: { ...state.settings.ai, ...ai },
+      },
+      isDirty: true,
+    })),
+
+  // Spectrum settings
+  updateSpectrumSettings: (spectrum) =>
+    set((state) => ({
+      settings: {
+        ...state.settings,
+        spectrum: { ...state.settings.spectrum, ...spectrum },
       },
       isDirty: true,
     })),
@@ -577,6 +600,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
           },
           header: { ...defaultSettings.header, ...settings.header },
           ai: { ...defaultSettings.ai, ...settings.ai },
+          spectrum: { ...defaultSettings.spectrum, ...settings.spectrum },
         };
         set({ settings: mergedSettings, isDirty: false, isLoaded: true });
       } else {

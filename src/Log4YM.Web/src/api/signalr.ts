@@ -587,6 +587,20 @@ export interface ClusterStatusChangedEvent {
   errorMessage: string | null;
 }
 
+// Spectrum types
+export interface SpectrumDataEvent {
+  lowFrequencyHz: number;
+  highFrequencyHz: number;
+  data: number[];
+}
+
+// Direct callback for spectrum data (bypasses React state for 20fps performance)
+let spectrumDataCallback: ((evt: SpectrumDataEvent) => void) | null = null;
+
+export function setSpectrumDataCallback(cb: ((evt: SpectrumDataEvent) => void) | null): void {
+  spectrumDataCallback = cb;
+}
+
 // Connection state for tracking
 export type SignalRConnectionState = 'disconnected' | 'connecting' | 'connected' | 'reconnecting' | 'rehydrating';
 
@@ -639,6 +653,8 @@ type EventHandlers = {
   onAdifImportProgress?: (evt: AdifImportProgressEvent) => void;
   // DX Cluster handlers
   onClusterStatusChanged?: (evt: ClusterStatusChangedEvent) => void;
+  // Spectrum handlers
+  onSpectrumData?: (evt: SpectrumDataEvent) => void;
 };
 
 class SignalRService {
@@ -986,6 +1002,12 @@ class SignalRService {
     this.connection.on('OnClusterStatusChanged', (evt: ClusterStatusChangedEvent) => {
       this.handlers.onClusterStatusChanged?.(evt);
     });
+
+    // Spectrum events (direct callback, bypasses React state)
+    this.connection.on('OnSpectrumData', (evt: SpectrumDataEvent) => {
+      spectrumDataCallback?.(evt);
+      this.handlers.onSpectrumData?.(evt);
+    });
   }
 
   setHandlers(handlers: EventHandlers): void {
@@ -1193,6 +1215,11 @@ class SignalRService {
 
   async requestSmartUnlinkStatus(): Promise<void> {
     await this.connection?.invoke('RequestSmartUnlinkStatus');
+  }
+
+  // Spectrum methods
+  async tuneToFrequency(frequencyHz: number): Promise<void> {
+    await this.connection?.invoke('TuneToFrequency', frequencyHz);
   }
 
   // Rotator methods

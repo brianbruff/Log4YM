@@ -554,6 +554,11 @@ export function useSignalR() {
     await signalRService.persistCallsignMapImage(image);
   }, []);
 
+  // Spectrum / panadapter
+  const tuneToFrequency = useCallback(async (frequencyHz: number) => {
+    await signalRService.tuneToFrequency(frequencyHz);
+  }, []);
+
   // Manual reconnect function
   const reconnect = useCallback(async () => {
     await signalRService.reconnect();
@@ -610,5 +615,7 @@ export function useSignalR() {
     setSmartUnlinkRadioEnabled,
     // Map image persistence
     persistCallsignMapImage,
+    // Spectrum / panadapter
+    tuneToFrequency,
   };
 }

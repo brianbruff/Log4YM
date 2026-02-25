@@ -34,6 +34,7 @@ import {
   Sun,
   Moon,
   Flame,
+  BarChart3,
 } from 'lucide-react';
 import { useSettingsStore, SettingsSection, StationSettings } from '../store/settingsStore';
 import { gridToLatLon } from '../utils/maidenhead';
@@ -60,6 +61,12 @@ const SETTINGS_SECTIONS: { id: SettingsSection; name: string; icon: React.ReactN
     name: 'Rotator',
     icon: <Compass className="w-5 h-5" />,
     description: 'Hamlib rotctld connection',
+  },
+  {
+    id: 'spectrum',
+    name: 'Spectrum',
+    icon: <BarChart3 className="w-5 h-5" />,
+    description: 'N1MM+ Spectrum Display (UDP)',
   },
   {
     id: 'database',
@@ -1913,6 +1920,76 @@ function AiSettingsSection() {
   );
 }
 
+// Spectrum Settings Section
+function SpectrumSettingsSection() {
+  const { settings, updateSpectrumSettings } = useSettingsStore();
+  const spectrum = settings.spectrum;
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold font-ui text-dark-200 mb-1">Spectrum Display</h3>
+        <p className="text-sm text-dark-300">
+          Receive pre-computed FFT data from Thetis or other N1MM+ Spectrum Display compatible applications via UDP.
+        </p>
+      </div>
+
+      {/* Enable toggle */}
+      <div className="flex items-center justify-between p-3 bg-dark-700 rounded-lg">
+        <div>
+          <label className="text-sm font-medium text-dark-200">Enable Spectrum Listener</label>
+          <p className="text-xs text-dark-400 mt-0.5">Listen for N1MM+ Spectrum Display UDP packets</p>
+        </div>
+        <button
+          onClick={() => updateSpectrumSettings({ enabled: !spectrum.enabled })}
+          className={`relative w-11 h-6 rounded-full transition-colors ${spectrum.enabled ? 'bg-accent-primary' : 'bg-dark-500'}`}
+        >
+          <span className={`absolute top-0.5 left-0.5 w-5 h-5 bg-white rounded-full transition-transform ${spectrum.enabled ? 'translate-x-5' : ''}`} />
+        </button>
+      </div>
+
+      {/* Listen port */}
+      <div>
+        <label className="block text-sm font-medium text-dark-200 mb-1">UDP Listen Port</label>
+        <input
+          type="number"
+          value={spectrum.listenPort}
+          onChange={(e) => updateSpectrumSettings({ listenPort: parseInt(e.target.value) || 13064 })}
+          className="glass-input w-32"
+          min={1024}
+          max={65535}
+        />
+        <p className="text-xs text-dark-400 mt-1">Default: 13064 (N1MM+ Spectrum Display port)</p>
+      </div>
+
+      {/* Source IP filter */}
+      <div>
+        <label className="block text-sm font-medium text-dark-200 mb-1">Accept from IP (optional filter)</label>
+        <input
+          type="text"
+          value={spectrum.sourceIp ?? ''}
+          onChange={(e) => updateSpectrumSettings({ sourceIp: e.target.value })}
+          className="glass-input w-64"
+          placeholder="e.g. 192.168.1.100 (blank = any)"
+        />
+        <p className="text-xs text-dark-400 mt-1">Only accept packets from this IP. Leave blank to accept from any host on the network.</p>
+      </div>
+
+      {/* Setup help */}
+      <div className="p-3 bg-dark-700 rounded-lg border border-glass-100">
+        <h4 className="text-sm font-medium text-dark-200 mb-2">Setup Instructions (Thetis)</h4>
+        <ol className="text-xs text-dark-300 space-y-1.5 list-decimal list-inside">
+          <li>In Thetis, go to <span className="text-dark-200">Setup &gt; Network</span></li>
+          <li>Enable N1MM spectrum/waterfall output</li>
+          <li>Set <span className="text-dark-200">Destination IP</span> to the IP of <em>this</em> machine (running Log4YM)</li>
+          <li>Set <span className="text-dark-200">Destination Port</span> to <span className="text-dark-200">{spectrum.listenPort}</span></li>
+          <li>Enable the spectrum listener above and add the Panadapter panel</li>
+        </ol>
+      </div>
+    </div>
+  );
+}
+
 // About Section
 function AboutSection() {
   return (
@@ -2003,6 +2080,8 @@ export function SettingsPanel() {
         return <HeaderSettingsSection />;
       case 'ai':
         return <AiSettingsSection />;
+      case 'spectrum':
+        return <SpectrumSettingsSection />;
       case 'about':
         return <AboutSection />;
       default:

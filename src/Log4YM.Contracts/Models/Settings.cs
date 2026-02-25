@@ -39,6 +39,9 @@ public class UserSettings
     [BsonElement("ai")]
     public AiSettings Ai { get; set; } = new();
 
+    [BsonElement("spectrum")]
+    public SpectrumSettings Spectrum { get; set; } = new();
+
     [BsonElement("layoutJson")]
     public string? LayoutJson { get; set; }
 
@@ -372,6 +375,19 @@ public class AiSettings
 
     [BsonElement("includeSpotComments")]
     public bool IncludeSpotComments { get; set; } = false;
+}
+
+[BsonIgnoreExtraElements]
+public class SpectrumSettings
+{
+    [BsonElement("enabled")]
+    public bool Enabled { get; set; }
+
+    [BsonElement("listenPort")]
+    public int ListenPort { get; set; } = 13064;
+
+    [BsonElement("sourceIp")]
+    public string? SourceIp { get; set; }  // Optional: only accept packets from this IP (e.g. Thetis machine)
 }
 
 public class PluginSettings

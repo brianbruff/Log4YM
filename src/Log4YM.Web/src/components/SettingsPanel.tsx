@@ -1978,13 +1978,21 @@ function SpectrumSettingsSection() {
       {/* Setup help */}
       <div className="p-3 bg-dark-700 rounded-lg border border-glass-100">
         <h4 className="text-sm font-medium text-dark-200 mb-2">Setup Instructions (Thetis)</h4>
+        <p className="text-xs text-dark-300 mb-2">
+          Thetis sends spectrum data via UDP to a specific IP address. You must configure
+          Thetis to send to the IP of <em>this</em> machine (the one running Log4YM).
+        </p>
         <ol className="text-xs text-dark-300 space-y-1.5 list-decimal list-inside">
           <li>In Thetis, go to <span className="text-dark-200">Setup &gt; Network</span></li>
           <li>Enable N1MM spectrum/waterfall output</li>
-          <li>Set <span className="text-dark-200">Destination IP</span> to the IP of <em>this</em> machine (running Log4YM)</li>
+          <li>Set <span className="text-dark-200">Destination IP</span> to this machine's IP address on your LAN</li>
           <li>Set <span className="text-dark-200">Destination Port</span> to <span className="text-dark-200">{spectrum.listenPort}</span></li>
           <li>Enable the spectrum listener above and add the Panadapter panel</li>
         </ol>
+        <p className="text-xs text-dark-400 mt-2">
+          The default Thetis broadcast address (255.255.255.255) does not reliably
+          reach other machines. Use a direct IP address instead.
+        </p>
       </div>
     </div>
   );

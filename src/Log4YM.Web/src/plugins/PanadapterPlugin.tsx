@@ -60,8 +60,8 @@ export function PanadapterPlugin() {
     if (!ctx) return;
 
     const dpr = window.devicePixelRatio || 1;
-    const w = canvas.width / dpr;
-    const h = canvas.height / dpr;
+    const w = Math.round(canvas.width / dpr);
+    const h = Math.round(canvas.height / dpr);
     if (w === 0 || h === 0) {
       // Tab is hidden (FlexLayout display:none) — keep the loop alive
       rafIdRef.current = requestAnimationFrame(render);

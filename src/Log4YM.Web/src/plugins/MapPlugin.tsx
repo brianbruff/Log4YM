@@ -9,7 +9,7 @@ import { GlassPanel } from '../components/GlassPanel';
 import { DXNewsTicker } from '../components/DXNewsTicker';
 import { DayNightOverlay } from '../components/DayNightOverlay';
 import { GrayLineOverlay } from '../components/GrayLineOverlay';
-import { gridToLatLon, calculateDistance, getAnimationDuration } from '../utils/maidenhead';
+import { gridToLatLon, calculateDistance, calculateBearing, getAnimationDuration } from '../utils/maidenhead';
 import { fetchTLEData, calculateSatellitePosition, calculateOrbitTrack, type SatellitePosition, type SatelliteTLE } from '../utils/satellite';
 import { api, type RbnSpot } from '../api/client';
 
@@ -396,7 +396,7 @@ export function MapPlugin() {
   const lastTargetCoordsRef = useRef<{ lat: number; lon: number } | null>(null);
   const { stationGrid, rotatorPosition, focusedCallsignInfo, potaSpots, dxClusterMapEnabled, hoveredSpotId, callsignMapImages, setCallsignMapImages } = useAppStore();
   const { settings, updateMapSettings, saveSettings } = useSettingsStore();
-  const { commandRotator } = useSignalR();
+  const { commandRotator, selectSpot } = useSignalR();
 
   // DX cluster spots from ephemeral in-memory store (populated via SignalR)
   const spots = useAppStore((state) => state.dxClusterSpots);
@@ -1023,6 +1023,9 @@ export function MapPlugin() {
           {/* POTA markers - show when enabled and we have spot data with coordinates */}
           {settings.map.showPotaOverlay && potaSpots.map((spot) => {
             if (!spot.latitude || !spot.longitude) return null;
+            const spBearing = calculateBearing(stationLat, stationLon, spot.latitude, spot.longitude);
+            const lpBearing = (spBearing + 180) % 360;
+            const dist = calculateDistance(stationLat, stationLon, spot.latitude, spot.longitude);
             return (
               <Marker
                 key={spot.spotId}
@@ -1031,25 +1034,61 @@ export function MapPlugin() {
               >
                 <Popup>
                   <div className="text-center">
-                    <strong className="text-accent-success font-mono">{spot.activator}</strong>
-                    <br />
-                    <span className="text-xs font-mono text-accent-info">{spot.reference}</span>
+                    <div style={{ fontSize: '15px', fontWeight: 700, fontFamily: "'JetBrains Mono', monospace", color: '#10b981', marginBottom: 2 }}>{spot.activator}</div>
+                    <div style={{ fontSize: '12px', fontFamily: "'JetBrains Mono', monospace", color: '#34d399' }}>{spot.reference}</div>
                     {spot.parkName && (
-                      <>
-                        <br />
-                        <span className="text-xs text-gray-300">{spot.parkName}</span>
-                      </>
+                      <div style={{ fontSize: '11px', color: '#cdd7e4', marginTop: 1 }}>{spot.parkName}</div>
                     )}
-                    <br />
-                    <span className="text-xs text-gray-400">
-                      {(parseFloat(spot.frequency) / 1000).toFixed(3)} MHz • {spot.mode}
-                    </span>
+                    <div style={{ fontSize: '11px', fontFamily: "'JetBrains Mono', monospace", color: '#a5b4c8', marginTop: 2 }}>
+                      {(parseFloat(spot.frequency) / 1000).toFixed(3)} MHz &bull; {spot.mode}
+                    </div>
                     {spot.locationDesc && (
-                      <>
-                        <br />
-                        <span className="text-xs text-gray-500">{spot.locationDesc}</span>
-                      </>
+                      <div style={{ fontSize: '10px', color: '#7a8a9e', marginTop: 1 }}>{spot.locationDesc}</div>
                     )}
+                    {spot.grid6 && (
+                      <div style={{ fontSize: '11px', fontFamily: "'JetBrains Mono', monospace", color: '#a5b4c8', marginTop: 1 }}>{spot.grid6}</div>
+                    )}
+                    <div style={{ fontSize: '11px', fontFamily: "'JetBrains Mono', monospace", color: '#00ddff', marginTop: 3 }}>
+                      {spBearing.toFixed(0)}&deg; / {Math.round(dist).toLocaleString()} km
+                    </div>
+                    {/* Rotator buttons: SP and LP */}
+                    {rotatorEnabled && (
+                      <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); commandRotator(spBearing, 'map'); }}
+                          className="map-popup-qrz-btn"
+                          style={{ flex: 1, cursor: 'pointer', background: 'rgba(0, 221, 255, 0.15)', borderColor: 'rgba(0, 221, 255, 0.3)', color: '#00ddff' }}
+                        >
+                          SP {spBearing.toFixed(0)}&deg;
+                        </button>
+                        <button
+                          onClick={(e) => { e.stopPropagation(); commandRotator(lpBearing, 'map'); }}
+                          className="map-popup-qrz-btn"
+                          style={{ flex: 1, cursor: 'pointer', background: 'rgba(0, 221, 255, 0.15)', borderColor: 'rgba(0, 221, 255, 0.3)', color: '#00ddff' }}
+                        >
+                          LP {lpBearing.toFixed(0)}&deg;
+                        </button>
+                      </div>
+                    )}
+                    {/* QRZ + Work buttons */}
+                    <div style={{ display: 'flex', gap: '4px', marginTop: '4px' }}>
+                      <button
+                        onClick={(e) => { e.stopPropagation(); selectSpot(spot.activator, parseFloat(spot.frequency), spot.mode); }}
+                        className="map-popup-qrz-btn"
+                        style={{ flex: 1, cursor: 'pointer', background: 'rgba(16, 185, 129, 0.15)', borderColor: 'rgba(16, 185, 129, 0.3)', color: '#10b981' }}
+                      >
+                        Work
+                      </button>
+                      <a
+                        href={`https://www.qrz.com/db/${spot.activator}`}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        className="map-popup-qrz-btn"
+                        style={{ flex: 1 }}
+                      >
+                        QRZ.com &#8599;
+                      </a>
+                    </div>
                   </div>
                 </Popup>
               </Marker>

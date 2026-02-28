@@ -10,6 +10,8 @@ import { useSignalR } from '../hooks/useSignalR';
 import { GlassPanel } from '../components/GlassPanel';
 import { useAppStore } from '../store/appStore';
 import { useSettingsStore } from '../store/settingsStore';
+import { useGridColumnState } from '../hooks/useGridColumnState';
+import { ColumnChooserButton } from '../components/ColumnChooserButton';
 
 const formatTime = (dateStr: string) => {
   if (!dateStr) return '--:--';
@@ -70,6 +72,7 @@ export function POTAPlugin() {
   const { selectSpot } = useSignalR();
   const { setPotaSpots } = useAppStore();
   const { settings, updateMapSettings, saveSettings } = useSettingsStore();
+  const { gridRef, gridApi, onGridReady, onColumnMoved, onColumnVisible } = useGridColumnState<PotaSpot>('log4ym:grid:pota');
 
   const { data: spots, isLoading } = useQuery({
     queryKey: ['pota-spots'],
@@ -124,6 +127,7 @@ export function POTAPlugin() {
 
   const columnDefs = useMemo<ColDef<PotaSpot>[]>(() => [
     {
+      colId: 'time',
       headerName: 'Time',
       field: 'spotTime',
       cellRenderer: TimeCellRenderer,
@@ -131,6 +135,7 @@ export function POTAPlugin() {
       resizable: true,
     },
     {
+      colId: 'activator',
       headerName: 'Activator',
       field: 'activator',
       cellRenderer: ActivatorCellRenderer,
@@ -138,6 +143,7 @@ export function POTAPlugin() {
       resizable: true,
     },
     {
+      colId: 'park',
       headerName: 'Park',
       field: 'reference',
       cellRenderer: ReferenceCellRenderer,
@@ -145,6 +151,7 @@ export function POTAPlugin() {
       resizable: true,
     },
     {
+      colId: 'freq',
       headerName: 'Freq',
       field: 'frequency',
       cellRenderer: FrequencyCellRenderer,
@@ -152,6 +159,7 @@ export function POTAPlugin() {
       resizable: true,
     },
     {
+      colId: 'mode',
       headerName: 'Mode',
       field: 'mode',
       cellClass: 'font-mono text-gray-400',
@@ -159,6 +167,7 @@ export function POTAPlugin() {
       resizable: true,
     },
     {
+      colId: 'location',
       headerName: 'Location',
       field: 'locationDesc',
       cellClass: 'text-gray-500 truncate',
@@ -167,6 +176,7 @@ export function POTAPlugin() {
       resizable: true,
     },
     {
+      colId: 'comments',
       headerName: 'Comments',
       field: 'comments',
       cellClass: 'text-gray-500 truncate',
@@ -190,6 +200,7 @@ export function POTAPlugin() {
           <span className="text-sm text-gray-400">
             {filteredSpots?.length || 0} active
           </span>
+          <ColumnChooserButton gridApi={gridApi} columnDefs={columnDefs} />
           <button
             onClick={() => {
               updateMapSettings({ showPotaOverlay: !settings.map.showPotaOverlay });
@@ -218,6 +229,7 @@ export function POTAPlugin() {
               </div>
             ) : (
               <AgGridReact<PotaSpot>
+                ref={gridRef}
                 rowData={filteredSpots}
                 columnDefs={columnDefs}
                 defaultColDef={defaultColDef}
@@ -225,6 +237,9 @@ export function POTAPlugin() {
                 headerHeight={40}
                 suppressCellFocus={true}
                 animateRows={true}
+                onGridReady={onGridReady}
+                onColumnMoved={onColumnMoved}
+                onColumnVisible={onColumnVisible}
                 onRowClicked={handleRowClick}
                 rowClass="cursor-pointer hover:bg-dark-600/50"
                 getRowId={(params) => params.data.spotId.toString()}

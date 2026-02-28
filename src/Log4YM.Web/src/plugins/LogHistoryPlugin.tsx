@@ -9,6 +9,8 @@ import { api, QsoResponse, UpdateQsoRequest, AdifImportResponse } from '../api/c
 import { GlassPanel } from '../components/GlassPanel';
 import { getCountryFlag } from '../core/countryFlags';
 import { useAppStore } from '../store/appStore';
+import { useGridColumnState } from '../hooks/useGridColumnState';
+import { ColumnChooserButton } from '../components/ColumnChooserButton';
 
 // Common RST values for phone modes (SSB, AM, FM)
 const RST_PHONE = ['59', '58', '57', '56', '55', '54', '53', '52', '51'];
@@ -111,6 +113,7 @@ export function LogHistoryPlugin() {
   const [markAsSyncedToQrz, setMarkAsSyncedToQrz] = useState(true);
   const [clearExistingLogs, setClearExistingLogs] = useState(false);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const { gridRef, gridApi, onGridReady, onColumnMoved, onColumnVisible } = useGridColumnState<QsoResponse>('log4ym:grid:loghistory');
 
   const queryClient = useQueryClient();
   const { qrzSyncProgress, setQrzSyncProgress, adifImportProgress, setAdifImportProgress, logHistoryCallsignFilter } = useAppStore();
@@ -269,6 +272,7 @@ export function LogHistoryPlugin() {
 
   const columnDefs = useMemo<ColDef<QsoResponse>[]>(() => [
     {
+      colId: 'date',
       headerName: 'Date',
       field: 'qsoDate',
       cellRenderer: DateCellRenderer,
@@ -276,6 +280,7 @@ export function LogHistoryPlugin() {
       resizable: true,
     },
     {
+      colId: 'time',
       headerName: 'Time',
       field: 'timeOn',
       valueFormatter: (params) => formatTime(params.value),
@@ -284,6 +289,7 @@ export function LogHistoryPlugin() {
       resizable: true,
     },
     {
+      colId: 'callsign',
       headerName: 'Callsign',
       field: 'callsign',
       cellRenderer: CallsignCellRenderer,
@@ -291,6 +297,7 @@ export function LogHistoryPlugin() {
       resizable: true,
     },
     {
+      colId: 'band',
       headerName: 'Band',
       field: 'band',
       cellClass: 'font-mono text-accent-info',
@@ -298,6 +305,7 @@ export function LogHistoryPlugin() {
       resizable: true,
     },
     {
+      colId: 'mode',
       headerName: 'Mode',
       field: 'mode',
       cellRenderer: ModeCellRenderer,
@@ -305,6 +313,7 @@ export function LogHistoryPlugin() {
       resizable: true,
     },
     {
+      colId: 'rst',
       headerName: 'RST S/R',
       valueGetter: (params) => `${params.data?.rstSent || '-'}/${params.data?.rstRcvd || '-'}`,
       cellClass: 'font-mono text-dark-300',
@@ -312,6 +321,7 @@ export function LogHistoryPlugin() {
       resizable: true,
     },
     {
+      colId: 'name',
       headerName: 'Name',
       valueGetter: (params) => params.data?.station?.name || params.data?.name || '-',
       cellClass: 'text-dark-200',
@@ -319,6 +329,7 @@ export function LogHistoryPlugin() {
       resizable: true,
     },
     {
+      colId: 'flag',
       headerName: '',
       field: 'country',
       cellRenderer: FlagCellRenderer,
@@ -327,6 +338,7 @@ export function LogHistoryPlugin() {
       sortable: false,
     },
     {
+      colId: 'country',
       headerName: 'Country',
       valueGetter: (params) => params.data?.station?.country || params.data?.country || '-',
       cellClass: 'text-dark-300',
@@ -334,6 +346,7 @@ export function LogHistoryPlugin() {
       resizable: true,
     },
     {
+      colId: 'actions',
       headerName: '',
       field: 'id',
       cellRenderer: ActionCellRenderer,
@@ -369,6 +382,8 @@ export function LogHistoryPlugin() {
           <span className="text-glass-100">|</span>
           <span>{stats?.uniqueCountries || 0} DXCC</span>
           <div className="flex items-center gap-1">
+            <ColumnChooserButton gridApi={gridApi} columnDefs={columnDefs} />
+            <span className="text-glass-100 mx-1">|</span>
             <button
               onClick={() => setShowImportModal(true)}
               className="glass-button p-1.5 flex items-center gap-1.5 text-accent-success hover:text-accent-primary"
@@ -779,6 +794,7 @@ export function LogHistoryPlugin() {
             </div>
           ) : (
             <AgGridReact<QsoResponse>
+              ref={gridRef}
               rowData={qsos}
               columnDefs={columnDefs}
               defaultColDef={defaultColDef}
@@ -787,6 +803,9 @@ export function LogHistoryPlugin() {
               suppressCellFocus={true}
               suppressRowClickSelection={true}
               animateRows={true}
+              onGridReady={onGridReady}
+              onColumnMoved={onColumnMoved}
+              onColumnVisible={onColumnVisible}
               getRowId={(params) => params.data.id}
             />
           )}

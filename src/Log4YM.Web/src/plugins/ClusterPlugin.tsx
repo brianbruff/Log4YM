@@ -2,6 +2,8 @@ import { useState, useMemo, useCallback } from 'react';
 import { Zap, Map, Settings, Plus, Trash2, X, Search } from 'lucide-react';
 import { AgGridReact } from 'ag-grid-react';
 import { ColDef, ICellRendererParams, RowClickedEvent, CellMouseOverEvent, CellMouseOutEvent, RowStyle } from 'ag-grid-community';
+import { useGridColumnState } from '../hooks/useGridColumnState';
+import { ColumnChooserButton } from '../components/ColumnChooserButton';
 import 'ag-grid-community/styles/ag-grid.css';
 import 'ag-grid-community/styles/ag-theme-alpine.css';
 import { useSignalR } from '../hooks/useSignalR';
@@ -508,6 +510,8 @@ export function ClusterPlugin() {
   const [searchQuery, setSearchQuery] = useState('');
   const [showSettings, setShowSettings] = useState(false);
 
+  const { gridRef, gridApi, onGridReady, onColumnMoved, onColumnVisible } = useGridColumnState<Spot>('log4ym:grid:cluster');
+
   // Get spots from app store (ephemeral, in-memory only)
   const spots = useAppStore((state) => state.dxClusterSpots);
 
@@ -661,6 +665,7 @@ export function ClusterPlugin() {
 
   const columnDefs = useMemo<ColDef<Spot>[]>(() => [
     {
+      colId: 'time',
       headerName: 'Time',
       field: 'timestamp',
       cellRenderer: TimeCellRenderer,
@@ -668,6 +673,7 @@ export function ClusterPlugin() {
       resizable: true,
     },
     {
+      colId: 'dxCall',
       headerName: 'DX Call',
       field: 'dxCall',
       cellRenderer: DxCallCellRenderer,
@@ -675,6 +681,7 @@ export function ClusterPlugin() {
       resizable: true,
     },
     {
+      colId: 'freq',
       headerName: 'Freq',
       field: 'frequency',
       cellRenderer: FrequencyCellRenderer,
@@ -682,6 +689,7 @@ export function ClusterPlugin() {
       resizable: true,
     },
     {
+      colId: 'band',
       headerName: 'Band',
       field: 'frequency',
       valueGetter: (params) => getBandFromFrequency(params.data?.frequency || 0),
@@ -690,6 +698,7 @@ export function ClusterPlugin() {
       resizable: true,
     },
     {
+      colId: 'mode',
       headerName: 'Mode',
       field: 'mode',
       cellRenderer: ModeCellRenderer,
@@ -697,6 +706,7 @@ export function ClusterPlugin() {
       resizable: true,
     },
     {
+      colId: 'flag',
       headerName: '',
       field: 'country',
       cellRenderer: FlagCellRenderer,
@@ -705,6 +715,7 @@ export function ClusterPlugin() {
       sortable: false,
     },
     {
+      colId: 'country',
       headerName: 'Country',
       valueGetter: (params) => params.data?.dxStation?.country || params.data?.country || '-',
       cellClass: 'text-dark-300',
@@ -712,6 +723,7 @@ export function ClusterPlugin() {
       resizable: true,
     },
     {
+      colId: 'spotter',
       headerName: 'Spotter',
       field: 'spotter',
       cellClass: 'font-mono text-dark-300',
@@ -724,6 +736,7 @@ export function ClusterPlugin() {
       },
     },
     {
+      colId: 'comment',
       headerName: 'Comment',
       field: 'comment',
       cellClass: 'text-dark-300 truncate',
@@ -753,6 +766,7 @@ export function ClusterPlugin() {
           <span className="text-sm font-mono text-dark-300">
             {filteredSpots?.length || 0} spots
           </span>
+          <ColumnChooserButton gridApi={gridApi} columnDefs={columnDefs} />
           <button
             onClick={() => setDxClusterMapEnabled(!dxClusterMapEnabled)}
             className={`glass-button p-1.5 ${dxClusterMapEnabled ? 'text-accent-info' : 'text-dark-300'}`}
@@ -922,6 +936,7 @@ export function ClusterPlugin() {
               </div>
             ) : (
               <AgGridReact<Spot>
+                ref={gridRef}
                 rowData={filteredSpots}
                 columnDefs={columnDefs}
                 defaultColDef={defaultColDef}
@@ -929,6 +944,9 @@ export function ClusterPlugin() {
                 headerHeight={40}
                 suppressCellFocus={true}
                 animateRows={true}
+                onGridReady={onGridReady}
+                onColumnMoved={onColumnMoved}
+                onColumnVisible={onColumnVisible}
                 onRowClicked={handleRowClick}
                 getRowStyle={getRowStyle}
                 onCellMouseOver={(event: CellMouseOverEvent<Spot>) => {

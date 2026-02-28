@@ -736,6 +736,8 @@ export function ClusterPlugin() {
   const defaultColDef = useMemo<ColDef>(() => ({
     sortable: true,
     resizable: true,
+    filter: true,
+    enableRowGroup: false,
   }), []);
 
   return (
@@ -939,6 +941,7 @@ export function ClusterPlugin() {
                 }}
                 rowClass="cursor-pointer hover:bg-dark-600/50"
                 getRowId={(params) => params.data.id}
+                suppressMenuHide={true}
               />
             )}
           </div>

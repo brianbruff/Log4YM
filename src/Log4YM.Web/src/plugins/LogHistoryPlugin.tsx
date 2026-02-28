@@ -351,6 +351,8 @@ export function LogHistoryPlugin() {
   const defaultColDef = useMemo<ColDef>(() => ({
     sortable: true,
     resizable: true,
+    filter: true,
+    enableRowGroup: false,
   }), []);
 
   return (
@@ -788,6 +790,7 @@ export function LogHistoryPlugin() {
               suppressRowClickSelection={true}
               animateRows={true}
               getRowId={(params) => params.data.id}
+              suppressMenuHide={true}
             />
           )}
         </div>

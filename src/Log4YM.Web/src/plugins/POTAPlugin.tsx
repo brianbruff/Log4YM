@@ -179,6 +179,8 @@ export function POTAPlugin() {
   const defaultColDef = useMemo<ColDef>(() => ({
     sortable: true,
     resizable: true,
+    filter: true,
+    enableRowGroup: false,
   }), []);
 
   return (
@@ -228,6 +230,7 @@ export function POTAPlugin() {
                 onRowClicked={handleRowClick}
                 rowClass="cursor-pointer hover:bg-dark-600/50"
                 getRowId={(params) => params.data.spotId.toString()}
+                suppressMenuHide={true}
               />
             )}
           </div>

@@ -491,7 +491,6 @@ internal class ClusterConnectionHandler
         var loginSent = false;
         var passwordSent = false;
         var ccModeEnabled = false;
-        var ft8Enabled = false;
 
         // Use chunk-based reading instead of ReadLineAsync to handle telnet-style
         // prompts (login:, password:) that don't end with newlines
@@ -526,7 +525,7 @@ internal class ClusterConnectionHandler
                     _logger.LogDebug("Cluster {Name} recv: {Line}", _name, line);
 
                     if (HandleInteractivePrompt(line, writer, ref loginSent, ref passwordSent,
-                            ref ccModeEnabled, ref ft8Enabled, ct))
+                            ref ccModeEnabled, ct))
                         continue;
 
                     // Skip empty lines and prompts
@@ -542,7 +541,7 @@ internal class ClusterConnectionHandler
             // that arrive without trailing newlines (e.g. "login: ", "password: ")
             var pendingText = pending.ToString();
             if (HandleInteractivePrompt(pendingText, writer, ref loginSent, ref passwordSent,
-                    ref ccModeEnabled, ref ft8Enabled, ct))
+                    ref ccModeEnabled, ct))
             {
                 pending.Clear();
             }
@@ -555,7 +554,7 @@ internal class ClusterConnectionHandler
     /// </summary>
     private bool HandleInteractivePrompt(string text, StreamWriter writer,
         ref bool loginSent, ref bool passwordSent,
-        ref bool ccModeEnabled, ref bool ft8Enabled,
+        ref bool ccModeEnabled,
         CancellationToken ct)
     {
         // Handle login prompt
@@ -602,17 +601,8 @@ internal class ClusterConnectionHandler
             return true;
         }
 
-        // Disable skimmers after CC mode is confirmed
-        if (ccModeEnabled && !ft8Enabled && text.Contains("Enhanced Spots Enabled"))
-        {
-            Task.Delay(200, ct).Wait(ct);
-            writer.WriteLine("set/noskimmer");
-            Task.Delay(200, ct).Wait(ct);
-            writer.WriteLine("set/noft8");
-            ft8Enabled = true;
-            _logger.LogInformation("Skimmers disabled on {Name}", _name);
-            return true;
-        }
+        // Note: No longer disabling skimmers/FT8 to maximize spot coverage
+        // Previously filtered with "set/noskimmer" and "set/noft8"
 
         return false;
     }
@@ -727,6 +717,20 @@ internal class ClusterConnectionHandler
 
     private static string InferModeFromFrequency(double frequencyKhz)
     {
+        // Check for common FT8 frequencies first (digital mode sub-bands)
+        // FT8 typically operates on these frequencies per band (±2 kHz tolerance)
+        if (Math.Abs(frequencyKhz - 1840) < 2) return "FT8";      // 160m
+        if (Math.Abs(frequencyKhz - 3573) < 2) return "FT8";      // 80m
+        if (Math.Abs(frequencyKhz - 7074) < 2) return "FT8";      // 40m
+        if (Math.Abs(frequencyKhz - 10136) < 2) return "FT8";     // 30m
+        if (Math.Abs(frequencyKhz - 14074) < 2) return "FT8";     // 20m
+        if (Math.Abs(frequencyKhz - 18100) < 2) return "FT8";     // 17m
+        if (Math.Abs(frequencyKhz - 21074) < 2) return "FT8";     // 15m
+        if (Math.Abs(frequencyKhz - 24915) < 2) return "FT8";     // 12m
+        if (Math.Abs(frequencyKhz - 28074) < 2) return "FT8";     // 10m
+        if (Math.Abs(frequencyKhz - 50313) < 2) return "FT8";     // 6m
+
+        // Standard band plan inference
         if (frequencyKhz >= 1800 && frequencyKhz < 2000)
             return frequencyKhz >= 1843 ? "SSB" : "CW";
         if (frequencyKhz >= 3500 && frequencyKhz < 4000)

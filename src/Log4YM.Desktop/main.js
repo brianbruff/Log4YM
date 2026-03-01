@@ -292,6 +292,15 @@ function createWindow() {
   mainWindow.on('closed', () => {
     mainWindow = null;
   });
+
+  // Save zoom level before window closes
+  mainWindow.on('close', () => {
+    if (mainWindow) {
+      const currentZoom = mainWindow.webContents.getZoomLevel();
+      saveZoomLevel(currentZoom);
+      log.debug(`Saved zoom level on close: ${currentZoom}`);
+    }
+  });
 }
 
 /**

@@ -18,5 +18,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
     ipcRenderer.removeAllListeners('open-about');
   },
   // Restart the app (used after database provider switch)
-  restartApp: () => ipcRenderer.invoke('restart-app')
+  restartApp: () => ipcRenderer.invoke('restart-app'),
+  // Zoom level management
+  getZoomLevel: () => ipcRenderer.invoke('get-zoom-level'),
+  setZoomLevel: (level) => ipcRenderer.invoke('set-zoom-level', level)
 });

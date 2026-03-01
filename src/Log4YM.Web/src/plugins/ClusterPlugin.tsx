@@ -10,6 +10,7 @@ import { MultiSelectDropdown, MultiSelectOption } from '../components/MultiSelec
 import { getCountryFlag } from '../core/countryFlags';
 import { useSettingsStore, ClusterConnection, type SpotStatusColors, type SpotStatusEnabled } from '../store/settingsStore';
 import { useAppStore, Spot } from '../store/appStore';
+import { useAgGridState } from '../hooks/useAgGridState';
 
 const BAND_RANGES: Record<string, [number, number]> = {
   '160m': [1800, 2000],
@@ -501,6 +502,7 @@ function ClusterSettingsPanel({
 }
 
 export function ClusterPlugin() {
+  const { onGridReady, onColumnChanged, onSortChanged } = useAgGridState('cluster');
   const { selectSpot } = useSignalR();
   const [selectedBands, setSelectedBands] = useState<string[]>([]);
   const [selectedModes, setSelectedModes] = useState<string[]>([]);
@@ -942,6 +944,12 @@ export function ClusterPlugin() {
                 rowClass="cursor-pointer hover:bg-dark-600/50"
                 getRowId={(params) => params.data.id}
                 suppressMenuHide={true}
+                onGridReady={onGridReady}
+                onColumnMoved={onColumnChanged}
+                onColumnResized={onColumnChanged}
+                onColumnVisible={onColumnChanged}
+                onColumnPinned={onColumnChanged}
+                onSortChanged={onSortChanged}
               />
             )}
           </div>

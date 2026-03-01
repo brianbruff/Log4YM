@@ -160,6 +160,7 @@ export interface Settings {
   header: HeaderSettings;
   ai: AiSettings;
   spectrum: SpectrumSettings;
+  gridStates: Record<string, string>;
 }
 
 export type SettingsSection = 'station' | 'qrz' | 'rotator' | 'database' | 'appearance' | 'map' | 'header' | 'ai' | 'spectrum' | 'about';
@@ -316,6 +317,7 @@ const defaultSettings: Settings = {
     listenPort: 13064,
     sourceIp: '',
   },
+  gridStates: {},
 };
 
 // Settings are stored in MongoDB only - no localStorage persistence
@@ -601,6 +603,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
           header: { ...defaultSettings.header, ...settings.header },
           ai: { ...defaultSettings.ai, ...settings.ai },
           spectrum: { ...defaultSettings.spectrum, ...settings.spectrum },
+          gridStates: { ...defaultSettings.gridStates, ...settings.gridStates },
         };
         set({ settings: mergedSettings, isDirty: false, isLoaded: true });
       } else {

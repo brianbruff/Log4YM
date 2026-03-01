@@ -9,6 +9,7 @@ import { api, QsoResponse, UpdateQsoRequest, AdifImportResponse } from '../api/c
 import { GlassPanel } from '../components/GlassPanel';
 import { getCountryFlag } from '../core/countryFlags';
 import { useAppStore } from '../store/appStore';
+import { useAgGridState } from '../hooks/useAgGridState';
 
 // Common RST values for phone modes (SSB, AM, FM)
 const RST_PHONE = ['59', '58', '57', '56', '55', '54', '53', '52', '51'];
@@ -88,6 +89,7 @@ const ActionCellRenderer = (props: ICellRendererParams<QsoResponse> & {
 };
 
 export function LogHistoryPlugin() {
+  const { onGridReady, onColumnChanged, onSortChanged } = useAgGridState('logHistory');
   const [callsignSearch, setCallsignSearch] = useState('');
   const [nameSearch, setNameSearch] = useState('');
   const [selectedBand, setSelectedBand] = useState<string>('');
@@ -791,6 +793,12 @@ export function LogHistoryPlugin() {
               animateRows={true}
               getRowId={(params) => params.data.id}
               suppressMenuHide={true}
+              onGridReady={onGridReady}
+              onColumnMoved={onColumnChanged}
+              onColumnResized={onColumnChanged}
+              onColumnVisible={onColumnChanged}
+              onColumnPinned={onColumnChanged}
+              onSortChanged={onSortChanged}
             />
           )}
         </div>

@@ -99,4 +99,53 @@ public class LiteSettingsRepositoryTests : IDisposable
         result.Qrz.Enabled.Should().BeTrue();
         result.Appearance.Theme.Should().Be("light");
     }
+
+    [Fact]
+    public async Task UpsertAsync_PersistsGridStates()
+    {
+        var settings = new UserSettings { Id = "default" };
+        settings.GridStates = new Dictionary<string, string>
+        {
+            ["logHistory"] = "[{\"colId\":\"callsign\",\"width\":120,\"hide\":false}]",
+            ["cluster"] = "[{\"colId\":\"dxCall\",\"width\":110}]",
+        };
+
+        await _repo.UpsertAsync(settings);
+
+        var result = await _repo.GetAsync("default");
+        result!.GridStates.Should().NotBeNull();
+        result.GridStates.Should().HaveCount(2);
+        result.GridStates!["logHistory"].Should().Contain("callsign");
+        result.GridStates["cluster"].Should().Contain("dxCall");
+    }
+
+    [Fact]
+    public async Task UpsertAsync_UpdatesGridStateForSingleTable()
+    {
+        var settings = new UserSettings { Id = "default" };
+        settings.GridStates = new Dictionary<string, string>
+        {
+            ["logHistory"] = "[{\"colId\":\"callsign\",\"width\":120}]",
+        };
+        await _repo.UpsertAsync(settings);
+
+        // Update with an additional table
+        settings.GridStates["pota"] = "[{\"colId\":\"activator\",\"width\":100}]";
+        await _repo.UpsertAsync(settings);
+
+        var result = await _repo.GetAsync("default");
+        result!.GridStates.Should().HaveCount(2);
+        result.GridStates!["logHistory"].Should().Contain("callsign");
+        result.GridStates["pota"].Should().Contain("activator");
+    }
+
+    [Fact]
+    public async Task GetAsync_ReturnsNullGridStates_WhenNotSet()
+    {
+        var settings = new UserSettings { Id = "default" };
+        await _repo.UpsertAsync(settings);
+
+        var result = await _repo.GetAsync("default");
+        result!.GridStates.Should().BeNull();
+    }
 }

@@ -45,6 +45,9 @@ public class UserSettings
     [BsonElement("layoutJson")]
     public string? LayoutJson { get; set; }
 
+    [BsonElement("gridStates")]
+    public Dictionary<string, string>? GridStates { get; set; }
+
     [BsonElement("updatedAt")]
     public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }

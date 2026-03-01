@@ -10,6 +10,7 @@ import { useSignalR } from '../hooks/useSignalR';
 import { GlassPanel } from '../components/GlassPanel';
 import { useAppStore } from '../store/appStore';
 import { useSettingsStore } from '../store/settingsStore';
+import { useAgGridState } from '../hooks/useAgGridState';
 
 const formatTime = (dateStr: string) => {
   if (!dateStr) return '--:--';
@@ -67,6 +68,7 @@ const TimeCellRenderer = (props: ICellRendererParams<PotaSpot>) => {
 };
 
 export function POTAPlugin() {
+  const { onGridReady, onColumnChanged, onSortChanged } = useAgGridState('pota');
   const { selectSpot } = useSignalR();
   const { setPotaSpots } = useAppStore();
   const { settings, updateMapSettings, saveSettings } = useSettingsStore();
@@ -179,6 +181,8 @@ export function POTAPlugin() {
   const defaultColDef = useMemo<ColDef>(() => ({
     sortable: true,
     resizable: true,
+    filter: true,
+    enableRowGroup: false,
   }), []);
 
   return (
@@ -228,6 +232,13 @@ export function POTAPlugin() {
                 onRowClicked={handleRowClick}
                 rowClass="cursor-pointer hover:bg-dark-600/50"
                 getRowId={(params) => params.data.spotId.toString()}
+                suppressMenuHide={true}
+                onGridReady={onGridReady}
+                onColumnMoved={onColumnChanged}
+                onColumnResized={onColumnChanged}
+                onColumnVisible={onColumnChanged}
+                onColumnPinned={onColumnChanged}
+                onSortChanged={onSortChanged}
               />
             )}
           </div>

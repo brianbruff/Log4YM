@@ -7,6 +7,9 @@ namespace Log4YM.Server.Services;
 public interface IAwardsService
 {
     Task<DxccStatistics> GetDxccStatisticsAsync(StatisticsFilters? filters = null);
+    Task<VuccStatistics> GetVuccStatisticsAsync(StatisticsFilters? filters = null);
+    Task<PotaStatistics> GetPotaStatisticsAsync(PotaFilters? filters = null);
+    Task<IotaStatistics> GetIotaStatisticsAsync(IotaFilters? filters = null);
 }
 
 public class AwardsService : IAwardsService
@@ -133,6 +136,272 @@ public class AwardsService : IAwardsService
             ChallengeScore: challengeScore,
             Entities: entityStatuses,
             BandSummaries: bandSummaries
+        );
+    }
+
+    private static readonly string[] VuccBands = ["6m", "2m", "70cm", "23cm"];
+
+    private static int GetVuccThreshold(string band) => band.ToLowerInvariant() switch
+    {
+        "6m" => 100,
+        "2m" => 100,
+        "70cm" => 50,
+        "23cm" => 25,
+        _ => 25
+    };
+
+    public async Task<VuccStatistics> GetVuccStatisticsAsync(StatisticsFilters? filters = null)
+    {
+        var allQsos = await _repository.GetAllAsync();
+        var qsos = allQsos
+            .Where(q => !string.IsNullOrEmpty(q.Grid) && q.Grid.Length >= 4)
+            .Where(q => VuccBands.Contains(q.Band, StringComparer.OrdinalIgnoreCase))
+            .ToList();
+
+        // Apply filters
+        if (filters != null)
+        {
+            if (!string.IsNullOrEmpty(filters.Band))
+                qsos = qsos.Where(q => string.Equals(q.Band, filters.Band, StringComparison.OrdinalIgnoreCase)).ToList();
+
+            if (!string.IsNullOrEmpty(filters.Mode))
+                qsos = qsos.Where(q => string.Equals(q.Mode, filters.Mode, StringComparison.OrdinalIgnoreCase)).ToList();
+
+            if (filters.FromDate.HasValue)
+                qsos = qsos.Where(q => q.QsoDate >= filters.FromDate.Value).ToList();
+
+            if (filters.ToDate.HasValue)
+                qsos = qsos.Where(q => q.QsoDate <= filters.ToDate.Value.AddDays(1)).ToList();
+        }
+
+        // Group by 4-char grid prefix + band
+        var gridGroups = qsos
+            .GroupBy(q => new { Grid = q.Grid![..4].ToUpperInvariant(), Band = q.Band.ToLowerInvariant() })
+            .ToList();
+
+        var gridDetails = new List<GridDetail>();
+
+        foreach (var group in gridGroups)
+        {
+            var groupQsos = group.ToList();
+            var confirmed = groupQsos.Any(IsConfirmed);
+
+            // Filter by status
+            if (filters != null && !string.IsNullOrEmpty(filters.Status))
+            {
+                var skip = filters.Status switch
+                {
+                    "confirmed" => !confirmed,
+                    "workedNotConfirmed" => confirmed,
+                    "worked" => false,
+                    _ => false
+                };
+                if (skip) continue;
+            }
+
+            gridDetails.Add(new GridDetail(
+                Grid: group.Key.Grid,
+                Band: group.Key.Band,
+                QsoCount: groupQsos.Count,
+                Confirmed: confirmed,
+                FirstWorked: groupQsos.Min(q => q.QsoDate),
+                LastWorked: groupQsos.Max(q => q.QsoDate)
+            ));
+        }
+
+        gridDetails = gridDetails.OrderBy(g => g.Grid).ThenBy(g => GetBandOrder(g.Band)).ToList();
+
+        // Build band summaries
+        var bandSummaries = VuccBands.ToDictionary(
+            band => band,
+            band =>
+            {
+                var bandGrids = gridDetails.Where(g => string.Equals(g.Band, band, StringComparison.OrdinalIgnoreCase)).ToList();
+                return new GridBandSummary(
+                    Band: band,
+                    UniqueGrids: bandGrids.Count,
+                    ConfirmedGrids: bandGrids.Count(g => g.Confirmed),
+                    AwardThreshold: GetVuccThreshold(band),
+                    QsoCount: bandGrids.Sum(g => g.QsoCount)
+                );
+            }
+        );
+
+        var totalUniqueGrids = gridDetails.Select(g => g.Grid).Distinct().Count();
+
+        return new VuccStatistics(
+            TotalUniqueGrids: totalUniqueGrids,
+            BandSummaries: bandSummaries,
+            Grids: gridDetails
+        );
+    }
+
+    public async Task<PotaStatistics> GetPotaStatisticsAsync(PotaFilters? filters = null)
+    {
+        var allQsos = await _repository.GetAllAsync();
+        var qsos = allQsos.ToList();
+
+        // Apply date filters
+        if (filters != null)
+        {
+            if (filters.FromDate.HasValue)
+                qsos = qsos.Where(q => q.QsoDate >= filters.FromDate.Value).ToList();
+
+            if (filters.ToDate.HasValue)
+                qsos = qsos.Where(q => q.QsoDate <= filters.ToDate.Value.AddDays(1)).ToList();
+        }
+
+        // Extract POTA park entries from QSOs
+        // Each QSO can have pota_ref (hunting) and/or my_pota_ref (activating), comma-separated
+        var parkEntries = new List<(string ParkRef, string ActivityType, Qso Qso)>();
+
+        foreach (var qso in qsos)
+        {
+            var huntRef = qso.AdifExtra?["pota_ref"]?.AsString;
+            var activateRef = qso.AdifExtra?["my_pota_ref"]?.AsString;
+
+            if (!string.IsNullOrWhiteSpace(huntRef))
+            {
+                foreach (var park in huntRef.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                    parkEntries.Add((park.ToUpperInvariant(), "Hunter", qso));
+            }
+
+            if (!string.IsNullOrWhiteSpace(activateRef))
+            {
+                foreach (var park in activateRef.Split(',', StringSplitOptions.RemoveEmptyEntries | StringSplitOptions.TrimEntries))
+                    parkEntries.Add((park.ToUpperInvariant(), "Activator", qso));
+            }
+        }
+
+        // Apply activity type filter
+        if (filters != null && !string.IsNullOrEmpty(filters.ActivityType))
+        {
+            parkEntries = parkEntries
+                .Where(e => string.Equals(e.ActivityType, filters.ActivityType, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+
+        // Group by park reference
+        var parkGroups = parkEntries
+            .GroupBy(e => e.ParkRef)
+            .ToList();
+
+        var parks = new List<PotaParkDetail>();
+
+        foreach (var group in parkGroups)
+        {
+            var entries = group.ToList();
+            var activityTypes = entries.Select(e => e.ActivityType).Distinct().ToList();
+            var activityType = activityTypes.Count > 1 ? "Both" : activityTypes[0];
+
+            parks.Add(new PotaParkDetail(
+                ParkReference: group.Key,
+                ActivityType: activityType,
+                QsoCount: entries.Count,
+                FirstQso: entries.Min(e => e.Qso.QsoDate),
+                LastQso: entries.Max(e => e.Qso.QsoDate)
+            ));
+        }
+
+        parks = parks.OrderBy(p => p.ParkReference).ToList();
+
+        var uniqueActivated = parks.Count(p => p.ActivityType is "Activator" or "Both");
+        var uniqueHunted = parks.Count(p => p.ActivityType is "Hunter" or "Both");
+        var totalActivationQsos = parkEntries.Count(e => e.ActivityType == "Activator");
+        var totalHuntQsos = parkEntries.Count(e => e.ActivityType == "Hunter");
+
+        return new PotaStatistics(
+            UniqueParksActivated: uniqueActivated,
+            UniqueParksHunted: uniqueHunted,
+            TotalActivationQsos: totalActivationQsos,
+            TotalHuntQsos: totalHuntQsos,
+            Parks: parks
+        );
+    }
+
+    public async Task<IotaStatistics> GetIotaStatisticsAsync(IotaFilters? filters = null)
+    {
+        var allQsos = await _repository.GetAllAsync();
+        var qsos = allQsos.ToList();
+
+        // Apply date filters
+        if (filters != null)
+        {
+            if (filters.FromDate.HasValue)
+                qsos = qsos.Where(q => q.QsoDate >= filters.FromDate.Value).ToList();
+
+            if (filters.ToDate.HasValue)
+                qsos = qsos.Where(q => q.QsoDate <= filters.ToDate.Value.AddDays(1)).ToList();
+        }
+
+        // Extract IOTA references from AdifExtra
+        var iotaQsos = qsos
+            .Where(q => !string.IsNullOrWhiteSpace(q.AdifExtra?["iota"]?.AsString))
+            .Select(q => new { Qso = q, IotaRef = q.AdifExtra!["iota"].AsString.ToUpperInvariant() })
+            .ToList();
+
+        // Apply continent filter on the IOTA reference prefix (e.g., "EU" from "EU-005")
+        if (filters != null && !string.IsNullOrEmpty(filters.Continent))
+        {
+            iotaQsos = iotaQsos
+                .Where(q => q.IotaRef.StartsWith(filters.Continent, StringComparison.OrdinalIgnoreCase))
+                .ToList();
+        }
+
+        // Group by IOTA reference
+        var iotaGroups = iotaQsos
+            .GroupBy(q => q.IotaRef)
+            .ToList();
+
+        var groups = new List<IotaGroupDetail>();
+
+        foreach (var group in iotaGroups)
+        {
+            var groupQsos = group.Select(g => g.Qso).ToList();
+            var confirmed = groupQsos.Any(IsConfirmed);
+
+            // Filter by status
+            if (filters != null && !string.IsNullOrEmpty(filters.Status))
+            {
+                var skip = filters.Status switch
+                {
+                    "confirmed" => !confirmed,
+                    "workedNotConfirmed" => confirmed,
+                    "worked" => false,
+                    _ => false
+                };
+                if (skip) continue;
+            }
+
+            // Extract continent from IOTA reference (e.g., "EU" from "EU-005")
+            var continent = group.Key.Length >= 2 ? group.Key[..2] : "??";
+
+            groups.Add(new IotaGroupDetail(
+                IotaReference: group.Key,
+                Continent: continent,
+                QsoCount: groupQsos.Count,
+                Confirmed: confirmed,
+                FirstWorked: groupQsos.Min(q => q.QsoDate),
+                LastWorked: groupQsos.Max(q => q.QsoDate)
+            ));
+        }
+
+        groups = groups.OrderBy(g => g.IotaReference).ToList();
+
+        var groupsByContinent = groups
+            .GroupBy(g => g.Continent)
+            .ToDictionary(g => g.Key, g => g.Count());
+
+        var totalWorked = groups.Count;
+        var totalConfirmed = groups.Count(g => g.Confirmed);
+        var totalQsos = groups.Sum(g => g.QsoCount);
+
+        return new IotaStatistics(
+            TotalGroupsWorked: totalWorked,
+            TotalGroupsConfirmed: totalConfirmed,
+            TotalQsos: totalQsos,
+            GroupsByContinent: groupsByContinent,
+            Groups: groups
         );
     }
 

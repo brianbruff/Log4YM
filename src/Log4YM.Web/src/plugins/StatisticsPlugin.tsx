@@ -3,6 +3,11 @@ import { useQuery } from '@tanstack/react-query';
 import { BarChart3, RefreshCw } from 'lucide-react';
 import { api, DxccEntityStatus, DxccFilters } from '../api/client';
 import { GlassPanel } from '../components/GlassPanel';
+import { VuccStatisticsTab } from './VuccStatisticsTab';
+import { PotaStatisticsTab } from './PotaStatisticsTab';
+import { IotaStatisticsTab } from './IotaStatisticsTab';
+
+type StatsTab = 'dxcc' | 'vucc' | 'pota' | 'iota';
 
 const BANDS = ['160m', '80m', '40m', '20m', '17m', '15m', '10m', '6m'];
 const CONTINENTS = ['AF', 'AN', 'AS', 'EU', 'NA', 'OC', 'SA'];
@@ -44,6 +49,7 @@ function SummaryBar({ label, value, max }: { label: string; value: number; max: 
 }
 
 export function StatisticsPlugin() {
+  const [activeTab, setActiveTab] = useState<StatsTab>('dxcc');
   const [filters, setFilters] = useState<DxccFilters>({});
   const [sortBy, setSortBy] = useState<'name' | 'continent' | 'qsos'>('name');
 
@@ -93,20 +99,27 @@ export function StatisticsPlugin() {
         {/* Sub-tab navigation */}
         <div className="flex-shrink-0 px-4 pt-3 pb-0 border-b border-glass-100">
           <div className="flex gap-1">
-            <button className="px-3 py-1.5 text-xs font-ui font-semibold rounded-t border-b-2 border-accent-secondary text-accent-secondary bg-dark-700/50">
-              DXCC
-            </button>
-            <button className="px-3 py-1.5 text-xs font-ui text-dark-300 hover:text-gray-300 transition-colors" disabled title="Coming soon">
-              VUCC
-            </button>
-            <button className="px-3 py-1.5 text-xs font-ui text-dark-300 hover:text-gray-300 transition-colors" disabled title="Coming soon">
-              POTA
-            </button>
-            <button className="px-3 py-1.5 text-xs font-ui text-dark-300 hover:text-gray-300 transition-colors" disabled title="Coming soon">
-              IOTA
-            </button>
+            {(['dxcc', 'vucc', 'pota', 'iota'] as const).map(tab => (
+              <button
+                key={tab}
+                onClick={() => setActiveTab(tab)}
+                className={`px-3 py-1.5 text-xs font-ui transition-colors ${
+                  activeTab === tab
+                    ? 'font-semibold rounded-t border-b-2 border-accent-secondary text-accent-secondary bg-dark-700/50'
+                    : 'text-dark-300 hover:text-gray-300'
+                }`}
+              >
+                {tab.toUpperCase()}
+              </button>
+            ))}
           </div>
         </div>
+
+        {activeTab !== 'dxcc' ? (
+          activeTab === 'vucc' ? <VuccStatisticsTab /> :
+          activeTab === 'pota' ? <PotaStatisticsTab /> :
+          <IotaStatisticsTab />
+        ) : (<>
 
         {/* Filters */}
         <div className="flex-shrink-0 px-4 py-2 border-b border-glass-100 flex flex-wrap gap-2 items-center">
@@ -241,6 +254,8 @@ export function StatisticsPlugin() {
             {sortedEntities.length} entities shown
           </div>
         )}
+
+        </>)}
       </div>
     </GlassPanel>
   );

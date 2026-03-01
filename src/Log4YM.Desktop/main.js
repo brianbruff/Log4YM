@@ -2,8 +2,35 @@ const { app, BrowserWindow, Menu, shell, dialog, ipcMain } = require('electron')
 const { spawn } = require('child_process');
 const path = require('path');
 const net = require('net');
+const fs = require('fs');
 const log = require('electron-log');
 const { checkForUpdates } = require('./updater');
+
+// Zoom level persistence using a simple JSON file
+const userDataPath = app.getPath('userData');
+const zoomConfigPath = path.join(userDataPath, 'zoom-config.json');
+
+function getStoredZoomLevel() {
+  try {
+    if (fs.existsSync(zoomConfigPath)) {
+      const data = fs.readFileSync(zoomConfigPath, 'utf8');
+      const config = JSON.parse(data);
+      return config.zoomLevel || 0;
+    }
+  } catch (err) {
+    log.warn('Failed to read zoom config:', err.message);
+  }
+  return 0; // Default zoom level (100%)
+}
+
+function saveZoomLevel(level) {
+  try {
+    const config = { zoomLevel: level };
+    fs.writeFileSync(zoomConfigPath, JSON.stringify(config, null, 2), 'utf8');
+  } catch (err) {
+    log.error('Failed to save zoom config:', err.message);
+  }
+}
 
 // Set app name for macOS menu bar (must be before ready)
 if (process.platform === 'darwin') {
@@ -245,6 +272,7 @@ function createWindow() {
 
   // Clear cache on startup to ensure fresh assets are loaded
   // This prevents stale chunk references after updates
+  // Note: This clears HTTP cache but preserves zoom levels and other preferences
   mainWindow.webContents.session.clearCache();
 
   // Load the appropriate URL based on dev mode
@@ -263,6 +291,15 @@ function createWindow() {
   // Handle window close
   mainWindow.on('closed', () => {
     mainWindow = null;
+  });
+
+  // Save zoom level before window closes
+  mainWindow.on('close', () => {
+    if (mainWindow) {
+      const currentZoom = mainWindow.webContents.getZoomLevel();
+      saveZoomLevel(currentZoom);
+      log.debug(`Saved zoom level on close: ${currentZoom}`);
+    }
   });
 }
 
@@ -429,6 +466,22 @@ app.whenReady().then(async () => {
     app.exit(0);
   });
 
+  // Handle zoom level IPC
+  ipcMain.handle('get-zoom-level', () => {
+    if (mainWindow) {
+      return mainWindow.webContents.getZoomLevel();
+    }
+    return 0;
+  });
+
+  ipcMain.handle('set-zoom-level', (event, level) => {
+    if (mainWindow) {
+      mainWindow.webContents.setZoomLevel(level);
+      saveZoomLevel(level);
+      log.debug(`Zoom level set to ${level}`);
+    }
+  });
+
   try {
     createSplashWindow();
     await startBackend();
@@ -441,6 +494,20 @@ app.whenReady().then(async () => {
         splashWindow.close();
       }
       mainWindow.show();
+
+      // Restore saved zoom level
+      const savedZoomLevel = getStoredZoomLevel();
+      if (savedZoomLevel !== 0) {
+        mainWindow.webContents.setZoomLevel(savedZoomLevel);
+        log.info(`Restored zoom level: ${savedZoomLevel}`);
+      }
+    });
+
+    // Save zoom level when it changes
+    mainWindow.webContents.on('zoom-changed', (event, zoomDirection) => {
+      const currentZoom = mainWindow.webContents.getZoomLevel();
+      saveZoomLevel(currentZoom);
+      log.debug(`Zoom changed (${zoomDirection}): ${currentZoom}`);
     });
 
     // Check for updates after startup (delayed to not slow down launch)

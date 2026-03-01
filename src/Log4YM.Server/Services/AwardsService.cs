@@ -257,8 +257,8 @@ public class AwardsService : IAwardsService
 
         foreach (var qso in qsos)
         {
-            var huntRef = qso.AdifExtra?["pota_ref"]?.AsString;
-            var activateRef = qso.AdifExtra?["my_pota_ref"]?.AsString;
+            var huntRef = qso.AdifExtra != null && qso.AdifExtra.Contains("pota_ref") ? qso.AdifExtra["pota_ref"].AsString : null;
+            var activateRef = qso.AdifExtra != null && qso.AdifExtra.Contains("my_pota_ref") ? qso.AdifExtra["my_pota_ref"].AsString : null;
 
             if (!string.IsNullOrWhiteSpace(huntRef))
             {
@@ -336,7 +336,7 @@ public class AwardsService : IAwardsService
 
         // Extract IOTA references from AdifExtra
         var iotaQsos = qsos
-            .Where(q => !string.IsNullOrWhiteSpace(q.AdifExtra?["iota"]?.AsString))
+            .Where(q => q.AdifExtra != null && q.AdifExtra.Contains("iota") && !string.IsNullOrWhiteSpace(q.AdifExtra["iota"].AsString))
             .Select(q => new { Qso = q, IotaRef = q.AdifExtra!["iota"].AsString.ToUpperInvariant() })
             .ToList();
 

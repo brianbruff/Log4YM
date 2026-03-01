@@ -153,6 +153,20 @@ public class SettingsController : ControllerBase
     }
 
     /// <summary>
+    /// Update grid column state for a specific table
+    /// </summary>
+    [HttpPut("grid-state/{tableId}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult> UpdateGridState(string tableId, [FromBody] string columnStateJson)
+    {
+        var settings = await _settingsService.GetSettingsAsync();
+        settings.GridStates ??= new Dictionary<string, string>();
+        settings.GridStates[tableId] = columnStateJson;
+        await _settingsService.SaveSettingsAsync(settings);
+        return Ok();
+    }
+
+    /// <summary>
     /// Update layout JSON only
     /// </summary>
     [HttpPut("layout")]

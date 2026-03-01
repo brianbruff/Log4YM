@@ -308,15 +308,24 @@ export function GlobePlugin() {
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // Thorough WebGL check - test actual shader compilation
+    // Thorough WebGL check - test actual shader compilation.
+    // globe.gl uses Three.js which prefers WebGL2, so we test WebGL2 first.
+    // Note: Firefox on Windows 11 may support WebGL1 but fail with WebGL2 on certain GPU drivers.
     try {
-      const canvas = document.createElement('canvas');
-      const gl = canvas.getContext('webgl') || canvas.getContext('experimental-webgl') as WebGLRenderingContext | null;
+      const testCanvas = document.createElement('canvas');
+
+      // Try WebGL2 first (preferred by Three.js/globe.gl), fall back to WebGL1
+      const gl2 = testCanvas.getContext('webgl2');
+      const gl: WebGLRenderingContext | null = gl2 ??
+        (testCanvas.getContext('webgl') ?? testCanvas.getContext('experimental-webgl') as WebGLRenderingContext | null);
+
       if (!gl) {
         console.error('WebGL not supported');
-        setWebglError('WebGL is not supported in your browser. The 3D Globe requires WebGL.');
+        setWebglError('WebGL is not supported in your browser. The 3D Globe requires WebGL. Please enable hardware acceleration in your browser settings.');
         return;
       }
+
+      console.log(`WebGL${gl2 ? '2' : '1'} context available for preflight check`);
 
       // Test shader compilation - this is what Three.js does and where it fails
       const vertexShader = gl.createShader(gl.VERTEX_SHADER);
@@ -338,7 +347,7 @@ export function GlobePlugin() {
 
       gl.deleteShader(vertexShader);
 
-      // Also check for required extensions that Three.js needs
+      // Check renderer info - note Firefox may block WEBGL_debug_renderer_info via privacy settings
       const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
       if (debugInfo) {
         const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
@@ -349,15 +358,14 @@ export function GlobePlugin() {
         }
       }
 
-      // Explicitly release the WebGL context to free up resources
-      // Some browsers have limits on concurrent WebGL contexts
-      const loseContext = gl.getExtension('WEBGL_lose_context');
-      if (loseContext) {
-        loseContext.loseContext();
-      }
+      // Note: We intentionally do NOT call loseContext() here.
+      // On some Windows 11 GPU configurations (especially with Firefox's D3D11 backend),
+      // aggressively losing the test context can trigger internal browser state changes
+      // that interfere with subsequent WebGL context creation by globe.gl.
+      // The test canvas will be naturally garbage collected.
     } catch (e) {
       console.error('WebGL check failed:', e);
-      setWebglError('Failed to initialize WebGL. Please ensure hardware acceleration is enabled in your browser.');
+      setWebglError('Failed to initialize WebGL. Please ensure hardware acceleration is enabled in your browser settings.');
       return;
     }
 
@@ -405,8 +413,13 @@ export function GlobePlugin() {
         if (!isCancelled) {
           // Provide more helpful error message
           const errorMsg = e instanceof Error ? e.message : String(e);
-          if (errorMsg.includes('VERTEX') || errorMsg.includes('WebGL') || errorMsg.includes('shader')) {
-            setWebglError('WebGL initialization failed. Please check that hardware acceleration is enabled in Chrome settings (chrome://settings/system).');
+          // Detect WebGL/shader errors - use broad matching since Firefox and Chrome
+          // report different error strings (e.g. Firefox may say "Lost WebGL context")
+          const isWebGLError = errorMsg.includes('VERTEX') || errorMsg.includes('WebGL') ||
+            errorMsg.includes('webgl') || errorMsg.includes('shader') || errorMsg.includes('context') ||
+            errorMsg.includes('GPU') || errorMsg.includes('Lost');
+          if (isWebGLError) {
+            setWebglError('WebGL initialization failed. Please enable hardware acceleration in your browser settings. In Firefox: Settings → General → Performance → Use hardware acceleration. In Chrome: Settings → System → Use hardware acceleration.');
           } else {
             setWebglError(`Failed to load 3D Globe: ${errorMsg}`);
           }

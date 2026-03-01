@@ -158,6 +158,33 @@ public class DxClusterServiceParsingTests
     #region Mode Inference from Frequency
 
     [Theory]
+    [InlineData(1840, "FT8")]
+    [InlineData(1841, "FT8")]
+    [InlineData(3573, "FT8")]
+    [InlineData(3574, "FT8")]
+    [InlineData(7074, "FT8")]
+    [InlineData(7075, "FT8")]
+    [InlineData(10136, "FT8")]
+    [InlineData(10137, "FT8")]
+    [InlineData(14074, "FT8")]
+    [InlineData(14075, "FT8")]
+    [InlineData(18100, "FT8")]
+    [InlineData(18101, "FT8")]
+    [InlineData(21074, "FT8")]
+    [InlineData(21075, "FT8")]
+    [InlineData(24915, "FT8")]
+    [InlineData(24916, "FT8")]
+    [InlineData(28074, "FT8")]
+    [InlineData(28075, "FT8")]
+    [InlineData(50313, "FT8")]
+    [InlineData(50314, "FT8")]
+    public void InferModeFromFrequency_FT8Frequencies_ReturnsFT8(double frequencyKhz, string expectedMode)
+    {
+        var result = InferModeFromFrequency(frequencyKhz);
+        result.Should().Be(expectedMode);
+    }
+
+    [Theory]
     [InlineData(1830, "CW")]
     [InlineData(1843, "SSB")]
     [InlineData(1900, "SSB")]
@@ -355,6 +382,20 @@ public class DxClusterServiceParsingTests
 
     private static string InferModeFromFrequency(double frequencyKhz)
     {
+        // Check for common FT8 frequencies first (digital mode sub-bands)
+        // FT8 typically operates on these frequencies per band (±2 kHz tolerance)
+        if (Math.Abs(frequencyKhz - 1840) < 2) return "FT8";      // 160m
+        if (Math.Abs(frequencyKhz - 3573) < 2) return "FT8";      // 80m
+        if (Math.Abs(frequencyKhz - 7074) < 2) return "FT8";      // 40m
+        if (Math.Abs(frequencyKhz - 10136) < 2) return "FT8";     // 30m
+        if (Math.Abs(frequencyKhz - 14074) < 2) return "FT8";     // 20m
+        if (Math.Abs(frequencyKhz - 18100) < 2) return "FT8";     // 17m
+        if (Math.Abs(frequencyKhz - 21074) < 2) return "FT8";     // 15m
+        if (Math.Abs(frequencyKhz - 24915) < 2) return "FT8";     // 12m
+        if (Math.Abs(frequencyKhz - 28074) < 2) return "FT8";     // 10m
+        if (Math.Abs(frequencyKhz - 50313) < 2) return "FT8";     // 6m
+
+        // Standard band plan inference
         if (frequencyKhz >= 1800 && frequencyKhz < 2000)
             return frequencyKhz >= 1843 ? "SSB" : "CW";
         if (frequencyKhz >= 3500 && frequencyKhz < 4000)

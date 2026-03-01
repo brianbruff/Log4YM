@@ -8,7 +8,7 @@ import { SetupWizard } from './components/SetupWizard';
 import { SplashScreen } from './components/SplashScreen';
 import { PluginErrorBoundary } from './components/PluginErrorBoundary';
 import { useSignalRConnection } from './hooks/useSignalR';
-import { LogEntryPlugin, LogHistoryPlugin, ClusterPlugin, MapPlugin, RotatorPlugin, GlobePlugin, AntennaGeniusPlugin, PgxlPlugin, TunerGeniusPlugin, SmartUnlinkPlugin, RigPlugin, QrzProfilePlugin, ContestsPlugin, SolarPanelPlugin, AnalogClockPlugin, HeaderPlugin, DXpeditionsPlugin, ChatAiPlugin, POTAPlugin, PropagationPanelPlugin, CwKeyerPlugin, PanadapterPlugin } from './plugins';
+import { LogEntryPlugin, LogHistoryPlugin, ClusterPlugin, MapPlugin, RotatorPlugin, GlobePlugin, AntennaGeniusPlugin, PgxlPlugin, TunerGeniusPlugin, SmartUnlinkPlugin, RigPlugin, QrzProfilePlugin, ContestsPlugin, SolarPanelPlugin, AnalogClockPlugin, HeaderPlugin, DXpeditionsPlugin, ChatAiPlugin, POTAPlugin, PropagationPanelPlugin, CwKeyerPlugin, PanadapterPlugin, StatisticsPlugin } from './plugins';
 import { Globe as Globe3D } from 'lucide-react';
 import { useLayoutStore, defaultLayout } from './store/layoutStore';
 import { useSettingsStore } from './store/settingsStore';
@@ -181,6 +181,13 @@ const PLUGINS: Record<string, PluginDef> = {
     component: PanadapterPlugin,
     category: 'Radio & Equipment',
     tags: ['spectrum', 'waterfall', 'fft', 'sdr', 'panadapter'],
+  },
+  'statistics': {
+    name: 'Statistics',
+    icon: <BarChart3 className="w-4 h-4" />,
+    component: StatisticsPlugin,
+    category: 'Logging',
+    tags: ['dxcc', 'awards', 'stats', 'countries', 'bands'],
   },
 };
 

@@ -71,6 +71,45 @@ export interface QsoStatistics {
   qsosByMode: Record<string, number>;
 }
 
+// Statistics / Awards Types
+export interface DxccBandStatus {
+  worked: boolean;
+  confirmed: boolean;
+  qsoCount: number;
+}
+
+export interface DxccEntityStatus {
+  dxccCode?: number;
+  entityName: string;
+  continent?: string;
+  bandStatus: Record<string, DxccBandStatus>;
+  firstWorked?: string;
+  lastWorked?: string;
+  totalQsos: number;
+}
+
+export interface BandSummary {
+  entitiesWorked: number;
+  entitiesConfirmed: number;
+}
+
+export interface DxccStatistics {
+  totalEntitiesWorked: number;
+  totalEntitiesConfirmed: number;
+  challengeScore: number;
+  entities: DxccEntityStatus[];
+  bandSummaries: Record<string, BandSummary>;
+}
+
+export interface DxccFilters {
+  band?: string;
+  mode?: string;
+  continent?: string;
+  status?: string;
+  fromDate?: string;
+  toDate?: string;
+}
+
 export interface RbnSpot {
   callsign: string;      // Skimmer callsign
   dx: string;            // Spotted station
@@ -161,6 +200,18 @@ class ApiClient {
 
   async getStatistics(): Promise<QsoStatistics> {
     return this.fetch<QsoStatistics>('/qsos/statistics');
+  }
+
+  async getDxccStatistics(filters?: DxccFilters): Promise<DxccStatistics> {
+    const params = new URLSearchParams();
+    if (filters?.band) params.append('band', filters.band);
+    if (filters?.mode) params.append('mode', filters.mode);
+    if (filters?.continent) params.append('continent', filters.continent);
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.fromDate) params.append('fromDate', filters.fromDate);
+    if (filters?.toDate) params.append('toDate', filters.toDate);
+    const qs = params.toString();
+    return this.fetch<DxccStatistics>(`/statistics/dxcc${qs ? `?${qs}` : ''}`);
   }
 
   // RBN

@@ -71,6 +71,125 @@ export interface QsoStatistics {
   qsosByMode: Record<string, number>;
 }
 
+// Statistics / Awards Types
+export interface DxccBandStatus {
+  worked: boolean;
+  confirmed: boolean;
+  qsoCount: number;
+}
+
+export interface DxccEntityStatus {
+  dxccCode?: number;
+  entityName: string;
+  continent?: string;
+  bandStatus: Record<string, DxccBandStatus>;
+  firstWorked?: string;
+  lastWorked?: string;
+  totalQsos: number;
+}
+
+export interface BandSummary {
+  entitiesWorked: number;
+  entitiesConfirmed: number;
+}
+
+export interface DxccStatistics {
+  totalEntitiesWorked: number;
+  totalEntitiesConfirmed: number;
+  challengeScore: number;
+  entities: DxccEntityStatus[];
+  bandSummaries: Record<string, BandSummary>;
+}
+
+export interface DxccFilters {
+  band?: string;
+  mode?: string;
+  continent?: string;
+  status?: string;
+  fromDate?: string;
+  toDate?: string;
+}
+
+// VUCC Types
+export interface VuccStatistics {
+  totalUniqueGrids: number;
+  bandSummaries: Record<string, GridBandSummary>;
+  grids: GridDetail[];
+}
+
+export interface GridBandSummary {
+  band: string;
+  uniqueGrids: number;
+  confirmedGrids: number;
+  awardThreshold: number;
+  qsoCount: number;
+}
+
+export interface GridDetail {
+  grid: string;
+  band: string;
+  qsoCount: number;
+  confirmed: boolean;
+  firstWorked?: string;
+  lastWorked?: string;
+}
+
+export interface VuccFilters {
+  band?: string;
+  mode?: string;
+  status?: string;
+  fromDate?: string;
+  toDate?: string;
+}
+
+// POTA Statistics Types
+export interface PotaStatistics {
+  uniqueParksActivated: number;
+  uniqueParksHunted: number;
+  totalActivationQsos: number;
+  totalHuntQsos: number;
+  parks: PotaParkDetail[];
+}
+
+export interface PotaParkDetail {
+  parkReference: string;
+  activityType: string;
+  qsoCount: number;
+  firstQso?: string;
+  lastQso?: string;
+}
+
+export interface PotaFilters {
+  activityType?: string;
+  fromDate?: string;
+  toDate?: string;
+}
+
+// IOTA Statistics Types
+export interface IotaStatistics {
+  totalGroupsWorked: number;
+  totalGroupsConfirmed: number;
+  totalQsos: number;
+  groupsByContinent: Record<string, number>;
+  groups: IotaGroupDetail[];
+}
+
+export interface IotaGroupDetail {
+  iotaReference: string;
+  continent: string;
+  qsoCount: number;
+  confirmed: boolean;
+  firstWorked?: string;
+  lastWorked?: string;
+}
+
+export interface IotaFilters {
+  continent?: string;
+  status?: string;
+  fromDate?: string;
+  toDate?: string;
+}
+
 export interface RbnSpot {
   callsign: string;      // Skimmer callsign
   dx: string;            // Spotted station
@@ -161,6 +280,48 @@ class ApiClient {
 
   async getStatistics(): Promise<QsoStatistics> {
     return this.fetch<QsoStatistics>('/qsos/statistics');
+  }
+
+  async getDxccStatistics(filters?: DxccFilters): Promise<DxccStatistics> {
+    const params = new URLSearchParams();
+    if (filters?.band) params.append('band', filters.band);
+    if (filters?.mode) params.append('mode', filters.mode);
+    if (filters?.continent) params.append('continent', filters.continent);
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.fromDate) params.append('fromDate', filters.fromDate);
+    if (filters?.toDate) params.append('toDate', filters.toDate);
+    const qs = params.toString();
+    return this.fetch<DxccStatistics>(`/statistics/dxcc${qs ? `?${qs}` : ''}`);
+  }
+
+  async getVuccStatistics(filters?: VuccFilters): Promise<VuccStatistics> {
+    const params = new URLSearchParams();
+    if (filters?.band) params.append('band', filters.band);
+    if (filters?.mode) params.append('mode', filters.mode);
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.fromDate) params.append('fromDate', filters.fromDate);
+    if (filters?.toDate) params.append('toDate', filters.toDate);
+    const qs = params.toString();
+    return this.fetch<VuccStatistics>(`/statistics/vucc${qs ? `?${qs}` : ''}`);
+  }
+
+  async getPotaStatistics(filters?: PotaFilters): Promise<PotaStatistics> {
+    const params = new URLSearchParams();
+    if (filters?.activityType) params.append('activityType', filters.activityType);
+    if (filters?.fromDate) params.append('fromDate', filters.fromDate);
+    if (filters?.toDate) params.append('toDate', filters.toDate);
+    const qs = params.toString();
+    return this.fetch<PotaStatistics>(`/statistics/pota${qs ? `?${qs}` : ''}`);
+  }
+
+  async getIotaStatistics(filters?: IotaFilters): Promise<IotaStatistics> {
+    const params = new URLSearchParams();
+    if (filters?.continent) params.append('continent', filters.continent);
+    if (filters?.status) params.append('status', filters.status);
+    if (filters?.fromDate) params.append('fromDate', filters.fromDate);
+    if (filters?.toDate) params.append('toDate', filters.toDate);
+    const qs = params.toString();
+    return this.fetch<IotaStatistics>(`/statistics/iota${qs ? `?${qs}` : ''}`);
   }
 
   // RBN

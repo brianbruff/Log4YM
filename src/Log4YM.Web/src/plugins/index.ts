@@ -20,3 +20,4 @@ export { POTAPlugin } from './POTAPlugin';
 export { PropagationPanelPlugin } from './PropagationPanelPlugin';
 export { CwKeyerPlugin } from './CwKeyerPlugin';
 export { PanadapterPlugin } from './PanadapterPlugin';
+export { StatisticsPlugin } from './StatisticsPlugin';

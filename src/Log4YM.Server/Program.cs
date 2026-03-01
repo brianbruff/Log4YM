@@ -125,6 +125,7 @@ builder.Services.AddDatabase(userConfig);
 
 // Register services
 builder.Services.AddScoped<IQsoService, QsoService>();
+builder.Services.AddScoped<IAwardsService, AwardsService>();
 builder.Services.AddScoped<ISettingsService, SettingsService>();
 builder.Services.AddScoped<IQrzService, QrzService>();
 builder.Services.AddScoped<IAdifService, AdifService>();

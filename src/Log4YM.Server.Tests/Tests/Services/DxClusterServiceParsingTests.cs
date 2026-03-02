@@ -357,6 +357,41 @@ public class DxClusterServiceParsingTests
         key1.Should().Be(key2);
     }
 
+    [Fact]
+    public void GenerateDeduplicationKey_DifferentMinutes_ProducesSameKey()
+    {
+        // This is the key fix: spots at different minutes should produce the same key
+        // so they can be deduplicated based on age instead of minute buckets
+        var timestamp1 = new DateTime(2024, 1, 15, 14, 30, 58, DateTimeKind.Utc);
+        var timestamp2 = new DateTime(2024, 1, 15, 14, 31, 2, DateTimeKind.Utc);
+        var key1 = GenerateDeduplicationKey("W1AW", 14025.0, timestamp1);
+        var key2 = GenerateDeduplicationKey("W1AW", 14025.0, timestamp2);
+
+        key1.Should().Be(key2, "spots with same call and frequency should have same key regardless of minute");
+    }
+
+    [Fact]
+    public void GenerateDeduplicationKey_DifferentFrequencies_ProduceDifferentKeys()
+    {
+        var timestamp = new DateTime(2024, 1, 15, 14, 30, 0, DateTimeKind.Utc);
+        var key1 = GenerateDeduplicationKey("W1AW", 14025.0, timestamp);
+        var key2 = GenerateDeduplicationKey("W1AW", 14074.0, timestamp);
+
+        key1.Should().NotBe(key2);
+    }
+
+    [Fact]
+    public void GenerateDeduplicationKey_RoundedFrequencies_ProduceSameKey()
+    {
+        var timestamp = new DateTime(2024, 1, 15, 14, 30, 0, DateTimeKind.Utc);
+        var key1 = GenerateDeduplicationKey("W1AW", 14025.0, timestamp);
+        var key2 = GenerateDeduplicationKey("W1AW", 14025.4, timestamp);
+        var key3 = GenerateDeduplicationKey("W1AW", 14024.6, timestamp);
+
+        key1.Should().Be(key2, "frequencies that round to same kHz should have same key");
+        key1.Should().Be(key3, "frequencies that round to same kHz should have same key");
+    }
+
     #endregion
 
     #region Helper methods - replicate internal logic for testing
@@ -442,9 +477,9 @@ public class DxClusterServiceParsingTests
 
     private static string GenerateDeduplicationKey(string dxCall, double frequency, DateTime timestamp)
     {
+        // Updated to match the new implementation: no minute timestamp
         var roundedFreq = Math.Round(frequency);
-        var minute = timestamp.Ticks / TimeSpan.TicksPerMinute;
-        return $"{dxCall.ToUpperInvariant()}:{roundedFreq}:{minute}";
+        return $"{dxCall.ToUpperInvariant()}:{roundedFreq}";
     }
 
     #endregion

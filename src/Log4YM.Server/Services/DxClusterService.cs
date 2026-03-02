@@ -37,8 +37,7 @@ public class DxClusterService : IDxClusterService, IHostedService, IDisposable
     private readonly ConcurrentDictionary<string, DateTime> _recentSpots = new();
     private CancellationTokenSource? _cts;
     private Timer? _cleanupTimer;
-
-    private const int DeduplicationWindowSeconds = 60;
+    private int _deduplicationWindowSeconds = 60;  // Default, loaded from settings
 
     public DxClusterService(
         ILogger<DxClusterService> logger,
@@ -60,6 +59,24 @@ public class DxClusterService : IDxClusterService, IHostedService, IDisposable
         // Clear any stale connections from previous session
         _connections.Clear();
         _statuses.Clear();
+
+        // Load deduplication window from settings
+        try
+        {
+            using var scope = _serviceProvider.CreateScope();
+            var settingsRepo = scope.ServiceProvider.GetRequiredService<ISettingsRepository>();
+            var settings = await settingsRepo.GetAsync();
+            if (settings?.Cluster?.DeduplicationWindowSeconds != null)
+            {
+                _deduplicationWindowSeconds = settings.Cluster.DeduplicationWindowSeconds;
+                _logger.LogInformation("Loaded deduplication window: {Seconds} seconds", _deduplicationWindowSeconds);
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to load deduplication window from settings, using default: {Seconds} seconds",
+                _deduplicationWindowSeconds);
+        }
 
         // Start cleanup timer for deduplication cache
         _cleanupTimer = new Timer(CleanupRecentSpots, null, TimeSpan.FromMinutes(1), TimeSpan.FromMinutes(1));
@@ -225,11 +242,25 @@ public class DxClusterService : IDxClusterService, IHostedService, IDisposable
     {
         // Deduplication: Check if we've seen this spot recently
         var dedupKey = GenerateDeduplicationKey(spot);
-        if (!_recentSpots.TryAdd(dedupKey, DateTime.UtcNow))
+        var now = DateTime.UtcNow;
+
+        // Check if we already have this spot and if it's still within the deduplication window
+        if (_recentSpots.TryGetValue(dedupKey, out var lastSeen))
         {
-            _logger.LogDebug("Duplicate spot ignored: {DxCall} {Freq} from {Cluster}",
-                spot.DxCall, spot.Frequency, clusterName);
-            return;
+            var age = (now - lastSeen).TotalSeconds;
+            if (age < _deduplicationWindowSeconds)
+            {
+                _logger.LogDebug("Duplicate spot ignored: {DxCall} {Freq} from {Cluster} (age: {Age:F1}s)",
+                    spot.DxCall, spot.Frequency, clusterName, age);
+                return;
+            }
+            // Spot is outside the window, update timestamp
+            _recentSpots[dedupKey] = now;
+        }
+        else
+        {
+            // New spot, add to cache
+            _recentSpots.TryAdd(dedupKey, now);
         }
 
         // Save and broadcast
@@ -238,15 +269,15 @@ public class DxClusterService : IDxClusterService, IHostedService, IDisposable
 
     private static string GenerateDeduplicationKey(ParsedSpot spot)
     {
-        // Key: DxCall + rounded frequency (to nearest kHz) + minute timestamp
+        // Key: DxCall + rounded frequency (to nearest kHz)
+        // Note: Removed minute timestamp to allow proper deduplication across time boundaries
         var roundedFreq = Math.Round(spot.Frequency);
-        var minute = spot.Timestamp.Ticks / TimeSpan.TicksPerMinute;
-        return $"{spot.DxCall.ToUpperInvariant()}:{roundedFreq}:{minute}";
+        return $"{spot.DxCall.ToUpperInvariant()}:{roundedFreq}";
     }
 
     private void CleanupRecentSpots(object? state)
     {
-        var cutoff = DateTime.UtcNow.AddSeconds(-DeduplicationWindowSeconds);
+        var cutoff = DateTime.UtcNow.AddSeconds(-_deduplicationWindowSeconds);
         var keysToRemove = _recentSpots.Where(kvp => kvp.Value < cutoff).Select(kvp => kvp.Key).ToList();
 
         foreach (var key in keysToRemove)

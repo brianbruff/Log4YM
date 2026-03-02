@@ -312,6 +312,9 @@ public class ClusterSettings
 {
     [BsonElement("connections")]
     public List<ClusterConnection> Connections { get; set; } = new();
+
+    [BsonElement("deduplicationWindowSeconds")]
+    public int DeduplicationWindowSeconds { get; set; } = 60;  // Default 1 minute
 }
 
 [BsonIgnoreExtraElements]

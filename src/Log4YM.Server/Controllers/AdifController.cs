@@ -32,7 +32,7 @@ public class AdifController : ControllerBase
     [HttpPost("import")]
     [ProducesResponseType(typeof(AdifImportResponse), StatusCodes.Status200OK)]
     [ProducesResponseType(StatusCodes.Status400BadRequest)]
-    [RequestSizeLimit(50 * 1024 * 1024)] // 50MB limit
+    [RequestSizeLimit(200 * 1024 * 1024)] // 200MB limit — large ADIF files (65k+ QSOs) can exceed 50MB
     public async Task<ActionResult<AdifImportResponse>> ImportAdif(
         IFormFile file,
         [FromQuery] bool skipDuplicates = true,

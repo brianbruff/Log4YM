@@ -12,11 +12,13 @@ public interface IQsoRepository
     Task<IEnumerable<Qso>> GetUnsyncedToQrzAsync();
     Task<(IEnumerable<Qso> Items, int TotalCount)> SearchAsync(QsoSearchRequest criteria);
     Task<Qso> CreateAsync(Qso qso);
+    Task CreateManyAsync(IEnumerable<Qso> qsos);
     Task<bool> UpdateAsync(string id, Qso qso);
     Task<bool> DeleteAsync(string id);
     Task<QsoStatistics> GetStatisticsAsync();
     Task<int> GetCountAsync();
     Task<bool> ExistsAsync(string callsign, DateTime qsoDate, string timeOn, string band, string mode);
+    Task<HashSet<string>> GetAllDuplicateKeysAsync();
     Task<IEnumerable<Qso>> GetByIdsAsync(IEnumerable<string> ids);
     Task<bool> UpdateQrzSyncStatusAsync(string id, string qrzLogId);
     Task<int> GetPendingSyncCountAsync();
@@ -103,6 +105,13 @@ public class QsoRepository : IQsoRepository
         return qso;
     }
 
+    public async Task CreateManyAsync(IEnumerable<Qso> qsos)
+    {
+        var qsoList = qsos.ToList();
+        if (qsoList.Count == 0) return;
+        await _collection.InsertManyAsync(qsoList, new InsertManyOptions { IsOrdered = false });
+    }
+
     public async Task<bool> UpdateAsync(string id, Qso qso)
     {
         qso.UpdatedAt = DateTime.UtcNow;
@@ -176,6 +185,23 @@ public class QsoRepository : IQsoRepository
 
         var count = await _collection.CountDocumentsAsync(filter);
         return count > 0;
+    }
+
+    /// <summary>
+    /// Loads composite keys (callsign|date|timeOn|band|mode) for all existing QSOs into a HashSet.
+    /// Used for fast in-memory duplicate detection during bulk imports (single DB round trip).
+    /// </summary>
+    public async Task<HashSet<string>> GetAllDuplicateKeysAsync()
+    {
+        var results = await _collection
+            .Find(_ => true)
+            .Project(q => new { q.Callsign, q.QsoDate, q.TimeOn, q.Band, q.Mode })
+            .ToListAsync();
+
+        return new HashSet<string>(
+            results.Select(q => $"{q.Callsign?.ToUpperInvariant()}|{q.QsoDate:yyyyMMdd}|{q.TimeOn}|{q.Band}|{q.Mode}"),
+            StringComparer.OrdinalIgnoreCase
+        );
     }
 
     public async Task<IEnumerable<Qso>> GetByIdsAsync(IEnumerable<string> ids)

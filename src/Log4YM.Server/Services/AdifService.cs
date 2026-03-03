@@ -113,89 +113,95 @@ public partial class AdifService : IAdifService
         var errorCount = 0;
         var errors = new List<string>();
 
+        // Aim for ~100 progress updates regardless of file size
+        const int batchSize = 500;
+        var progressInterval = Math.Max(50, qsos.Count / 100);
+
         _logger.LogInformation("Importing {Count} QSO records from ADIF (markAsSynced={Synced}, clearExisting={Clear})",
             qsos.Count, markAsSyncedToQrz, clearExistingLogs);
 
-        // Send initial progress update
         await _hub.BroadcastAdifImportProgress(new AdifImportProgressEvent(
             qsos.Count, 0, 0, 0, 0, false, null, "Starting import..."));
 
-        // Clear existing logs if requested
         if (clearExistingLogs)
         {
             var deletedCount = await _qsoRepository.DeleteAllAsync();
             _logger.LogInformation("Cleared {Count} existing QSOs before import", deletedCount);
         }
 
+        // Pre-load all existing composite keys in a single DB round trip for O(1) in-memory lookup.
+        // This replaces N individual ExistsAsync() calls with a single query.
+        HashSet<string>? existingKeys = null;
+        if (skipDuplicates && !clearExistingLogs)
+        {
+            existingKeys = await _qsoRepository.GetAllDuplicateKeysAsync();
+            _logger.LogInformation("Loaded {Count} existing QSO keys for duplicate detection", existingKeys.Count);
+        }
+
+        var importTimestamp = DateTime.UtcNow;
+        var batch = new List<Qso>(batchSize);
+
+        async Task FlushBatchAsync()
+        {
+            if (batch.Count == 0) return;
+            try
+            {
+                await _qsoRepository.CreateManyAsync(batch);
+                importedCount += batch.Count;
+            }
+            catch (Exception ex)
+            {
+                errorCount += batch.Count;
+                errors.Add($"Batch insert error: {ex.Message}");
+                _logger.LogError(ex, "Batch insert failed for {Count} QSOs", batch.Count);
+            }
+            finally
+            {
+                batch.Clear();
+            }
+        }
+
         for (int i = 0; i < qsos.Count; i++)
         {
-            // Check for cancellation
             cancellationToken.ThrowIfCancellationRequested();
 
             var qso = qsos[i];
             try
             {
-                if (skipDuplicates && !clearExistingLogs)
+                if (existingKeys != null)
                 {
-                    // Check for duplicate based on callsign, date, time, band, and mode
-                    // Skip check if we just cleared all logs
-                    var isDuplicate = await _qsoRepository.ExistsAsync(
-                        qso.Callsign,
-                        qso.QsoDate,
-                        qso.TimeOn,
-                        qso.Band,
-                        qso.Mode
-                    );
-
-                    if (isDuplicate)
+                    var key = $"{qso.Callsign.ToUpperInvariant()}|{qso.QsoDate:yyyyMMdd}|{qso.TimeOn}|{qso.Band}|{qso.Mode}";
+                    if (existingKeys.Contains(key))
                     {
                         skippedDuplicates++;
+                        // Report progress for skipped records too
+                        if ((i + 1) % progressInterval == 0 || i == qsos.Count - 1)
+                        {
+                            await _hub.BroadcastAdifImportProgress(new AdifImportProgressEvent(
+                                qsos.Count, i + 1, importedCount + batch.Count,
+                                skippedDuplicates, errorCount, false, qso.Callsign, "Processing..."));
+                        }
                         continue;
                     }
+                    // Track newly seen keys to deduplicate within the import file itself
+                    existingKeys.Add(key);
                 }
 
-                qso.CreatedAt = DateTime.UtcNow;
-                qso.UpdatedAt = DateTime.UtcNow;
+                qso.CreatedAt = importTimestamp;
+                qso.UpdatedAt = importTimestamp;
 
-                // Mark as already synced to QRZ if requested (useful for QRZ exports)
                 if (markAsSyncedToQrz)
                 {
                     qso.QrzSyncStatus = SyncStatus.Synced;
-                    qso.QrzSyncedAt = DateTime.UtcNow;
-                    // Use a placeholder ID to indicate it came from QRZ import
-                    qso.QrzLogId = $"imported-{DateTime.UtcNow:yyyyMMddHHmmss}";
+                    qso.QrzSyncedAt = importTimestamp;
+                    qso.QrzLogId = $"imported-{importTimestamp:yyyyMMddHHmmss}";
                 }
 
-                var created = await _qsoRepository.CreateAsync(qso);
-                importedCount++;
+                batch.Add(qso);
 
-                // Broadcast to connected clients
-                await _hub.BroadcastQso(new QsoLoggedEvent(
-                    created.Id,
-                    created.Callsign,
-                    created.QsoDate,
-                    created.TimeOn,
-                    created.Band,
-                    created.Mode,
-                    created.Frequency,
-                    created.RstSent,
-                    created.RstRcvd,
-                    created.Station?.Grid
-                ));
-
-                // Send progress update every 10 records or on last record
-                if ((i + 1) % 10 == 0 || i == qsos.Count - 1)
+                if (batch.Count >= batchSize)
                 {
-                    await _hub.BroadcastAdifImportProgress(new AdifImportProgressEvent(
-                        qsos.Count,
-                        i + 1,
-                        importedCount,
-                        skippedDuplicates,
-                        errorCount,
-                        false,
-                        qso.Callsign,
-                        $"Importing {qso.Callsign}..."
-                    ));
+                    await FlushBatchAsync();
                 }
             }
             catch (Exception ex)
@@ -203,31 +209,42 @@ public partial class AdifService : IAdifService
                 errorCount++;
                 var errorMsg = $"{qso.Callsign}: {ex.Message}";
                 errors.Add(errorMsg);
-                _logger.LogWarning(ex, "Error importing QSO with {Callsign}", qso.Callsign);
+                _logger.LogWarning(ex, "Error processing QSO with {Callsign}", qso.Callsign);
+            }
+
+            // Send progress update at intervals (not every record — avoids SignalR flooding)
+            if ((i + 1) % progressInterval == 0 || i == qsos.Count - 1)
+            {
+                await _hub.BroadcastAdifImportProgress(new AdifImportProgressEvent(
+                    qsos.Count, i + 1, importedCount + batch.Count,
+                    skippedDuplicates, errorCount, false, qso.Callsign, $"Importing {qso.Callsign}..."));
             }
         }
+
+        // Flush any remaining records
+        await FlushBatchAsync();
 
         _logger.LogInformation(
             "ADIF import complete: {Imported} imported, {Skipped} duplicates skipped, {Errors} errors",
             importedCount, skippedDuplicates, errorCount);
 
-        // Rebuild spot status cache after import
         if (_spotStatusService != null && importedCount > 0)
         {
             _ = _spotStatusService.InvalidateCacheAsync();
         }
 
-        // Send final progress update
+        // Send a single QsoLoggedEvent to trigger UI refresh across all connected clients.
+        // During import we skip per-QSO broadcasts (which would cause the frontend to
+        // invalidate and re-fetch QSOs tens of thousands of times).
+        if (importedCount > 0)
+        {
+            await _hub.BroadcastQso(new QsoLoggedEvent(
+                string.Empty, string.Empty, importTimestamp, "0000", "unknown", "unknown", null, null, null, null));
+        }
+
         await _hub.BroadcastAdifImportProgress(new AdifImportProgressEvent(
-            qsos.Count,
-            qsos.Count,
-            importedCount,
-            skippedDuplicates,
-            errorCount,
-            true,
-            null,
-            errorCount > 0 ? $"Import complete with {errorCount} error(s)" : "Import complete"
-        ));
+            qsos.Count, qsos.Count, importedCount, skippedDuplicates, errorCount, true, null,
+            errorCount > 0 ? $"Import complete with {errorCount} error(s)" : "Import complete"));
 
         return new AdifImportResult(qsos.Count, importedCount, skippedDuplicates, errorCount, errors);
     }

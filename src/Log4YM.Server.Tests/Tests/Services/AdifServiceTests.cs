@@ -454,6 +454,99 @@ public class AdifServiceTests
 
     #endregion
 
+    #region ParseAdif - DXCC Lookup
+
+    [Fact]
+    public void ParseAdif_WithDxccInAdif_UsesDxccFromFile()
+    {
+        var adif = "<CALL:5>W1AW <QSO_DATE:8>20240101 <TIME_ON:4>1234 <BAND:3>20m <MODE:3>SSB <DXCC:3>291 <COUNTRY:13>United States <CONT:2>NA <EOR>";
+
+        var qsos = _service.ParseAdif(adif).ToList();
+
+        qsos.Should().HaveCount(1);
+        qsos[0].Dxcc.Should().Be(291);
+        qsos[0].Country.Should().Be("United States");
+        qsos[0].Continent.Should().Be("NA");
+        qsos[0].Station.Should().NotBeNull();
+        qsos[0].Station!.Dxcc.Should().Be(291);
+        qsos[0].Station.Country.Should().Be("United States");
+        qsos[0].Station.Continent.Should().Be("NA");
+    }
+
+    [Fact]
+    public void ParseAdif_WithoutDxccInAdif_LookupsFromCallsign()
+    {
+        var adif = "<CALL:5>W1AW <QSO_DATE:8>20240101 <TIME_ON:4>1234 <BAND:3>20m <MODE:3>SSB <EOR>";
+
+        var qsos = _service.ParseAdif(adif).ToList();
+
+        qsos.Should().HaveCount(1);
+        qsos[0].Country.Should().NotBeNullOrEmpty();
+        qsos[0].Continent.Should().NotBeNullOrEmpty();
+        qsos[0].Station.Should().NotBeNull();
+        qsos[0].Station!.Country.Should().NotBeNullOrEmpty();
+        qsos[0].Station.Continent.Should().NotBeNullOrEmpty();
+    }
+
+    [Fact]
+    public void ParseAdif_CanadianCallsign_LookupsCorrectly()
+    {
+        var adif = "<CALL:6>VE3ABC <QSO_DATE:8>20240101 <TIME_ON:4>1234 <BAND:3>20m <MODE:3>SSB <EOR>";
+
+        var qsos = _service.ParseAdif(adif).ToList();
+
+        qsos.Should().HaveCount(1);
+        qsos[0].Country.Should().Be("Canada");
+        qsos[0].Continent.Should().Be("NA");
+        qsos[0].Station!.Country.Should().Be("Canada");
+        qsos[0].Station.Continent.Should().Be("NA");
+    }
+
+    [Fact]
+    public void ParseAdif_JapaneseCallsign_LookupsCorrectly()
+    {
+        var adif = "<CALL:5>JA1XX <QSO_DATE:8>20240101 <TIME_ON:4>1234 <BAND:3>20m <MODE:3>SSB <EOR>";
+
+        var qsos = _service.ParseAdif(adif).ToList();
+
+        qsos.Should().HaveCount(1);
+        qsos[0].Country.Should().Be("Japan");
+        qsos[0].Continent.Should().Be("AS");
+        qsos[0].Station!.Country.Should().Be("Japan");
+        qsos[0].Station.Continent.Should().Be("AS");
+    }
+
+    [Fact]
+    public void ParseAdif_GermanCallsign_LookupsCorrectly()
+    {
+        var adif = "<CALL:5>DL1XX <QSO_DATE:8>20240101 <TIME_ON:4>1234 <BAND:3>20m <MODE:3>SSB <EOR>";
+
+        var qsos = _service.ParseAdif(adif).ToList();
+
+        qsos.Should().HaveCount(1);
+        qsos[0].Country.Should().Be("Fed. Rep. of Germany");
+        qsos[0].Continent.Should().Be("EU");
+        qsos[0].Station!.Country.Should().Be("Fed. Rep. of Germany");
+        qsos[0].Station.Continent.Should().Be("EU");
+    }
+
+    [Fact]
+    public void ParseAdif_PartialDxccData_FillsInMissing()
+    {
+        // Only country provided, continent missing
+        var adif = "<CALL:6>VE3ABC <QSO_DATE:8>20240101 <TIME_ON:4>1234 <BAND:3>20m <MODE:3>SSB <COUNTRY:6>Canada <EOR>";
+
+        var qsos = _service.ParseAdif(adif).ToList();
+
+        qsos.Should().HaveCount(1);
+        qsos[0].Country.Should().Be("Canada");
+        qsos[0].Continent.Should().Be("NA"); // Should be filled in from lookup
+        qsos[0].Station!.Country.Should().Be("Canada");
+        qsos[0].Station.Continent.Should().Be("NA");
+    }
+
+    #endregion
+
     #region Helpers
 
     private static Qso CreateTestQso(string callsign, string band, string mode, DateTime qsoDate)

@@ -333,6 +333,27 @@ public partial class AdifService : IAdifService
             }
         }
 
+        // Extract DXCC data from ADIF fields if present
+        var country = GetStringField(fields, "country");
+        var continent = GetStringField(fields, "cont");
+        var dxcc = GetIntField(fields, "dxcc");
+
+        // If DXCC data is missing or incomplete, look it up from the callsign
+        if (string.IsNullOrEmpty(country) || string.IsNullOrEmpty(continent))
+        {
+            var (lookedUpCountry, lookedUpContinent) = CtyService.GetCountryFromCallsign(call);
+
+            // Use looked-up values for any missing fields
+            country ??= lookedUpCountry;
+            continent ??= lookedUpContinent;
+
+            // If country is provided in ADIF but continent isn't, also try country-to-continent lookup
+            if (!string.IsNullOrEmpty(country) && string.IsNullOrEmpty(continent))
+            {
+                continent = CtyService.GetContinentFromCountryName(country);
+            }
+        }
+
         var qso = new Qso
         {
             Callsign = call.ToUpperInvariant(),
@@ -345,22 +366,22 @@ public partial class AdifService : IAdifService
             RstSent = GetStringField(fields, "rst_sent"),
             RstRcvd = GetStringField(fields, "rst_rcvd"),
             Name = GetStringField(fields, "name"),
-            Country = GetStringField(fields, "country"),
+            Country = country,
             Grid = GetStringField(fields, "gridsquare"),
-            Dxcc = GetIntField(fields, "dxcc"),
-            Continent = GetStringField(fields, "cont"),
+            Dxcc = dxcc,
+            Continent = continent,
             Comment = GetStringField(fields, "comment"),
             Notes = GetStringField(fields, "notes"),
             Station = new StationInfo
             {
                 Name = GetStringField(fields, "name"),
                 Grid = GetStringField(fields, "gridsquare"),
-                Country = GetStringField(fields, "country"),
-                Dxcc = GetIntField(fields, "dxcc"),
+                Country = country,
+                Dxcc = dxcc,
                 CqZone = GetIntField(fields, "cqz"),
                 ItuZone = GetIntField(fields, "ituz"),
                 State = GetStringField(fields, "state"),
-                Continent = GetStringField(fields, "cont"),
+                Continent = continent,
                 Latitude = GetDoubleField(fields, "lat"),
                 Longitude = GetDoubleField(fields, "lon")
             },

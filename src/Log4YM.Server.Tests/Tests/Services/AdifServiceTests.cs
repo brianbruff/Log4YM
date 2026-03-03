@@ -350,9 +350,45 @@ public class AdifServiceTests
 
         var adif = _service.ExportToAdif(new[] { qso });
 
-        // Frequency should be in MHz in ADIF: 14200 kHz / 1000 = 14.2 MHz
+        // Frequency should be in MHz in ADIF: 14200 kHz / 1000 = 14.2 MHz with 7 decimal places
         adif.Should().Contain("<FREQ:");
-        adif.Should().Contain("14.200000");
+        adif.Should().Contain("14.2000000");
+    }
+
+    [Fact]
+    public void ExportToAdif_WithHighPrecisionFrequency_ExportsSevenDecimals()
+    {
+        var qso = CreateTestQso("W1AW", "20m", "SSB", new DateTime(2024, 1, 15, 0, 0, 0, DateTimeKind.Utc));
+        qso.Frequency = 14074.1234; // kHz with high precision
+
+        var adif = _service.ExportToAdif(new[] { qso });
+
+        // Should export with 7 decimal places: 14074.1234 kHz / 1000 = 14.0741234 MHz
+        adif.Should().Contain("<FREQ:");
+        adif.Should().Contain("14.0741234");
+    }
+
+    [Fact]
+    public void ParseAndExport_HighPrecisionFrequency_ExportsSevenDecimals()
+    {
+        // Create QSO with high precision frequency in kHz
+        var qso = CreateTestQso("W1AW", "20m", "SSB", new DateTime(2024, 1, 15, 0, 0, 0, DateTimeKind.Utc));
+        qso.Frequency = 14074.1234; // kHz with 4 decimal places
+
+        // Export to ADIF (converts to MHz with 7 decimal places)
+        var exported = _service.ExportToAdif(new[] { qso });
+
+        // Should contain 14.0741234 MHz (7 decimals preserving 0.1 Hz precision)
+        exported.Should().Contain("14.0741234");
+
+        // Verify another frequency with different precision
+        var qso2 = CreateTestQso("VE3ABC", "40m", "CW", new DateTime(2024, 1, 16, 0, 0, 0, DateTimeKind.Utc));
+        qso2.Frequency = 7074.56789; // kHz with 5 decimal places
+
+        var exported2 = _service.ExportToAdif(new[] { qso2 });
+
+        // Should contain 7.0745679 MHz (7 decimals, rounded from 7.07456789)
+        exported2.Should().Contain("7.0745679");
     }
 
     #endregion

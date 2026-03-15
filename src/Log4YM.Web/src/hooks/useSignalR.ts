@@ -3,6 +3,7 @@ import { useQueryClient } from '@tanstack/react-query';
 import { signalRService, type SmartUnlinkRadioDto, type HamlibRigConfigDto, type SignalRConnectionState } from '../api/signalr';
 import { useAppStore, type ConnectionState } from '../store/appStore';
 import { useSettingsStore } from '../store/settingsStore';
+import { useLayoutStore } from '../store/layoutStore';
 
 /**
  * Hook for managing the SignalR connection lifecycle.
@@ -55,9 +56,10 @@ export function useSignalRConnection() {
     signalRService.setConnectionStateCallback((state: SignalRConnectionState, attempt: number) => {
       setConnectionState(state as ConnectionState, attempt);
 
-      // When disconnected, mark settings as not loaded to prevent saving stale data
+      // When disconnected, mark settings and layout as not loaded to prevent saving stale data
       if (state === 'disconnected') {
         useSettingsStore.getState().setNotLoaded();
+        useLayoutStore.getState().setNotLoaded();
       }
     });
 
@@ -78,9 +80,12 @@ export function useSignalRConnection() {
       }, REHYDRATION_TIMEOUT_MS);
 
       try {
-        // 1. Reload settings from database
-        console.log('Reloading settings from database...');
-        await useSettingsStore.getState().loadSettings();
+        // 1. Reload settings and layout from database
+        console.log('Reloading settings and layout from database...');
+        await Promise.all([
+          useSettingsStore.getState().loadSettings(),
+          useLayoutStore.getState().loadFromMongo(),
+        ]);
 
         // 2. Request all device statuses via SignalR
         console.log('Requesting device statuses...');

@@ -104,6 +104,7 @@ interface LayoutState {
   syncToMongo: (layout: IJsonModel) => Promise<void>;
   syncToMongoSync: (layout: IJsonModel) => void;
   loadFromMongo: () => Promise<void>;
+  setNotLoaded: () => void;
 }
 
 // Layout is stored in MongoDB only - no localStorage persistence
@@ -125,6 +126,12 @@ export const useLayoutStore = create<LayoutState>()((set, get) => ({
 
   // Sync layout to MongoDB (background, non-blocking)
   syncToMongo: async (layout) => {
+    const { isLoaded } = get();
+    if (!isLoaded) {
+      console.warn('[layoutStore] Layout not loaded yet, skipping save to prevent stale data');
+      return;
+    }
+
     try {
       console.log('[layoutStore] Syncing layout to MongoDB');
       const layoutJson = JSON.stringify(layout);
@@ -147,13 +154,21 @@ export const useLayoutStore = create<LayoutState>()((set, get) => ({
   // Sync layout to MongoDB synchronously (for beforeunload)
   // Uses sendBeacon for reliable shutdown saves
   syncToMongoSync: (layout) => {
+    const { isLoaded } = get();
+    if (!isLoaded) {
+      console.warn('[layoutStore] Layout not loaded yet, skipping save to prevent stale data');
+      return;
+    }
+
     try {
       console.log('[layoutStore] Syncing layout to MongoDB (sync)');
       const layoutJson = JSON.stringify(layout);
-      const blob = new Blob([JSON.stringify(layoutJson)], { type: 'application/json' });
 
       // Try sendBeacon first (best for beforeunload)
+      // Note: sendBeacon doesn't support custom headers, so we send the raw JSON string
+      // The server endpoint expects a JSON string (not an object), so this works correctly
       if (navigator.sendBeacon) {
+        const blob = new Blob([JSON.stringify(layoutJson)], { type: 'application/json' });
         const sent = navigator.sendBeacon('/api/settings/layout', blob);
         if (sent) {
           console.log('[layoutStore] Layout sent via sendBeacon');
@@ -195,5 +210,11 @@ export const useLayoutStore = create<LayoutState>()((set, get) => ({
       console.error('[layoutStore] Failed to load layout from MongoDB:', e);
       set({ isLoaded: true });
     }
+  },
+
+  // Mark layout as not loaded (e.g., during disconnection)
+  setNotLoaded: () => {
+    console.log('[layoutStore] Marking layout as not loaded');
+    set({ isLoaded: false });
   },
 }));

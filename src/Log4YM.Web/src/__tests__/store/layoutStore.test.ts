@@ -94,6 +94,8 @@ describe('layoutStore', () => {
         },
       };
 
+      // Mark as loaded first
+      useLayoutStore.setState({ isLoaded: true });
       mockFetch.mockResolvedValueOnce({ ok: true });
 
       await useLayoutStore.getState().syncToMongo(customLayout);
@@ -109,6 +111,22 @@ describe('layoutStore', () => {
       );
     });
 
+    it('skips save when layout is not loaded to prevent stale data', async () => {
+      const customLayout: IJsonModel = {
+        global: {},
+        borders: [],
+        layout: { type: 'row', weight: 100, children: [] },
+      };
+
+      // Keep isLoaded as false (default state)
+      useLayoutStore.setState({ isLoaded: false });
+
+      await useLayoutStore.getState().syncToMongo(customLayout);
+
+      // Should NOT have called the API
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+
     it('handles save errors gracefully without throwing', async () => {
       const customLayout: IJsonModel = {
         global: {},
@@ -116,6 +134,8 @@ describe('layoutStore', () => {
         layout: { type: 'row', weight: 100, children: [] },
       };
 
+      // Mark as loaded first
+      useLayoutStore.setState({ isLoaded: true });
       mockFetch.mockRejectedValueOnce(new Error('Network error'));
 
       // Should not throw
@@ -132,6 +152,8 @@ describe('layoutStore', () => {
         layout: { type: 'row', weight: 100, children: [] },
       };
 
+      // Mark as loaded first
+      useLayoutStore.setState({ isLoaded: true });
       mockFetch.mockResolvedValueOnce({ ok: false, status: 500 });
 
       await useLayoutStore.getState().syncToMongo(customLayout);
@@ -209,6 +231,64 @@ describe('layoutStore', () => {
           body: JSON.stringify(JSON.stringify(defaultLayout)),
         })
       );
+    });
+  });
+
+  describe('setNotLoaded', () => {
+    it('marks layout as not loaded', () => {
+      // Start with loaded state
+      useLayoutStore.setState({ isLoaded: true });
+
+      useLayoutStore.getState().setNotLoaded();
+
+      const state = useLayoutStore.getState();
+      expect(state.isLoaded).toBe(false);
+    });
+
+    it('prevents saving after marking as not loaded', async () => {
+      const customLayout: IJsonModel = {
+        global: {},
+        borders: [],
+        layout: { type: 'row', weight: 100, children: [] },
+      };
+
+      // Start with loaded state
+      useLayoutStore.setState({ isLoaded: true });
+
+      // Mark as not loaded
+      useLayoutStore.getState().setNotLoaded();
+
+      // Try to save
+      await useLayoutStore.getState().syncToMongo(customLayout);
+
+      // Should NOT have called the API
+      expect(mockFetch).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('syncToMongoSync', () => {
+    it('skips save when layout is not loaded', () => {
+      const customLayout: IJsonModel = {
+        global: {},
+        borders: [],
+        layout: { type: 'row', weight: 100, children: [] },
+      };
+
+      // Mock XMLHttpRequest
+      const mockXHR = {
+        open: vi.fn(),
+        setRequestHeader: vi.fn(),
+        send: vi.fn(),
+      };
+      global.XMLHttpRequest = vi.fn(() => mockXHR) as any;
+
+      // Keep isLoaded as false
+      useLayoutStore.setState({ isLoaded: false });
+
+      useLayoutStore.getState().syncToMongoSync(customLayout);
+
+      // Should NOT have opened the XHR connection
+      expect(mockXHR.open).not.toHaveBeenCalled();
     });
   });
 });

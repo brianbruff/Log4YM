@@ -5,6 +5,153 @@ import { useSignalR } from '../hooks/useSignalR';
 import { GlassPanel } from '../components/GlassPanel';
 import { useSettingsStore, RotatorPreset } from '../store/settingsStore';
 
+export function RotatorControls() {
+  const { rotatorPosition, focusedCallsignInfo } = useAppStore();
+  const { commandRotator } = useSignalR();
+  const { settings } = useSettingsStore();
+  
+  const [targetAzimuth, setTargetAzimuth] = useState('');
+  const [isRotating, setIsRotating] = useState(false);
+  const [pathMode, setPathMode] = useState<'short' | 'long'>('short');
+
+  // Calculate long path from short path (add 180 degrees)
+  const shortPathBearing = focusedCallsignInfo?.bearing;
+  const longPathBearing = shortPathBearing != null ? (shortPathBearing + 180) % 360 : undefined;
+  const selectedBearing = pathMode === 'short' ? shortPathBearing : longPathBearing;
+
+  const presets = settings.rotator.presets || [
+    { name: 'N', azimuth: 0 },
+    { name: 'E', azimuth: 90 },
+    { name: 'S', azimuth: 180 },
+    { name: 'W', azimuth: 270 },
+  ];
+  
+  const currentAzimuth = rotatorPosition?.currentAzimuth ?? 0;
+
+  const handleRotate = useCallback(async () => {
+    const azimuth = parseFloat(targetAzimuth);
+    if (isNaN(azimuth) || azimuth < 0 || azimuth > 360) return;
+
+    setIsRotating(true);
+    try {
+      await commandRotator(azimuth, 'rotator');
+    } finally {
+      setIsRotating(false);
+    }
+  }, [targetAzimuth, commandRotator]);
+
+  const handleRotateToTarget = useCallback(async () => {
+    if (selectedBearing === undefined) return;
+
+    setIsRotating(true);
+    try {
+      await commandRotator(selectedBearing, 'rotator');
+    } finally {
+      setIsRotating(false);
+    }
+  }, [selectedBearing, commandRotator]);
+
+  const handleQuickRotate = useCallback(async (deg: number) => {
+    setTargetAzimuth(deg.toString());
+    setIsRotating(true);
+    try {
+      await commandRotator(deg, 'rotator');
+    } finally {
+      setIsRotating(false);
+    }
+  }, [commandRotator]);
+
+  return (
+    <div className="flex flex-wrap items-center gap-2">
+      {/* Preset buttons */}
+      {presets.map((preset, index) => (
+        <button
+          key={index}
+          onClick={() => handleQuickRotate(preset.azimuth)}
+          disabled={isRotating}
+          className={`glass-button px-2 py-1 text-xs ${
+            Math.abs(currentAzimuth - preset.azimuth) < 5 ? 'border-accent-primary text-accent-primary' : ''
+          }`}
+          title={`${preset.azimuth}°`}
+        >
+          <span className="font-ui font-medium">{preset.name}</span>
+        </button>
+      ))}
+
+      {/* Separator */}
+      <div className="w-px h-5 bg-glass-200 mx-1" />
+
+      {/* SP/LP Toggle */}
+      {shortPathBearing != null && (
+        <div className="flex rounded overflow-hidden border border-glass-200 text-xs mr-1">
+          <button
+            onClick={() => setPathMode('short')}
+            className={`px-2 py-1 font-ui font-medium transition-colors ${
+              pathMode === 'short'
+                ? 'bg-accent-warning text-dark-900'
+                : 'bg-dark-700 text-dark-300 hover:text-dark-200'
+            }`}
+            title="Short Path"
+          >
+            SP
+          </button>
+          <button
+            onClick={() => setPathMode('long')}
+            className={`px-2 py-1 font-ui font-medium transition-colors ${
+              pathMode === 'long'
+                ? 'bg-accent-warning text-dark-900'
+                : 'bg-dark-700 text-dark-300 hover:text-dark-200'
+            }`}
+            title="Long Path"
+          >
+            LP
+          </button>
+        </div>
+      )}
+
+      {/* Manual azimuth input */}
+      <div className="flex items-center gap-1">
+        <input
+          type="number"
+          min="0"
+          max="360"
+          value={targetAzimuth}
+          onChange={(e) => setTargetAzimuth(e.target.value)}
+          placeholder="Az"
+          className="glass-input w-16 font-mono text-xs text-center py-1"
+          onKeyDown={(e) => {
+            if (e.key === 'Enter') handleRotate();
+          }}
+        />
+        <button
+          onClick={handleRotate}
+          disabled={isRotating || !targetAzimuth}
+          className="glass-button p-1.5 disabled:opacity-50"
+          title="Rotate to azimuth"
+        >
+          <Navigation className={`w-4 h-4 ${isRotating ? 'animate-spin' : ''}`} />
+        </button>
+      </div>
+
+      {/* Rotate to target button */}
+      {selectedBearing !== undefined && (
+        <>
+          <div className="w-px h-5 bg-glass-200 mx-1" />
+          <button
+            onClick={handleRotateToTarget}
+            disabled={isRotating}
+            className="glass-button-success px-2 py-1 flex items-center gap-1 text-xs disabled:opacity-50"
+            title={`Rotate to ${focusedCallsignInfo?.callsign} (${pathMode === 'short' ? 'SP' : 'LP'})`}
+          >
+            <Target className="w-3.5 h-3.5" />
+            <span className="font-mono">{selectedBearing?.toFixed(0)}°</span>
+          </button>
+        </>
+      )}
+    </div>
+  );
+}
+
 export function RotatorCore({ hideControls, hideCompass, integratedMode }: { hideControls?: boolean; hideCompass?: boolean; integratedMode?: boolean }) {
   const { rotatorPosition, focusedCallsignInfo } = useAppStore();
   const { commandRotator } = useSignalR();
@@ -479,17 +626,20 @@ export function RotatorPlugin() {
       title="Rotator"
       icon={<Compass className="w-5 h-5" />}
       actions={
-        <div className="flex items-center gap-2">
-          {settings.rotator.enabled ? (
-            <>
-              {/* Fullscreen button */}
-              <button className="glass-button p-1.5" title="Fullscreen" onClick={toggleFullscreen}>
-                <Maximize2 className="w-4 h-4" />
-              </button>
-            </>
-          ) : (
-            <span className="text-sm font-ui text-dark-300">Disabled</span>
-          )}
+        <div className="flex items-center gap-4">
+          {settings.rotator.enabled && <RotatorControls />}
+          <div className="flex items-center gap-2">
+            {settings.rotator.enabled ? (
+              <>
+                {/* Fullscreen button */}
+                <button className="glass-button p-1.5" title="Fullscreen" onClick={toggleFullscreen}>
+                  <Maximize2 className="w-4 h-4" />
+                </button>
+              </>
+            ) : (
+              <span className="text-sm font-ui text-dark-300">Disabled</span>
+            )}
+          </div>
         </div>
       }
     >

@@ -13,7 +13,7 @@ import { gridToLatLon, calculateDistance, calculateBearing, getAnimationDuration
 import { fetchTLEData, calculateSatellitePosition, calculateOrbitTrack, type SatellitePosition, type SatelliteTLE } from '../utils/satellite';
 import { api, type RbnSpot } from '../api/client';
 import { GlobeCore } from './GlobePlugin';
-import { RotatorCore } from './RotatorPlugin';
+import { RotatorControls } from './RotatorPlugin';
 
 import 'leaflet/dist/leaflet.css';
 
@@ -1669,8 +1669,31 @@ export function MapCore({ children }: { children?: React.ReactNode }) {
 export function MapPlugin() {
   const { settings } = useSettingsStore();
   const [isFullscreen, setIsFullscreen] = useState(false);
-  const { stationGrid, rotatorPosition } = useAppStore();
-  
+  const { stationGrid, rotatorPosition, selectedRadioId, radioStates } = useAppStore();
+  const [containerHeight, setContainerHeight] = useState(0);
+  const containerRef = useRef<HTMLDivElement>(null);
+
+  // Track container height to hide top/bottom content if no space
+  useEffect(() => {
+    const el = document.getElementById('map-plugin-container');
+    if (!el) return;
+
+    const observer = new ResizeObserver((entries) => {
+      setContainerHeight(entries[0].contentRect.height);
+    });
+
+    observer.observe(el);
+    return () => observer.disconnect();
+  }, []);
+
+  // Determine visibility based on container height
+  const showTopContent = containerHeight >= 740;
+  const showBottomContent = containerHeight >= 800;
+
+  // Get active radio state if available
+  const radioState = selectedRadioId ? radioStates.get(selectedRadioId) : null;
+  const frequency = radioState?.frequencyHz ? (radioState.frequencyHz / 1000000).toFixed(3) : null;
+
   const toggleFullscreen = useCallback(() => {
     const el = document.getElementById('map-plugin-container');
     if (!el) return;
@@ -1688,16 +1711,21 @@ export function MapPlugin() {
       title="2D Map"
       icon={<MapIcon className="w-5 h-5" />}
       actions={
-        <button
-          onClick={toggleFullscreen}
-          className="glass-button p-1.5"
-          title="Fullscreen"
-        >
-          <Maximize2 className="w-4 h-4" />
-        </button>
+        <div className="flex items-center gap-4">
+          {settings.rotator.enabled && (
+             <RotatorControls />
+          )}
+          <button
+            onClick={toggleFullscreen}
+            className="glass-button p-1.5"
+            title="Fullscreen"
+          >
+            <Maximize2 className="w-4 h-4" />
+          </button>
+        </div>
       }
     >
-      <div id="map-plugin-container" className="relative w-full h-full min-h-[500px] bg-dark-900 overflow-hidden font-ui">
+      <div id="map-plugin-container" ref={containerRef} className="relative w-full h-full min-h-[500px] bg-dark-900 overflow-hidden font-ui">
         
         {/* Background Map - Full Screen */}
         <div className="absolute inset-0 z-0">
@@ -1731,7 +1759,7 @@ export function MapPlugin() {
           {/* Sidebar Content (Rendered after Globe to stay on top if screen is very short) */}
           <div className="absolute top-0 bottom-0 left-0 w-[300px] flex flex-col justify-between py-8">
             {/* Top Section: Station Info */}
-            <div className="px-6 pointer-events-auto">
+            <div className={`px-6 pointer-events-auto transition-opacity duration-300 ${showTopContent ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
                <div className="flex items-center gap-2 mb-4 text-accent-primary font-display font-bold text-sm tracking-wider">
                  <Radio className="w-4 h-4" />
                  <span>STATION</span>
@@ -1745,11 +1773,19 @@ export function MapPlugin() {
                    <span>Grid:</span>
                    <span className="text-gray-100 font-bold">{stationGrid || 'N/A'}</span>
                  </div>
+
+                 {/* Rig Info */}
+                 {frequency && (
+                   <div className="flex justify-between items-center border-b border-glass-100/10 pb-2 pt-1">
+                     <span>Rig:</span>
+                     <span className="text-accent-info font-bold">{frequency} MHz {radioState?.mode}</span>
+                   </div>
+                 )}
                </div>
             </div>
 
             {/* Bottom Section: System & Rotator */}
-            <div className="px-6 pointer-events-auto">
+            <div className={`px-6 pointer-events-auto transition-opacity duration-300 ${showBottomContent ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
                <div className="flex items-center gap-2 mb-4 text-accent-info font-display font-bold text-sm tracking-wider">
                  <Radio className="w-4 h-4" />
                  <span>SYSTEM ONLINE</span>
@@ -1765,10 +1801,6 @@ export function MapPlugin() {
                    <span className="text-[10px] text-dark-400 font-ui uppercase tracking-widest mb-1">Current Heading</span>
                    <div className="text-5xl font-display font-bold text-accent-primary drop-shadow-[0_2px_10px_rgba(255,180,50,0.3)] mb-4">
                       {rotatorPosition?.currentAzimuth?.toFixed(0) || 0}&deg;
-                   </div>
-                   
-                   <div className="w-full">
-                     <RotatorCore hideCompass={true} integratedMode={true} />
                    </div>
                  </div>
                )}

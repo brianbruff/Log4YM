@@ -1,16 +1,21 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
-import { Globe as GlobeIcon, Navigation, Target, Maximize2 } from 'lucide-react';
+import { Globe as GlobeIcon, Navigation, Target, Maximize2, Radio, MapPin } from 'lucide-react';
 import { useAppStore } from '../store/appStore';
 import { useSettingsStore } from '../store/settingsStore';
 import { useSignalR } from '../hooks/useSignalR';
 import { GlassPanel } from '../components/GlassPanel';
 import { gridToLatLon, calculateDistance, getAnimationDuration } from '../utils/maidenhead';
+import { RotatorControls } from './RotatorPlugin';
 import type { CallsignLookedUpEvent } from '../api/signalr';
 // Globe is dynamically imported to catch WebGL errors at load time
 
 // Default station location (can be overridden by store)
 const DEFAULT_LAT = 52.6667; // IO52RN - Limerick
 const DEFAULT_LON = -8.6333;
+
+// Thresholds for showing overlays based on container height
+const TOP_OVERLAY_THRESHOLD = 450;
+const BOTTOM_OVERLAY_THRESHOLD = 550;
 
 // Spherical linear interpolation (SLERP) along a great circle between two lat/lon points.
 // t=0 returns start, t=1 returns end.
@@ -109,12 +114,17 @@ export function GlobeCore({ hideOverlays, hideCompass }: { hideOverlays?: boolea
   const cameraAnimationRef = useRef<number | null>(null);
   const lastTargetCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
 
-  const { stationGrid, rotatorPosition, focusedCallsignInfo } = useAppStore();
+  const { stationGrid, rotatorPosition, focusedCallsignInfo, radioStates, selectedRadioId } = useAppStore();
   const { settings } = useSettingsStore();
   const { commandRotator } = useSignalR();
 
   const [currentAzimuth, setCurrentAzimuth] = useState(0);
   const [webglError, setWebglError] = useState<string | null>(null);
+  const [containerHeight, setContainerHeight] = useState(0);
+
+  // Get current radio state if connected
+  const selectedRadioState = selectedRadioId ? radioStates.get(selectedRadioId) : null;
+  const isRadioConnected = !!selectedRadioState;
 
   // Rotator is enabled in settings
   const rotatorEnabled = settings.rotator.enabled;
@@ -308,29 +318,20 @@ export function GlobeCore({ hideOverlays, hideCompass }: { hideOverlays?: boolea
     if (!containerRef.current) return;
 
     // Thorough WebGL check - test actual shader compilation.
-    // globe.gl uses Three.js which prefers WebGL2, so we test WebGL2 first.
-    // Note: Firefox on Windows 11 may support WebGL1 but fail with WebGL2 on certain GPU drivers.
     try {
       const testCanvas = document.createElement('canvas');
-
-      // Try WebGL2 first (preferred by Three.js/globe.gl), fall back to WebGL1
       const gl2 = testCanvas.getContext('webgl2');
       const gl: WebGLRenderingContext | null = gl2 ??
         (testCanvas.getContext('webgl') ?? testCanvas.getContext('experimental-webgl') as WebGLRenderingContext | null);
 
       if (!gl) {
-        console.error('WebGL not supported');
-        setWebglError('WebGL is not supported in your browser. The 3D Globe requires WebGL. Please enable hardware acceleration in your browser settings.');
+        setWebglError('WebGL is not supported in your browser.');
         return;
       }
 
-      console.log(`WebGL${gl2 ? '2' : '1'} context available for preflight check`);
-
-      // Test shader compilation - this is what Three.js does and where it fails
       const vertexShader = gl.createShader(gl.VERTEX_SHADER);
       if (!vertexShader) {
-        console.error('WebGL cannot create vertex shader');
-        setWebglError('WebGL shader creation failed. Try enabling hardware acceleration in your browser settings.');
+        setWebglError('WebGL shader creation failed.');
         return;
       }
 
@@ -338,37 +339,17 @@ export function GlobeCore({ hideOverlays, hideCompass }: { hideOverlays?: boolea
       gl.compileShader(vertexShader);
 
       if (!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
-        console.error('WebGL shader compilation failed:', gl.getShaderInfoLog(vertexShader));
-        setWebglError('WebGL shader compilation failed. Try enabling hardware acceleration in your browser settings.');
+        setWebglError('WebGL shader compilation failed.');
         gl.deleteShader(vertexShader);
         return;
       }
-
       gl.deleteShader(vertexShader);
-
-      // Check renderer info - note Firefox may block WEBGL_debug_renderer_info via privacy settings
-      const debugInfo = gl.getExtension('WEBGL_debug_renderer_info');
-      if (debugInfo) {
-        const renderer = gl.getParameter(debugInfo.UNMASKED_RENDERER_WEBGL);
-        console.log('WebGL renderer:', renderer);
-        // SwiftShader is a software renderer - may cause issues
-        if (renderer && renderer.includes('SwiftShader')) {
-          console.warn('Using SwiftShader (software renderer) - performance may be poor');
-        }
-      }
-
-      // Note: We intentionally do NOT call loseContext() here.
-      // On some Windows 11 GPU configurations (especially with Firefox's D3D11 backend),
-      // aggressively losing the test context can trigger internal browser state changes
-      // that interfere with subsequent WebGL context creation by globe.gl.
-      // The test canvas will be naturally garbage collected.
     } catch (e) {
-      console.error('WebGL check failed:', e);
-      setWebglError('Failed to initialize WebGL. Please ensure hardware acceleration is enabled in your browser settings.');
+      setWebglError('Failed to initialize WebGL.');
       return;
     }
 
-    // Variables for cleanup - declared outside async function for cleanup access
+    // Variables for cleanup
     let resizeObserver: ResizeObserver | null = null;
     let resizeTimeout: ReturnType<typeof setTimeout> | null = null;
     let debouncedResizeFn: (() => void) | null = null;
@@ -391,7 +372,6 @@ export function GlobeCore({ hideOverlays, hideCompass }: { hideOverlays?: boolea
 
       const hasDimensions = await waitForDimensions();
       if (!hasDimensions) {
-        console.error('Globe container has no dimensions');
         if (!isCancelled) {
           setWebglError('Globe container failed to initialize. Please try resizing the window.');
         }
@@ -400,28 +380,12 @@ export function GlobeCore({ hideOverlays, hideCompass }: { hideOverlays?: boolea
 
       let Globe;
       try {
-        // Import Three.js first to ensure WebGL renderer is initialized
-        // This helps prevent race conditions in the module initialization
-        // @ts-ignore - three.js types not needed for this initialization check
         await import('three');
-
         const module = await import('globe.gl');
         Globe = module.default;
       } catch (e) {
-        console.error('Failed to load globe.gl:', e);
         if (!isCancelled) {
-          // Provide more helpful error message
-          const errorMsg = e instanceof Error ? e.message : String(e);
-          // Detect WebGL/shader errors - use broad matching since Firefox and Chrome
-          // report different error strings (e.g. Firefox may say "Lost WebGL context")
-          const isWebGLError = errorMsg.includes('VERTEX') || errorMsg.includes('WebGL') ||
-            errorMsg.includes('webgl') || errorMsg.includes('shader') || errorMsg.includes('context') ||
-            errorMsg.includes('GPU') || errorMsg.includes('Lost');
-          if (isWebGLError) {
-            setWebglError('WebGL initialization failed. Please enable hardware acceleration in your browser settings. In Firefox: Settings → General → Performance → Use hardware acceleration. In Chrome: Settings → System → Use hardware acceleration.');
-          } else {
-            setWebglError(`Failed to load 3D Globe: ${errorMsg}`);
-          }
+          setWebglError('Failed to load globe.gl');
         }
         return;
       }
@@ -434,9 +398,8 @@ export function GlobeCore({ hideOverlays, hideCompass }: { hideOverlays?: boolea
         // @ts-expect-error - globe.gl typings issue with dynamic import
         globe = Globe() as GlobeInstance;
       } catch (e) {
-        console.error('Failed to initialize Globe:', e);
         if (!isCancelled) {
-          setWebglError('Failed to initialize 3D Globe. Your browser may not support required features.');
+          setWebglError('Failed to initialize 3D Globe.');
         }
         return;
       }
@@ -489,7 +452,6 @@ export function GlobeCore({ hideOverlays, hideCompass }: { hideOverlays?: boolea
         });
 
       // Handle globe clicks to set azimuth - use refs to avoid stale closures
-      // Only allow commanding rotator when enabled
       globe.onGlobeClick((coords) => {
         if (!rotatorEnabledRef.current) return; // Ignore clicks when rotator disabled
         if (coords && coords.lat !== undefined && coords.lng !== undefined) {
@@ -508,7 +470,7 @@ export function GlobeCore({ hideOverlays, hideCompass }: { hideOverlays?: boolea
 
       globeRef.current = globe;
 
-      // Handle resize - use ResizeObserver for container size changes (FlexLayout panels)
+      // Handle resize
       let lastWidth = 0;
       let lastHeight = 0;
       let isResizing = false;
@@ -516,12 +478,13 @@ export function GlobeCore({ hideOverlays, hideCompass }: { hideOverlays?: boolea
       const handleResize = () => {
         if (isResizing || !containerRef.current || !globeRef.current) return;
 
-        // Use getBoundingClientRect for more stable measurements
         const rect = containerRef.current.getBoundingClientRect();
         const width = Math.floor(rect.width);
         const height = Math.floor(rect.height);
 
-        // Only update if size changed by more than 5px (avoid micro-fluctuations)
+        // Update container height state for conditional overlays
+        setContainerHeight(height);
+
         const widthDiff = Math.abs(width - lastWidth);
         const heightDiff = Math.abs(height - lastHeight);
 
@@ -530,12 +493,10 @@ export function GlobeCore({ hideOverlays, hideCompass }: { hideOverlays?: boolea
           lastWidth = width;
           lastHeight = height;
           globeRef.current.width(width).height(height);
-          // Release lock after a short delay to prevent feedback loops
           setTimeout(() => { isResizing = false; }, 100);
         }
       };
 
-      // Debounced resize handler to prevent rapid re-renders
       const debouncedResize = () => {
         if (resizeTimeout) {
           clearTimeout(resizeTimeout);
@@ -543,27 +504,16 @@ export function GlobeCore({ hideOverlays, hideCompass }: { hideOverlays?: boolea
         resizeTimeout = setTimeout(handleResize, 300);
       };
 
-      // Store reference for cleanup
       debouncedResizeFn = debouncedResize;
-
-      // ResizeObserver detects container size changes from FlexLayout
       resizeObserver = new ResizeObserver(debouncedResize);
-
       resizeObserver.observe(containerRef.current);
-
-      // Also handle window resize for fullscreen etc
       window.addEventListener('resize', debouncedResize);
-
-      // Initial size after a brief delay to let layout settle
       setTimeout(handleResize, 100);
-
-      // Start animation
       animationRef.current = requestAnimationFrame(animateBeam);
 
       } catch (e) {
-        console.error('Error during globe initialization:', e);
         if (!isCancelled) {
-          setWebglError('Failed to initialize 3D Globe. Please try refreshing the page or use a different browser.');
+          setWebglError('Failed to initialize 3D Globe.');
         }
       }
     };
@@ -571,7 +521,7 @@ export function GlobeCore({ hideOverlays, hideCompass }: { hideOverlays?: boolea
     // Start async initialization
     initGlobe();
 
-    // Cleanup function - always returned regardless of initialization success
+    // Cleanup function
     return () => {
       isCancelled = true;
       if (resizeObserver) {
@@ -590,37 +540,24 @@ export function GlobeCore({ hideOverlays, hideCompass }: { hideOverlays?: boolea
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stationLat, stationLon, stationGrid]);
 
-  // Update beam when rotator position changes, with protection against spurious 0 values
+  // Update beam when rotator position changes
   useEffect(() => {
     if (rotatorPosition?.currentAzimuth != null && typeof rotatorPosition.currentAzimuth === 'number') {
       const newPosition = rotatorPosition.currentAzimuth;
       const currentDisplay = displayedAzimuthRef.current;
-
-      // Detect suspicious jump to 0: backend sometimes sends 0 during state transitions
       const isNearZero = currentDisplay <= 30 || currentDisplay >= 330;
       const isSuspiciousZero = newPosition === 0 && !isNearZero;
-
-      // Ignore suspicious jumps to 0 - this is the main fix for the flip-to-0 issue
-      // The backend sometimes sends 0 during state transitions, regardless of isMoving status
-      if (isSuspiciousZero) {
-        return;
-      }
-
+      if (isSuspiciousZero) return;
       const timeSinceCommand = Date.now() - lastCommandTimeRef.current;
       const commanded = commandedAzimuthRef.current;
-
-      // If we recently sent a command, be selective about which updates we accept
       if (timeSinceCommand < 1000 && commanded !== null) {
-        // Only accept updates if the rotator position is close to what we commanded
         const diff = Math.abs(newPosition - commanded);
         const wrappedDiff = Math.min(diff, 360 - diff);
         if (wrappedDiff <= 15) {
           displayedAzimuthRef.current = newPosition;
           setCurrentAzimuth(newPosition);
         }
-        // Otherwise ignore this update - keep displaying the commanded azimuth
       } else {
-        // Enough time has passed, trust the rotator position
         commandedAzimuthRef.current = null;
         displayedAzimuthRef.current = newPosition;
         setCurrentAzimuth(newPosition);
@@ -641,112 +578,82 @@ export function GlobeCore({ hideOverlays, hideCompass }: { hideOverlays?: boolea
   useEffect(() => {
     if (!globeRef.current) return;
 
-    // Build marker data array - always include station
     const markerData: GlobeMarkerData[] = [{
       lat: stationLat,
       lng: stationLon,
       label: stationGrid || 'Station',
-      color: '#ffb432', // Amber accent to match beam color
+      color: '#ffb432',
       size: 0.05,
       type: 'station',
     }];
 
-    // Add target marker if we have focused callsign with coordinates
     if (focusedCallsignInfo?.latitude != null && focusedCallsignInfo?.longitude != null) {
       markerData.push({
         lat: focusedCallsignInfo.latitude,
         lng: focusedCallsignInfo.longitude,
         label: focusedCallsignInfo.callsign,
-        color: '#ff4466', // Danger red for target
+        color: '#ff4466',
         size: 0.04,
         type: 'target',
       });
     }
 
-    // Update marker data (configuration is already set during initialization)
     globeRef.current.pointsData(markerData);
   }, [focusedCallsignInfo, stationLat, stationLon, stationGrid]);
 
-  // Fly to target when focused callsign changes with distance-based animation
+  // Fly to target when focused callsign changes
   useEffect(() => {
     if (!globeRef.current) return;
 
     const targetLat = focusedCallsignInfo?.latitude;
     const targetLon = focusedCallsignInfo?.longitude;
-
-    // Only fly if we have valid target coordinates
     if (targetLat == null || targetLon == null) return;
 
-    // Cancel any ongoing camera animation
     if (cameraAnimationRef.current) {
       cancelAnimationFrame(cameraAnimationRef.current);
       cameraAnimationRef.current = null;
     }
 
-    // Calculate distance for animation duration
-    let duration = 2; // Default duration in seconds
+    let duration = 2;
     const lastCoords = lastTargetCoordsRef.current;
-
     if (lastCoords) {
-      // Calculate distance from previous target
       const distance = calculateDistance(lastCoords.lat, lastCoords.lng, targetLat, targetLon);
       duration = getAnimationDuration(distance);
     } else {
-      // First target - calculate distance from station
       const distance = calculateDistance(stationLat, stationLon, targetLat, targetLon);
       duration = getAnimationDuration(distance);
     }
 
-    // Update last coordinates ref
     lastTargetCoordsRef.current = { lat: targetLat, lng: targetLon };
 
-    // Get current camera position
     const startPov = globeRef.current.pointOfView();
     const targetPov = { lat: targetLat, lng: targetLon, altitude: 2.0 };
 
-    // Smooth interpolation animation
     const startTime = performance.now();
     const durationMs = duration * 1000;
 
-    // Easing function for smooth curved motion (similar to Leaflet's easeLinearity: 0.1)
     const easeInOutCubic = (t: number): number => {
-      return t < 0.5
-        ? 4 * t * t * t
-        : 1 - Math.pow(-2 * t + 2, 3) / 2;
+      return t < 0.5 ? 4 * t * t * t : 1 - Math.pow(-2 * t + 2, 3) / 2;
     };
 
-    // Handle longitude wrapping for shortest path
     let startLng = startPov.lng;
     let endLng = targetPov.lng;
     const lngDiff = endLng - startLng;
-
-    // Adjust for crossing the date line - take shortest path
-    if (lngDiff > 180) {
-      startLng += 360;
-    } else if (lngDiff < -180) {
-      endLng += 360;
-    }
+    if (lngDiff > 180) startLng += 360;
+    else if (lngDiff < -180) endLng += 360;
 
     const animateCamera = (currentTime: number) => {
       const elapsed = currentTime - startTime;
       const progress = Math.min(elapsed / durationMs, 1);
       const easedProgress = easeInOutCubic(progress);
 
-      // Interpolate position
       const currentLat = startPov.lat + (targetPov.lat - startPov.lat) * easedProgress;
       let currentLng = startLng + (endLng - startLng) * easedProgress;
-
-      // Normalize longitude back to -180 to 180
       currentLng = ((currentLng + 540) % 360) - 180;
-
       const currentAlt = startPov.altitude + (targetPov.altitude - startPov.altitude) * easedProgress;
 
       if (globeRef.current) {
-        globeRef.current.pointOfView({
-          lat: currentLat,
-          lng: currentLng,
-          altitude: currentAlt
-        });
+        globeRef.current.pointOfView({ lat: currentLat, lng: currentLng, altitude: currentAlt });
       }
 
       if (progress < 1) {
@@ -758,7 +665,6 @@ export function GlobeCore({ hideOverlays, hideCompass }: { hideOverlays?: boolea
 
     cameraAnimationRef.current = requestAnimationFrame(animateCamera);
 
-    // Cleanup on unmount or re-run
     return () => {
       if (cameraAnimationRef.current) {
         cancelAnimationFrame(cameraAnimationRef.current);
@@ -766,6 +672,14 @@ export function GlobeCore({ hideOverlays, hideCompass }: { hideOverlays?: boolea
       }
     };
   }, [focusedCallsignInfo?.latitude, focusedCallsignInfo?.longitude, stationLat, stationLon]);
+
+  const formatFrequency = (hz: number): string => {
+    const mhz = hz / 1_000_000;
+    return mhz.toFixed(3);
+  };
+
+  const showTopOverlay = containerHeight >= TOP_OVERLAY_THRESHOLD;
+  const showBottomOverlay = containerHeight >= BOTTOM_OVERLAY_THRESHOLD;
 
   return (
       <div className="relative w-full h-full min-h-[400px]">
@@ -776,10 +690,6 @@ export function GlobeCore({ hideOverlays, hideCompass }: { hideOverlays?: boolea
               <GlobeIcon className="w-12 h-12 mx-auto mb-4 text-dark-300" />
               <h3 className="text-lg font-semibold mb-2 font-ui text-dark-200">WebGL Not Available</h3>
               <p className="text-sm text-dark-300 mb-4">{webglError}</p>
-              <p className="text-xs text-dark-300">
-                Try using a modern browser like Chrome, Firefox, or Edge.
-                The 2D Map plugin provides similar functionality without WebGL.
-              </p>
             </div>
           </div>
         )}
@@ -791,79 +701,140 @@ export function GlobeCore({ hideOverlays, hideCompass }: { hideOverlays?: boolea
           style={{ cursor: rotatorEnabled ? 'crosshair' : 'default' }}
         />
 
+        {/* Station and Rig Info Overlay (Top Left) */}
+        {!hideOverlays && showTopOverlay && (
+          <div className="absolute top-4 left-4 flex flex-col gap-2 pointer-events-none">
+            <div className="glass-panel px-3 py-2 border-l-4 border-accent-primary">
+              <div className="flex items-center gap-2 mb-1">
+                <div className="p-1 bg-accent-primary/20 rounded">
+                  <GlobeIcon className="w-3.5 h-3.5 text-accent-primary" />
+                </div>
+                <span className="font-display font-bold text-dark-100 tracking-wider">
+                  {settings.station.callsign || 'STATION'}
+                </span>
+                <span className="text-[10px] font-mono text-dark-300 bg-dark-700 px-1.5 py-0.5 rounded">
+                  {settings.station.gridSquare || stationGrid || '----'}
+                </span>
+              </div>
+              
+              {isRadioConnected && selectedRadioState && (
+                <div className="flex flex-col gap-0.5 mt-1 pt-1 border-t border-glass-100">
+                  <div className="flex items-center gap-1.5 text-xs">
+                    <Radio className="w-3 h-3 text-accent-success" />
+                    <span className="font-mono font-bold text-accent-success">
+                      {formatFrequency(selectedRadioState.frequencyHz)}
+                    </span>
+                    <span className="text-[10px] text-dark-300 font-ui">MHz</span>
+                    <span className="text-[10px] font-bold text-accent-secondary ml-auto bg-accent-secondary/10 px-1 rounded">
+                      {selectedRadioState.mode}
+                    </span>
+                  </div>
+                  <div className="text-[10px] text-dark-400 font-ui truncate max-w-[150px]">
+                    {selectedRadioId?.startsWith('tci-') ? 'TCI' : 'Rig'}: {selectedRadioState.band}
+                  </div>
+                </div>
+              )}
+            </div>
+
+            {/* Target DX Info (if active) */}
+            {focusedCallsignInfo && (
+              <div className="glass-panel px-3 py-2 border-l-4 border-accent-danger animate-fade-in pointer-events-auto">
+                <div className="flex items-center gap-2">
+                  <Target className="w-4 h-4 text-accent-danger" />
+                  <div>
+                    <p className="font-mono font-bold text-accent-danger">
+                      {focusedCallsignInfo.callsign}
+                    </p>
+                    {focusedCallsignInfo.grid && (
+                      <p className="text-[10px] font-mono text-dark-300">{focusedCallsignInfo.grid}</p>
+                    )}
+                    {focusedCallsignInfo.bearing != null && (
+                      <p className="text-[10px] font-mono text-accent-info">
+                        {focusedCallsignInfo.bearing.toFixed(0)}°
+                        {focusedCallsignInfo.distance != null && ` / ${Math.round(focusedCallsignInfo.distance)}km`}
+                      </p>
+                    )}
+                  </div>
+                  {rotatorEnabled && focusedCallsignInfo.bearing != null && (
+                    <button
+                      onClick={() => {
+                        const bearing = focusedCallsignInfo.bearing!;
+                        lastCommandTimeRef.current = Date.now();
+                        commandedAzimuthRef.current = bearing;
+                        displayedAzimuthRef.current = bearing;
+                        setCurrentAzimuth(bearing);
+                        commandRotator(bearing, 'globe');
+                      }}
+                      className="glass-button-success px-2 py-1 flex items-center gap-1 text-[10px] ml-2"
+                      title={`Rotate to ${focusedCallsignInfo.callsign}`}
+                    >
+                      <Navigation className="w-2.5 h-2.5" />
+                      <span className="font-mono">{focusedCallsignInfo.bearing.toFixed(0)}°</span>
+                    </button>
+                  )}
+                </div>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Azimuth and Coordinates Overlay (Bottom Center) */}
+        {!hideOverlays && showBottomOverlay && (
+          <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-1 pointer-events-none">
+            {rotatorEnabled && (
+              <div className="text-center">
+                <div className="text-5xl font-display font-bold text-accent-primary drop-shadow-glow leading-none">
+                  {currentAzimuth}°
+                </div>
+                <div className="text-[10px] font-ui font-bold uppercase tracking-[0.2em] text-accent-primary/60 mt-1">
+                  Beam Heading
+                </div>
+              </div>
+            )}
+            
+            <div className="mt-2 flex items-center gap-3 px-3 py-1 bg-dark-900/40 backdrop-blur-sm rounded-full border border-glass-100 text-[10px] font-mono text-dark-300">
+              <div className="flex items-center gap-1">
+                <MapPin className="w-2.5 h-2.5" />
+                <span>{stationLat.toFixed(4)}°N</span>
+              </div>
+              <div className="w-px h-2 bg-glass-200" />
+              <div>{Math.abs(stationLon).toFixed(4)}°{stationLon >= 0 ? 'E' : 'W'}</div>
+            </div>
+          </div>
+        )}
+
+        {/* Instructions (Bottom Left) - Hide if height too small */}
+        {!hideOverlays && containerHeight > 400 && (
+          <div className="absolute bottom-4 left-4 glass-panel px-3 py-2 text-[10px] pointer-events-none opacity-60">
+            <div className="flex items-center gap-2 font-ui text-dark-300">
+              <Navigation className="w-3 h-3" />
+              <span>{rotatorEnabled ? 'Click globe to set beam' : 'Rotator disabled'}</span>
+            </div>
+          </div>
+        )}
+
+        {/* Compass Overlay (Top Right) */}
         {!hideCompass && rotatorEnabled && (
-          <div className="absolute top-4 right-4 w-32 h-32 bg-dark-800/90 backdrop-blur-sm rounded-full border-2 border-glass-200 flex items-center justify-center pointer-events-none">
-            <span className="absolute top-1 text-xs font-bold font-ui text-accent-danger">N</span>
-            <span className="absolute bottom-1 text-xs font-bold font-ui text-dark-300">S</span>
-            <span className="absolute left-1 text-xs font-bold font-ui text-dark-300">W</span>
-            <span className="absolute right-1 text-xs font-bold font-ui text-dark-300">E</span>
+          <div className="absolute top-4 right-4 w-28 h-28 bg-dark-800/80 backdrop-blur-sm rounded-full border border-glass-100 flex items-center justify-center pointer-events-none">
+            <span className="absolute top-1 text-[10px] font-bold font-ui text-accent-danger">N</span>
+            <span className="absolute bottom-1 text-[10px] font-bold font-ui text-dark-300">S</span>
+            <span className="absolute left-1 text-[10px] font-bold font-ui text-dark-300">W</span>
+            <span className="absolute right-1 text-[10px] font-bold font-ui text-dark-300">E</span>
 
             {/* Compass needle */}
             <div
-              className="absolute w-1 h-12 origin-bottom transition-transform duration-300"
+              className="absolute w-0.5 h-10 origin-bottom transition-transform duration-300"
               style={{
                 transform: `rotate(${currentAzimuth}deg)`,
                 background: 'linear-gradient(to top, transparent, #ffb432)',
-                top: 'calc(50% - 48px)',
+                top: 'calc(50% - 40px)',
               }}
             />
 
-            {/* Center display */}
-            <div className="text-center z-10">
-              <div className="text-xl font-bold font-mono text-accent-primary">{currentAzimuth}°</div>
-              <div className="text-xs font-ui text-dark-300">Azimuth</div>
-            </div>
+            {/* Center hub */}
+            <div className="w-1.5 h-1.5 bg-accent-primary rounded-full shadow-glow" />
           </div>
         )}
-
-        {!hideOverlays && (
-          <div className="absolute bottom-4 left-4 glass-panel px-3 py-2 text-xs pointer-events-none">
-            <div className="flex items-center gap-2 font-ui text-dark-300">
-              <Navigation className="w-3 h-3" />
-              <span>{rotatorEnabled ? 'Click on globe to set bearing' : 'Rotator disabled'}</span>
-            </div>
-          </div>
-        )}
-
-        {!hideOverlays && focusedCallsignInfo && (
-          <div className="absolute top-4 left-4 glass-panel px-3 py-2 pointer-events-auto">
-            <div className="flex items-center gap-2">
-              <Target className="w-4 h-4 text-accent-warning" />
-              <div>
-                <p className="font-mono font-bold text-accent-primary">
-                  {focusedCallsignInfo.callsign}
-                </p>
-                {focusedCallsignInfo.grid && (
-                  <p className="text-xs font-mono text-dark-300">{focusedCallsignInfo.grid}</p>
-                )}
-                {focusedCallsignInfo.bearing != null && (
-                  <p className="text-xs font-mono text-accent-info">
-                    {focusedCallsignInfo.bearing.toFixed(0)}°
-                    {focusedCallsignInfo.distance != null && ` / ${Math.round(focusedCallsignInfo.distance)} km`}
-                  </p>
-                )}
-              </div>
-              {rotatorEnabled && focusedCallsignInfo.bearing != null && (
-                <button
-                  onClick={() => {
-                    const bearing = focusedCallsignInfo.bearing!;
-                    lastCommandTimeRef.current = Date.now();
-                    commandedAzimuthRef.current = bearing;
-                    displayedAzimuthRef.current = bearing;
-                    setCurrentAzimuth(bearing);
-                    commandRotator(bearing, 'globe');
-                  }}
-                  className="glass-button-success px-2 py-1 flex items-center gap-1 text-xs ml-2"
-                  title={`Rotate to ${focusedCallsignInfo.callsign}`}
-                >
-                  <Navigation className="w-3 h-3" />
-                  <span className="font-mono">{focusedCallsignInfo.bearing.toFixed(0)}°</span>
-                </button>
-              )}
-            </div>
-          </div>
-        )}
-
       </div>
   );
 }
@@ -872,21 +843,14 @@ export function GlobePlugin() {
   const { settings } = useSettingsStore();
   const [isFullscreen, setIsFullscreen] = useState(false);
   
-  // We need currentAzimuth from the store to display it in the header
   const { rotatorPosition } = useAppStore();
   const currentAzimuth = rotatorPosition?.currentAzimuth ?? 0;
 
   const toggleFullscreen = useCallback(() => {
-    // This is a bit hacky since we don't have containerRef here, 
-    // but we can request fullscreen on the closest parent
     const el = document.getElementById('globe-plugin-container');
     if (!el) return;
-
-    if (!isFullscreen) {
-      el.requestFullscreen?.();
-    } else {
-      document.exitFullscreen?.();
-    }
+    if (!isFullscreen) el.requestFullscreen?.();
+    else document.exitFullscreen?.();
     setIsFullscreen(!isFullscreen);
   }, [isFullscreen]);
 
@@ -895,19 +859,22 @@ export function GlobePlugin() {
       title="3D Globe"
       icon={<GlobeIcon className="w-5 h-5" />}
       actions={
-        <div className="flex items-center gap-2">
-          {settings.rotator.enabled ? (
-            <span className="text-sm font-mono text-accent-primary">{currentAzimuth}°</span>
-          ) : (
-            <span className="text-sm font-ui text-dark-300">No Rotator</span>
-          )}
-          <button
-            onClick={toggleFullscreen}
-            className="glass-button p-1.5"
-            title="Fullscreen"
-          >
-            <Maximize2 className="w-4 h-4" />
-          </button>
+        <div className="flex items-center gap-4">
+          {settings.rotator.enabled && <RotatorControls />}
+          <div className="flex items-center gap-2">
+            {settings.rotator.enabled ? (
+              <span className="text-sm font-mono font-bold text-accent-primary min-w-[3ch]">{currentAzimuth}°</span>
+            ) : (
+              <span className="text-xs font-ui text-dark-400">No Rotator</span>
+            )}
+            <button
+              onClick={toggleFullscreen}
+              className="glass-button p-1.5"
+              title="Fullscreen"
+            >
+              <Maximize2 className="w-4 h-4" />
+            </button>
+          </div>
         </div>
       }
     >

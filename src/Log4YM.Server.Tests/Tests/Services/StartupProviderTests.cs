@@ -44,11 +44,10 @@ public class StartupProviderTests
     public async Task UserConfigService_Returns_Local_When_No_ConfigFile_Exists()
     {
         var logger = new Mock<ILogger<UserConfigService>>();
-        var svc = new UserConfigService(logger.Object);
+        // Use a path that definitely doesn't exist
+        var svc = new UserConfigService(logger.Object, Path.Combine(Path.GetTempPath(), Guid.NewGuid().ToString(), "config.json"));
 
         // GetConfigAsync should return defaults when no file exists
-        // (the actual file path points to ~/Library/Application Support/Log4YM/config.json
-        // which won't exist in CI)
         var config = await svc.GetConfigAsync();
         config.Provider.Should().Be(DatabaseProvider.Local);
     }

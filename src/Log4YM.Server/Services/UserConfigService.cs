@@ -28,10 +28,10 @@ public class UserConfigService : IUserConfigService
     private readonly ILogger<UserConfigService> _logger;
     private UserConfig? _cachedConfig;
 
-    public UserConfigService(ILogger<UserConfigService> logger)
+    public UserConfigService(ILogger<UserConfigService> logger, string? configPath = null)
     {
         _logger = logger;
-        _configPath = GetPlatformConfigPath();
+        _configPath = configPath ?? GetPlatformConfigPath();
         _logger.LogInformation("User config path: {ConfigPath}", _configPath);
     }
 

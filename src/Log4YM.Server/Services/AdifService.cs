@@ -20,7 +20,7 @@ public partial class AdifService : IAdifService
     private readonly ISpotStatusService? _spotStatusService;
 
     // ADIF field pattern: <fieldname:length>value or <fieldname:length:type>value
-    [GeneratedRegex(@"<(\w+):(\d+)(?::\w)?>([\s\S]*?)(?=<[A-Za-z_]|\Z)", RegexOptions.IgnoreCase)]
+    [GeneratedRegex(@"<(\w+):(\d+)(?::\w)?>([\s\S]*?)(?=<[A-Za-z_][^>]*?:\d+|\Z)", RegexOptions.IgnoreCase)]
     private static partial Regex AdifFieldPattern();
 
     // End of header marker

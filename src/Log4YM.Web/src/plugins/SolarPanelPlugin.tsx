@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from 'react';
+import { useState, useEffect, useCallback, useMemo } from 'react';
 import { Sun, ChevronLeft, ChevronRight } from 'lucide-react';
 import { GlassPanel } from '../components/GlassPanel';
 
@@ -500,13 +500,13 @@ export function SolarPanelPlugin() {
   const [currentView, setCurrentView] = useState<ViewType>('solar-image');
   const [autoRotate, setAutoRotate] = useState(false);
 
-  const views: ViewType[] = ['solar-image', 'indices', 'xray', 'lunar'];
-  const viewTitles = {
+  const views = useMemo<ViewType[]>(() => ['solar-image', 'indices', 'xray', 'lunar'], []);
+  const viewTitles = useMemo<Record<ViewType, string>>(() => ({
     'solar-image': 'Solar Image',
     'indices': 'Solar Indices',
     'xray': 'X-Ray Flux',
     'lunar': 'Lunar Phase',
-  };
+  }), []);
 
   const currentIndex = views.indexOf(currentView);
 

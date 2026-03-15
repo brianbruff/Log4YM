@@ -157,7 +157,7 @@ export function LogEntryPlugin() {
         mode: normalizeMode(currentRadioState.mode) || prev.mode,
       }));
     }
-  }, [followRadio, currentRadioState?.frequencyHz, currentRadioState?.band, currentRadioState?.mode]);
+  }, [followRadio, currentRadioState]);
 
   // Auto-populate name from QRZ when nameLocked is true
   useEffect(() => {
@@ -191,6 +191,7 @@ export function LogEntryPlugin() {
 
   // Update RST defaults when mode changes
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/exhaustive-deps
     const defaultRst = getDefaultRst(formData.mode);
     setFormData(prev => ({
       ...prev,
@@ -198,6 +199,8 @@ export function LogEntryPlugin() {
       rstRcvd: defaultRst,
     }));
   }, [formData.mode]);
+
+
 
   // Helper to determine band from frequency in Hz
   const getBandFromFrequency = (freqHz: number): string | null => {

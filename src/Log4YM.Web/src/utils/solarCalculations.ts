@@ -16,7 +16,7 @@ function getJulianDate(date: Date): number {
  */
 function getGMST(jd: number): number {
   const t = (jd - 2451545.0) / 36525.0;
-  let gmst = 280.46061837 + 360.98564736629 * (jd - 2451545.0) + 0.000387933 * t * t - (t * t * t) / 38710000.0;
+  const gmst = 280.46061837 + 360.98564736629 * (jd - 2451545.0) + 0.000387933 * t * t - (t * t * t) / 38710000.0;
   return gmst % 360;
 }
 

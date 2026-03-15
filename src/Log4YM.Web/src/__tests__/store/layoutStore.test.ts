@@ -280,7 +280,7 @@ describe('layoutStore', () => {
         setRequestHeader: vi.fn(),
         send: vi.fn(),
       };
-      global.XMLHttpRequest = vi.fn(() => mockXHR) as any;
+      global.XMLHttpRequest = vi.fn(() => mockXHR) as unknown as typeof XMLHttpRequest;
 
       // Keep isLoaded as false
       useLayoutStore.setState({ isLoaded: false });

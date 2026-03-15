@@ -363,12 +363,12 @@ export function PropagationPanelPlugin() {
     ? `${station.callsign || 'DE'} \u2192 ${focusedCallsign || 'DX'} (${prediction.distanceKm.toLocaleString()} km)`
     : 'General Conditions';
 
-  const views: ViewType[] = ['heatmap', 'bar-chart', 'band-conditions'];
-  const viewTitles: Record<ViewType, string> = {
+  const views = useMemo<ViewType[]>(() => ['heatmap', 'bar-chart', 'band-conditions'], []);
+  const viewTitles = useMemo<Record<ViewType, string>>(() => ({
     'heatmap': 'Heatmap',
     'bar-chart': 'Bar Chart',
     'band-conditions': 'Band Conditions',
-  };
+  }), []);
 
   const currentIndex = views.indexOf(currentView);
 

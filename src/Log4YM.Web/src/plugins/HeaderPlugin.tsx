@@ -98,7 +98,7 @@ export function HeaderPlugin() {
     fetchWeather();
     const interval = setInterval(fetchWeather, 30 * 60 * 1000);
     return () => clearInterval(interval);
-  }, [showWeather, settings.station.latitude, settings.station.longitude]);
+  }, [showWeather, settings.station]);
 
   // Re-fit when content changes (data loads in)
   useEffect(() => { fitRef.current(); }, [spaceWeather, weather]);

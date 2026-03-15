@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo } from "react";
+import { useState, useEffect, useMemo, useCallback } from "react";
 import { Radio, Wifi, WifiOff, Power, PowerOff, Plus, Settings, ChevronDown, ChevronUp, RefreshCw } from "lucide-react";
 import { useAppStore } from "../store/appStore";
 import { useSettingsStore } from "../store/settingsStore";
@@ -181,10 +181,10 @@ export function RigPlugin() {
     }
   }, [selectedConnectionState, selectedRadioState]);
 
-  const handleConnect = async (radioId: string) => {
+  const handleConnect = useCallback(async (radioId: string) => {
     setSelectedRadio(radioId);
     await connectRadio(radioId);
-  };
+  }, [setSelectedRadio, connectRadio]);
 
   // Auto-connect to saved rig if autoReconnect is enabled and we have a discovered radio.
   // IMPORTANT: We must wait for connection state to arrive before deciding whether to connect.
@@ -213,7 +213,7 @@ export function RigPlugin() {
     }
     // If connState is undefined, the connection state event hasn't arrived yet — wait for it.
     // The useEffect will re-fire when radioConnectionStates updates.
-  }, [autoReconnect, autoConnectRigId, radios.length, selectedRadioId, isConnectingHamlib, isConnectingTci, radioConnectionStates]);
+  }, [autoReconnect, autoConnectRigId, radios, selectedRadioId, isConnectingHamlib, isConnectingTci, radioConnectionStates, handleConnect, setSelectedRadio]);
 
   const handleDisconnect = async () => {
     if (selectedRadioId) {

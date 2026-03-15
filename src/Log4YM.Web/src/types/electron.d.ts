@@ -5,6 +5,7 @@ interface ElectronAPI {
   onOpenAbout: (callback: () => void) => void;
   removeOpenAboutListener: () => void;
   restartApp: () => Promise<void>;
+  openExternal: (url: string) => Promise<void>;
 }
 
 declare global {

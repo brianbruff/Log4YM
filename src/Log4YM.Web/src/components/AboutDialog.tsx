@@ -23,7 +23,7 @@ export function AboutDialog({ isOpen, onClose }: AboutDialogProps) {
 
   const openLink = (url: string) => {
     if (window.electronAPI && 'openExternal' in window.electronAPI) {
-      (window.electronAPI as any).openExternal(url);
+      window.electronAPI.openExternal(url);
     } else {
       window.open(url, '_blank', 'noopener,noreferrer');
     }

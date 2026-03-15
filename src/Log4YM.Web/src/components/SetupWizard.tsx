@@ -50,7 +50,7 @@ export function SetupWizard({ onComplete }: SetupWizardProps) {
       setStep('input');
       clearTestResult();
     }
-  }, [connectionString, databaseName]);
+  }, [connectionString, databaseName, step, clearTestResult]);
 
   const handleLocalSetup = async () => {
     clearError();

@@ -41,7 +41,7 @@ export function CwKeyerPlugin() {
     if (keyerStatus?.speedWpm && keyerStatus.speedWpm !== speedWpm) {
       setSpeedWpm(keyerStatus.speedWpm);
     }
-  }, [keyerStatus?.speedWpm]);
+  }, [keyerStatus?.speedWpm, speedWpm, setSpeedWpm]);
 
   // Handle "transmit as you type" functionality
   const handleMessageChange = useCallback((newText: string) => {
@@ -90,7 +90,7 @@ export function CwKeyerPlugin() {
 
     // Simple macro variable substitution
     // In a full implementation, these would come from settings/station info
-    let processedText = macroText
+    const processedText = macroText
       .replace('{MYCALL}', 'STATION')
       .replace('{MYGRID}', 'FN31');
 

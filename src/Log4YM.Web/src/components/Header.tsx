@@ -70,7 +70,7 @@ export function Header() {
     const interval = setInterval(fetchWeather, 30 * 60 * 1000); // 30 minutes
 
     return () => clearInterval(interval);
-  }, [showWeather, settings.station.latitude, settings.station.longitude]);
+  }, [showWeather, settings.station]);
 
   const toggleTimeFormat = () => {
     updateHeaderSettings({ timeFormat: timeFormat === '12h' ? '24h' : '12h' });

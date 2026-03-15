@@ -512,7 +512,7 @@ public class QrzService : IQrzService
 
         // Optional fields
         if (qso.Frequency.HasValue)
-            AppendAdifField(sb, "FREQ", qso.Frequency.Value.ToString("F6"));
+            AppendAdifField(sb, "FREQ", (qso.Frequency.Value / 1000.0).ToString("F6", System.Globalization.CultureInfo.InvariantCulture));
 
         if (!string.IsNullOrEmpty(qso.TimeOff))
             AppendAdifField(sb, "TIME_OFF", qso.TimeOff.Replace(":", ""));
@@ -589,7 +589,7 @@ public class QrzService : IQrzService
 
     private static double? ParseDouble(string? value)
     {
-        return double.TryParse(value, out var result) ? result : null;
+        return double.TryParse(value, System.Globalization.NumberStyles.Float, System.Globalization.CultureInfo.InvariantCulture, out var result) ? result : null;
     }
 
     private static int? ParseInt(string? value)
@@ -600,7 +600,7 @@ public class QrzService : IQrzService
     private static DateTime? ParseDate(string? value)
     {
         if (string.IsNullOrEmpty(value)) return null;
-        return DateTime.TryParse(value, out var result) ? result : null;
+        return DateTime.TryParse(value, System.Globalization.CultureInfo.InvariantCulture, System.Globalization.DateTimeStyles.AssumeUniversal, out var result) ? result : null;
     }
 
     /// <summary>

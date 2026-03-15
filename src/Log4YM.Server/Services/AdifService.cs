@@ -277,15 +277,20 @@ public partial class AdifService : IAdifService
             // Convert numeric fields
             if (NumericFields.Contains(fieldName))
             {
-                if (value.Contains('.'))
+                double? dVal = null;
+                if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var parsedDouble))
                 {
-                    if (double.TryParse(value, NumberStyles.Float, CultureInfo.InvariantCulture, out var dVal))
-                        fields[fieldName] = dVal;
+                    dVal = parsedDouble;
                 }
-                else
+
+                if (dVal.HasValue)
                 {
-                    if (int.TryParse(value, out var iVal))
-                        fields[fieldName] = iVal;
+                    // Convert MHz to kHz for frequency fields
+                    if (fieldName == "freq" || fieldName == "freq_rx")
+                    {
+                        dVal *= 1000.0;
+                    }
+                    fields[fieldName] = dVal.Value;
                 }
             }
             else
@@ -625,22 +630,7 @@ public partial class AdifService : IAdifService
         var freq = GetDoubleField(fields, "freq");
         if (!freq.HasValue) return "20m";
 
-        return freq.Value switch
-        {
-            >= 1.8 and < 2.0 => "160m",
-            >= 3.5 and < 4.0 => "80m",
-            >= 5.3 and < 5.5 => "60m",
-            >= 7.0 and < 7.3 => "40m",
-            >= 10.1 and < 10.15 => "30m",
-            >= 14.0 and < 14.35 => "20m",
-            >= 18.068 and < 18.168 => "17m",
-            >= 21.0 and < 21.45 => "15m",
-            >= 24.89 and < 24.99 => "12m",
-            >= 28.0 and < 29.7 => "10m",
-            >= 50.0 and < 54.0 => "6m",
-            >= 144.0 and < 148.0 => "2m",
-            >= 420.0 and < 450.0 => "70cm",
-            _ => "20m"
-        };
+        // Frequency is now in kHz - convert to Hz for BandHelper
+        return BandHelper.GetBand((long)(freq.Value * 1000.0));
     }
 }

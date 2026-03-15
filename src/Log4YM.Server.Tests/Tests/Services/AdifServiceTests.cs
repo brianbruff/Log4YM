@@ -128,7 +128,7 @@ public class AdifServiceTests
 
         qsos.Should().HaveCount(1);
         var qso = qsos[0];
-        qso.Frequency.Should().BeApproximately(14.2, 0.001);
+        qso.Frequency.Should().BeApproximately(14200.0, 0.001);
         qso.RstSent.Should().Be("59");
         qso.RstRcvd.Should().Be("57");
         qso.Station!.Name.Should().Be("John");

@@ -4,12 +4,10 @@ import { GlassPanel } from '../components/GlassPanel';
 
 // NASA SDO/AIA Wavelengths
 const WAVELENGTHS = {
-  '0094': { name: 'Corona', color: '#00ff00' },
-  '0193': { name: 'Chromosphere', color: '#ffff00' },
+  '0094': { name: 'Flaring', color: '#00ff00' },
+  '0193': { name: 'Corona', color: '#ffff00' },
   '0171': { name: 'Quiet Corona', color: '#ff8800' },
-  '0131': { name: 'Flaring', color: '#ff0000' },
   '0304': { name: 'Chromosphere', color: '#ff00ff' },
-  '0211': { name: 'Active Regions', color: '#8800ff' },
 } as const;
 
 type WavelengthKey = keyof typeof WAVELENGTHS;
@@ -99,8 +97,8 @@ function SolarImageView() {
   const [wavelength, setWavelength] = useState<WavelengthKey>('0193');
   const [imageLoaded, setImageLoaded] = useState(false);
 
-  // NASA SDO/AIA latest image URL
-  const imageUrl = `https://sdo.gsfc.nasa.gov/assets/img/latest/latest_512_${wavelength}.jpg`;
+  // Use internal proxy which handles fallback (NASA SDO -> LMSAL -> Helioviewer)
+  const imageUrl = `/api/solar/image/${wavelength}`;
 
   useEffect(() => {
     setImageLoaded(false);

@@ -2,6 +2,7 @@ using FluentAssertions;
 using Moq;
 using Log4YM.Server.Core.Database.LiteDb;
 using Log4YM.Server.Services;
+using Log4YM.Contracts.Models;
 using Xunit;
 #pragma warning disable CS4014 // Because this call is not awaited
 
@@ -109,6 +110,35 @@ public class LiteDbContextTests
         ctx.IsConnected.Should().BeTrue();
         Cleanup(ctx, testDir);
         ctx.IsConnected.Should().BeFalse();
+    }
+
+    [Fact]
+    public void UserSettings_Mapping_ClusterDeduplicationWindowSeconds()
+    {
+        var (ctx, testDir, _) = CreateContext();
+        try
+        {
+            var settings = new UserSettings
+            {
+                Id = "test-mapping",
+                Cluster = new ClusterSettings
+                {
+                    DeduplicationWindowSeconds = 120
+                }
+            };
+
+            ctx.Settings.Insert(settings);
+            ctx.Database.Checkpoint();
+
+            var retrieved = ctx.Settings.FindById("test-mapping");
+            retrieved.Should().NotBeNull();
+            retrieved.Cluster.Should().NotBeNull();
+            retrieved.Cluster.DeduplicationWindowSeconds.Should().Be(120);
+        }
+        finally
+        {
+            Cleanup(ctx, testDir);
+        }
     }
 
     [Fact]

@@ -11,6 +11,7 @@ using Xunit;
 
 namespace Log4YM.Server.Tests.Tests.Services;
 
+[Trait("Category", "Unit")]
 public class QrzServiceTests
 {
     private readonly Mock<ISettingsRepository> _settingsRepoMock = new();

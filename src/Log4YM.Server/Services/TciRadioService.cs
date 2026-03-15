@@ -220,8 +220,9 @@ public class TciRadioService : BackgroundService
 
     private async Task ListenForDiscoveryResponsesAsync(CancellationToken ct)
     {
-        using var listener = new UdpClient(DiscoveryPort);
+        using var listener = new UdpClient();
         listener.Client.SetSocketOption(SocketOptionLevel.Socket, SocketOptionName.ReuseAddress, true);
+        listener.Client.Bind(new IPEndPoint(IPAddress.Any, DiscoveryPort));
 
         while (!ct.IsCancellationRequested)
         {
@@ -888,11 +889,23 @@ internal class TciRadioConnection
         foreach (var cmd in commands)
         {
             var colonIndex = cmd.IndexOf(':');
-            if (colonIndex < 0) continue;
 
-            var command = cmd[..colonIndex].ToLower().Trim();
-            var argsStr = cmd[(colonIndex + 1)..];
-            var args = argsStr.Split(',').Select(a => a.Trim()).ToArray();
+            string command;
+            string argsStr;
+            string[] args;
+
+            if (colonIndex < 0)
+            {
+                command = cmd.ToLower().Trim();
+                argsStr = "";
+                args = [];
+            }
+            else
+            {
+                command = cmd[..colonIndex].ToLower().Trim();
+                argsStr = cmd[(colonIndex + 1)..];
+                args = argsStr.Split(',').Select(a => a.Trim()).ToArray();
+            }
 
             switch (command)
             {
@@ -980,8 +993,8 @@ internal class TciRadioConnection
                     break;
 
                 case "ready":
-                    // Server ready signal
                     _logger.LogInformation("TCI server ready");
+                    await SendCommandAsync("start;");
                     break;
             }
         }

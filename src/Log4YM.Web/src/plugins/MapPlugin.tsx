@@ -395,7 +395,7 @@ function isValidCoord(v: number | null | undefined): v is number {
   return typeof v === 'number' && Number.isFinite(v);
 }
 
-export function MapPlugin() {
+export function MapCore({ children }: { children?: React.ReactNode }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const mapRef = useRef<L.Map | null>(null);
   const lastTargetCoordsRef = useRef<{ lat: number; lon: number } | null>(null);
@@ -405,7 +405,6 @@ export function MapPlugin() {
 
   // DX cluster spots from ephemeral in-memory store (populated via SignalR)
   const spots = useAppStore((state) => state.dxClusterSpots);
-  const [isFullscreen, setIsFullscreen] = useState(false);
   const [currentAzimuth, setCurrentAzimuth] = useState(0);
   const [showLayerPicker, setShowLayerPicker] = useState(false);
   const [satellitePositions, setSatellitePositions] = useState<Map<string, SatellitePosition>>(new Map());
@@ -630,18 +629,6 @@ export function MapPlugin() {
     commandRotator(azimuth, 'map');
   }, [commandRotator, rotatorEnabled]);
 
-  // Toggle fullscreen
-  const toggleFullscreen = useCallback(() => {
-    if (!containerRef.current) return;
-
-    if (!isFullscreen) {
-      containerRef.current.requestFullscreen?.();
-    } else {
-      document.exitFullscreen?.();
-    }
-    setIsFullscreen(!isFullscreen);
-  }, [isFullscreen]);
-
   // Toggle satellite overlay
   const toggleSatellites = useCallback(() => {
     updateMapSettings({ showSatellites: !settings.map.showSatellites });
@@ -734,27 +721,7 @@ export function MapPlugin() {
   };
 
   return (
-    <GlassPanel
-      title="2D Map"
-      icon={<MapIcon className="w-5 h-5" />}
-      actions={
-        <div className="flex items-center gap-2">
-          {rotatorEnabled ? (
-            <span className="text-sm font-mono text-accent-primary">{currentAzimuth}°</span>
-          ) : (
-            <span className="text-sm font-ui text-dark-300">No Rotator</span>
-          )}
-          <button
-            onClick={toggleFullscreen}
-            className="glass-button p-1.5"
-            title="Fullscreen"
-          >
-            <Maximize2 className="w-4 h-4" />
-          </button>
-        </div>
-      }
-    >
-      <div ref={containerRef} className="relative h-full min-h-[400px]">
+    <div ref={containerRef} className="relative w-full h-full min-h-[400px]">
         <MapContainer
           center={[stationLat, stationLon]}
           zoom={5}
@@ -1691,6 +1658,51 @@ export function MapPlugin() {
 
         {/* DX News Ticker */}
         <DXNewsTicker />
+        
+        {children}
+    </div>
+  );
+}
+
+export function MapPlugin() {
+  const { settings } = useSettingsStore();
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  const containerRef = useRef<HTMLDivElement>(null);
+  
+  const toggleFullscreen = useCallback(() => {
+    if (!containerRef.current) return;
+
+    if (!isFullscreen) {
+      containerRef.current.requestFullscreen?.();
+    } else {
+      document.exitFullscreen?.();
+    }
+    setIsFullscreen(!isFullscreen);
+  }, [isFullscreen]);
+
+  return (
+    <GlassPanel
+      title="2D Map"
+      icon={<MapIcon className="w-5 h-5" />}
+      actions={
+        <div className="flex items-center gap-2">
+          {settings.rotator.enabled ? (
+            <span className="text-sm font-mono text-accent-primary">Azimuth</span>
+          ) : (
+            <span className="text-sm font-ui text-dark-300">No Rotator</span>
+          )}
+          <button
+            onClick={toggleFullscreen}
+            className="glass-button p-1.5"
+            title="Fullscreen"
+          >
+            <Maximize2 className="w-4 h-4" />
+          </button>
+        </div>
+      }
+    >
+      <div ref={containerRef} className="relative h-full">
+         <MapCore />
       </div>
     </GlassPanel>
   );

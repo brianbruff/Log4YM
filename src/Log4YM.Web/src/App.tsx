@@ -8,8 +8,8 @@ import { SetupWizard } from './components/SetupWizard';
 import { SplashScreen } from './components/SplashScreen';
 import { PluginErrorBoundary } from './components/PluginErrorBoundary';
 import { useSignalRConnection } from './hooks/useSignalR';
-import { LogEntryPlugin, LogHistoryPlugin, ClusterPlugin, MapPlugin, RotatorPlugin, GlobePlugin, AntennaGeniusPlugin, PgxlPlugin, TunerGeniusPlugin, SmartUnlinkPlugin, RigPlugin, QrzProfilePlugin, ContestsPlugin, SolarPanelPlugin, AnalogClockPlugin, HeaderPlugin, DXpeditionsPlugin, ChatAiPlugin, POTAPlugin, PropagationPanelPlugin, CwKeyerPlugin, PanadapterPlugin, StatisticsPlugin } from './plugins';
-import { Globe as Globe3D } from 'lucide-react';
+import { LogEntryPlugin, LogHistoryPlugin, ClusterPlugin, MapPlugin, RotatorPlugin, GlobePlugin, VirtualCockpitPlugin, AntennaGeniusPlugin, PgxlPlugin, TunerGeniusPlugin, SmartUnlinkPlugin, RigPlugin, QrzProfilePlugin, ContestsPlugin, SolarPanelPlugin, AnalogClockPlugin, HeaderPlugin, DXpeditionsPlugin, ChatAiPlugin, POTAPlugin, PropagationPanelPlugin, CwKeyerPlugin, PanadapterPlugin, StatisticsPlugin } from './plugins';
+import { Globe as Globe3D, LayoutDashboard } from 'lucide-react';
 import { useLayoutStore, defaultLayout } from './store/layoutStore';
 import { useSettingsStore } from './store/settingsStore';
 import { useSetupStore } from './store/setupStore';
@@ -50,6 +50,13 @@ const PLUGINS: Record<string, PluginDef> = {
     component: ClusterPlugin,
     category: 'Information',
     tags: ['spots', 'dx'],
+  },
+  'virtual-cockpit': {
+    name: 'Virtual Cockpit',
+    icon: <LayoutDashboard className="w-4 h-4" />,
+    component: VirtualCockpitPlugin,
+    category: 'Maps & Navigation',
+    tags: ['map', 'earth', 'globe', 'rotator'],
   },
   'map-2d': {
     name: '2D Map',

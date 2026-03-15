@@ -102,7 +102,7 @@ interface GlobeInstance {
   globeMaterial(): { opacity: number };
 }
 
-export function GlobePlugin() {
+export function GlobeCore({ hideOverlays, hideCompass }: { hideOverlays?: boolean; hideCompass?: boolean }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const globeRef = useRef<GlobeInstance | null>(null);
   const animationRef = useRef<number | null>(null);
@@ -118,7 +118,6 @@ export function GlobePlugin() {
 
   // Rotator is enabled in settings
   const rotatorEnabled = settings.rotator.enabled;
-  const [isFullscreen, setIsFullscreen] = useState(false);
 
   // Get station coordinates from settings - prioritize lat/lon, fall back to grid square, then defaults
   let stationLat = DEFAULT_LAT;
@@ -768,39 +767,8 @@ export function GlobePlugin() {
     };
   }, [focusedCallsignInfo?.latitude, focusedCallsignInfo?.longitude, stationLat, stationLon]);
 
-  const toggleFullscreen = useCallback(() => {
-    if (!containerRef.current) return;
-
-    if (!isFullscreen) {
-      containerRef.current.requestFullscreen?.();
-    } else {
-      document.exitFullscreen?.();
-    }
-    setIsFullscreen(!isFullscreen);
-  }, [isFullscreen]);
-
   return (
-    <GlassPanel
-      title="3D Globe"
-      icon={<GlobeIcon className="w-5 h-5" />}
-      actions={
-        <div className="flex items-center gap-2">
-          {rotatorEnabled ? (
-            <span className="text-sm font-mono text-accent-primary">{currentAzimuth}°</span>
-          ) : (
-            <span className="text-sm font-ui text-dark-300">No Rotator</span>
-          )}
-          <button
-            onClick={toggleFullscreen}
-            className="glass-button p-1.5"
-            title="Fullscreen"
-          >
-            <Maximize2 className="w-4 h-4" />
-          </button>
-        </div>
-      }
-    >
-      <div className="relative h-full min-h-[400px]">
+      <div className="relative w-full h-full min-h-[400px]">
         {/* WebGL Error Message */}
         {webglError && (
           <div className="absolute inset-0 flex items-center justify-center bg-dark-800/95 backdrop-blur-sm z-50">
@@ -823,9 +791,8 @@ export function GlobePlugin() {
           style={{ cursor: rotatorEnabled ? 'crosshair' : 'default' }}
         />
 
-        {/* Compass overlay - only show when rotator enabled */}
-        {rotatorEnabled && (
-          <div className="absolute top-4 right-4 w-32 h-32 bg-dark-800/90 backdrop-blur-sm rounded-full border-2 border-glass-200 flex items-center justify-center">
+        {!hideCompass && rotatorEnabled && (
+          <div className="absolute top-4 right-4 w-32 h-32 bg-dark-800/90 backdrop-blur-sm rounded-full border-2 border-glass-200 flex items-center justify-center pointer-events-none">
             <span className="absolute top-1 text-xs font-bold font-ui text-accent-danger">N</span>
             <span className="absolute bottom-1 text-xs font-bold font-ui text-dark-300">S</span>
             <span className="absolute left-1 text-xs font-bold font-ui text-dark-300">W</span>
@@ -849,17 +816,17 @@ export function GlobePlugin() {
           </div>
         )}
 
-        {/* Info overlay */}
-        <div className="absolute bottom-4 left-4 glass-panel px-3 py-2 text-xs">
-          <div className="flex items-center gap-2 font-ui text-dark-300">
-            <Navigation className="w-3 h-3" />
-            <span>{rotatorEnabled ? 'Click on globe to set bearing' : 'Rotator disabled'}</span>
+        {!hideOverlays && (
+          <div className="absolute bottom-4 left-4 glass-panel px-3 py-2 text-xs pointer-events-none">
+            <div className="flex items-center gap-2 font-ui text-dark-300">
+              <Navigation className="w-3 h-3" />
+              <span>{rotatorEnabled ? 'Click on globe to set bearing' : 'Rotator disabled'}</span>
+            </div>
           </div>
-        </div>
+        )}
 
-        {/* Target info */}
-        {focusedCallsignInfo && (
-          <div className="absolute top-4 left-4 glass-panel px-3 py-2">
+        {!hideOverlays && focusedCallsignInfo && (
+          <div className="absolute top-4 left-4 glass-panel px-3 py-2 pointer-events-auto">
             <div className="flex items-center gap-2">
               <Target className="w-4 h-4 text-accent-warning" />
               <div>
@@ -897,6 +864,55 @@ export function GlobePlugin() {
           </div>
         )}
 
+      </div>
+  );
+}
+
+export function GlobePlugin() {
+  const { settings } = useSettingsStore();
+  const [isFullscreen, setIsFullscreen] = useState(false);
+  
+  // We need currentAzimuth from the store to display it in the header
+  const { rotatorPosition } = useAppStore();
+  const currentAzimuth = rotatorPosition?.currentAzimuth ?? 0;
+
+  const toggleFullscreen = useCallback(() => {
+    // This is a bit hacky since we don't have containerRef here, 
+    // but we can request fullscreen on the closest parent
+    const el = document.getElementById('globe-plugin-container');
+    if (!el) return;
+
+    if (!isFullscreen) {
+      el.requestFullscreen?.();
+    } else {
+      document.exitFullscreen?.();
+    }
+    setIsFullscreen(!isFullscreen);
+  }, [isFullscreen]);
+
+  return (
+    <GlassPanel
+      title="3D Globe"
+      icon={<GlobeIcon className="w-5 h-5" />}
+      actions={
+        <div className="flex items-center gap-2">
+          {settings.rotator.enabled ? (
+            <span className="text-sm font-mono text-accent-primary">{currentAzimuth}°</span>
+          ) : (
+            <span className="text-sm font-ui text-dark-300">No Rotator</span>
+          )}
+          <button
+            onClick={toggleFullscreen}
+            className="glass-button p-1.5"
+            title="Fullscreen"
+          >
+            <Maximize2 className="w-4 h-4" />
+          </button>
+        </div>
+      }
+    >
+      <div id="globe-plugin-container" className="w-full h-full">
+         <GlobeCore />
       </div>
     </GlassPanel>
   );

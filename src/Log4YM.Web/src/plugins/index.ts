@@ -4,6 +4,7 @@ export { ClusterPlugin } from './ClusterPlugin';
 export { MapPlugin } from './MapPlugin';
 export { RotatorPlugin } from './RotatorPlugin';
 export { GlobePlugin } from './GlobePlugin';
+export { VirtualCockpitPlugin } from './VirtualCockpitPlugin';
 export { AntennaGeniusPlugin } from './AntennaGeniusPlugin';
 export { PgxlPlugin } from './PgxlPlugin';
 export { TunerGeniusPlugin } from './TunerGeniusPlugin';

@@ -416,7 +416,7 @@ export function GlobeCore({ hideOverlays, hideCompass }: { hideOverlays?: boolea
         .showAtmosphere(true)
         .atmosphereColor('rgba(10, 14, 20, 0.4)')
         .atmosphereAltitude(0.25)
-        .pointOfView({ lat: stationLat, lng: stationLon, altitude: 2.5 })
+        .pointOfView({ lat: stationLat, lng: stationLon, altitude: 1.7 })
         .enablePointerInteraction(true);
 
       // Configure marker appearance (data will be set by effect)
@@ -627,7 +627,7 @@ export function GlobeCore({ hideOverlays, hideCompass }: { hideOverlays?: boolea
     lastTargetCoordsRef.current = { lat: targetLat, lng: targetLon };
 
     const startPov = globeRef.current.pointOfView();
-    const targetPov = { lat: targetLat, lng: targetLon, altitude: 2.0 };
+    const targetPov = { lat: targetLat, lng: targetLon, altitude: 1.7 };
 
     const startTime = performance.now();
     const durationMs = duration * 1000;

@@ -1736,12 +1736,12 @@ export function MapPlugin() {
         <div className="absolute top-0 bottom-0 left-0 z-10 pointer-events-none drop-shadow-[15px_0_30px_rgba(0,0,0,0.85)]">
           
           {/* Main Sidebar Base */}
-          <div className="absolute top-0 bottom-0 left-0 w-[300px] bg-[#0a0e14] border-r-[2px] border-[#334155] pointer-events-auto" />
+          <div className="absolute top-0 bottom-0 left-0 w-[200px] bg-[#0a0e14] border-r-[2px] border-[#334155] pointer-events-auto" />
           
           {/* Bulge Base (clipped to only show exactly to the right of the sidebar border) */}
-          <div className="absolute top-1/2 -translate-y-1/2 left-[298px] w-[202px] h-[500px] overflow-hidden pointer-events-none">
-             {/* The circle perfectly aligns with x=0, so its arc perfectly intersects the x=298 straight line */}
-             <div className="absolute top-1/2 -translate-y-1/2 left-[-298px] w-[500px] h-[500px] rounded-full bg-[#0a0e14] border-[2px] border-[#334155] pointer-events-auto" />
+          <div className="absolute top-1/2 -translate-y-1/2 left-[198px] w-[502px] h-[700px] overflow-hidden pointer-events-none">
+             {/* The circle perfectly aligns with x=0, so its arc perfectly intersects the x=198 straight line */}
+             <div className="absolute top-1/2 -translate-y-1/2 left-[-298px] w-[700px] h-[700px] rounded-full bg-[#0a0e14] border-[2px] border-[#334155] pointer-events-auto" />
           </div>
 
         </div>
@@ -1749,15 +1749,15 @@ export function MapPlugin() {
         {/* Z-20: Interactive Content Layer */}
         <div className="absolute inset-0 z-20 pointer-events-none">
           
-          {/* Globe Component (Touching Left, 500x500) */}
-          {/* Since it sits at z-20, it perfectly covers the straight x=298 background border behind it, 
+          {/* Globe Component (Touching Left, 700x700, moved left by 100px) */}
+          {/* Since it sits at z-20, it perfectly covers the straight x=198 background border behind it, 
               preventing the straight line from drawing "through" the globe */}
-          <div className="absolute top-1/2 -translate-y-1/2 left-0 w-[500px] h-[500px] pointer-events-auto rounded-full overflow-hidden bg-[#020304]">
+          <div className="absolute top-1/2 -translate-y-1/2 left-[-100px] w-[700px] h-[700px] pointer-events-auto rounded-full overflow-hidden bg-[#020304]">
             <GlobeCore hideOverlays={true} hideCompass={true} />
           </div>
 
           {/* Sidebar Content (Rendered after Globe to stay on top if screen is very short) */}
-          <div className="absolute top-0 bottom-0 left-0 w-[300px] flex flex-col justify-between py-8">
+          <div className="absolute top-0 bottom-0 left-0 w-[200px] flex flex-col justify-between py-8">
             {/* Top Section: Station Info */}
             <div className={`px-6 pointer-events-auto transition-opacity duration-300 ${showTopContent ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
                <div className="flex items-center gap-2 mb-4 text-accent-primary font-display font-bold text-sm tracking-wider">
@@ -1812,8 +1812,8 @@ export function MapPlugin() {
         {/* Z-30: Globe Border Overlay */}
         {/* Because the Globe at z-20 covered the background circle's right border, 
             we redraw just the protruding arc border over the globe here. */}
-        <div className="absolute top-1/2 -translate-y-1/2 left-[298px] w-[202px] h-[500px] overflow-hidden z-30 pointer-events-none">
-           <div className="absolute top-1/2 -translate-y-1/2 left-[-298px] w-[500px] h-[500px] rounded-full border-[2px] border-[#334155]" />
+        <div className="absolute top-1/2 -translate-y-1/2 left-[198px] w-[502px] h-[700px] overflow-hidden z-30 pointer-events-none">
+           <div className="absolute top-1/2 -translate-y-1/2 left-[-298px] w-[700px] h-[700px] rounded-full border-[2px] border-[#334155]" />
         </div>
 
       </div>

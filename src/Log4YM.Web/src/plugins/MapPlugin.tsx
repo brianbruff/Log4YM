@@ -1786,16 +1786,6 @@ export function MapPlugin() {
 
             {/* Bottom Section: System & Rotator */}
             <div className={`px-6 pointer-events-auto transition-opacity duration-300 ${showBottomContent ? 'opacity-100' : 'opacity-0 pointer-events-none'}`}>
-               <div className="flex items-center gap-2 mb-4 text-accent-info font-display font-bold text-sm tracking-wider">
-                 <Radio className="w-4 h-4" />
-                 <span>SYSTEM ONLINE</span>
-               </div>
-               
-               <div className="font-mono text-xs text-dark-300 flex justify-between items-center border-b border-glass-100/10 pb-3 mb-4">
-                  <span>Rotator:</span>
-                  {settings.rotator.enabled ? <span className="text-accent-success font-bold">Online</span> : <span className="text-accent-danger font-bold">Offline</span>}
-               </div>
-
                {settings.rotator.enabled && (
                  <div className="flex flex-col items-center justify-center">
                    <span className="text-[10px] text-dark-400 font-ui uppercase tracking-widest mb-1">Current Heading</span>

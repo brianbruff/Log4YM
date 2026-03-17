@@ -1472,12 +1472,11 @@ export function MapCore({ children }: { children?: React.ReactNode }) {
                   {settings.map.showCallsignImages && (
                     <div className="ml-6">
                       <label className="flex items-center gap-2 text-xs text-dark-300">
-                        <span>Max:</span>
                         <input
                           type="range"
-                          min="5"
+                          min="1"
                           max="200"
-                          step="5"
+                          step="1"
                           value={settings.map.maxCallsignImages}
                           onChange={(e) => {
                             updateMapSettings({ maxCallsignImages: parseInt(e.target.value) });

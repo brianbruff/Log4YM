@@ -134,7 +134,7 @@ export function HeaderPlugin() {
       {/* UTC Time */}
       <div className="header-plugin__group">
         <span className="header-plugin__label font-ui text-accent-success">UTC</span>
-        <span className="header-plugin__time font-display text-accent-primary">
+        <span className="header-plugin__time font-display text-white">
           {pad(utcHours)}:{pad(utcMinutes)}:{pad(utcSeconds)}
         </span>
         <span className="header-plugin__date font-mono text-dark-300">{utcYear}-{utcMonth}-{utcDay}</span>
@@ -178,7 +178,7 @@ export function HeaderPlugin() {
             {spaceWeather.kIndex}
           </span>
           <span className="header-plugin__label font-ui text-accent-success" style={{ marginLeft: 12 }}>SSN</span>
-          <span className="header-plugin__value font-display text-accent-primary">{spaceWeather.sunspotNumber}</span>
+          <span className="header-plugin__value font-display text-white">{spaceWeather.sunspotNumber}</span>
         </div>
       )}
     </div>

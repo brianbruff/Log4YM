@@ -33,7 +33,6 @@ import {
   Bot,
   Sun,
   Moon,
-  Flame,
   BarChart3,
 } from 'lucide-react';
 import { useSettingsStore, SettingsSection, StationSettings } from '../store/settingsStore';
@@ -1538,8 +1537,8 @@ function AppearanceSettingsSection() {
       id: 'dark' as const,
       label: 'Dark',
       icon: <Moon className="w-5 h-5" />,
-      description: 'Instrument panel aesthetic',
-      preview: { bg: '#0a0e14', panel: '#111820', accent: '#ffb432', text: '#a0b0c0' },
+      description: 'Deep, focused, professional',
+      preview: { bg: '#1B1B1F', panel: '#27272B', accent: '#E08A3D', text: '#A1A1A8' },
     },
     {
       id: 'light' as const,
@@ -1547,13 +1546,6 @@ function AppearanceSettingsSection() {
       icon: <Sun className="w-5 h-5" />,
       description: 'High-contrast charcoal & cream',
       preview: { bg: '#423f38', panel: '#e1ddd6', accent: '#d76c26', text: '#bcb9b2' },
-    },
-    {
-      id: 'amber' as const,
-      label: 'Amber',
-      icon: <Flame className="w-5 h-5" />,
-      description: 'Black & amber glow',
-      preview: { bg: '#080604', panel: '#14100c', accent: '#ffb000', text: '#b9a06e' },
     },
   ];
 
@@ -1567,7 +1559,7 @@ function AppearanceSettingsSection() {
       {/* Theme selection */}
       <div className="space-y-3">
         <label className="text-sm font-medium font-ui text-dark-200">Theme</label>
-        <div className="grid grid-cols-3 gap-3">
+        <div className="grid grid-cols-2 gap-3">
           {themeOptions.map((opt) => (
             <button
               key={opt.id}
@@ -1595,7 +1587,7 @@ function AppearanceSettingsSection() {
                 </div>
               ) : (
                 <div className="w-full h-14 rounded-md border border-dark-600/50 overflow-hidden flex">
-                  <div className="w-1/2 h-full bg-[#0a0e14]" />
+                  <div className="w-1/2 h-full bg-[#1B1B1F]" />
                   <div className="w-1/2 h-full bg-[#f6f7f9]" />
                 </div>
               )}
@@ -1800,11 +1792,11 @@ function HeaderSettingsSection() {
               The header bar displays essential operating information inspired by OpenHamClock:
             </p>
             <ul className="list-disc list-inside space-y-1 ml-2">
-              <li><strong className="text-accent-secondary">UTC Time</strong>: Essential for logging (always 24-hour format)</li>
+              <li><strong className="text-white">UTC Time</strong>: Essential for logging (always 24-hour format)</li>
               <li><strong className="text-accent-primary">Local Time</strong>: Your system time (clickable to toggle format)</li>
               <li><strong className="text-accent-primary">SFI</strong>: Solar Flux Index (higher is better for HF)</li>
               <li><strong className="text-accent-success">K-Index</strong>: Geomagnetic activity (turns <span className="text-accent-danger">red</span> when ≥4)</li>
-              <li><strong className="text-accent-secondary">SSN</strong>: Sunspot Number (indicates solar activity)</li>
+              <li><strong className="text-white">SSN</strong>: Sunspot Number (indicates solar activity)</li>
             </ul>
             <p className="pt-2 text-xs">
               Space weather data refreshes every 15 minutes. Weather data requires latitude/longitude in Station settings.

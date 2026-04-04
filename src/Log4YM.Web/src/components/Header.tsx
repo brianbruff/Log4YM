@@ -147,13 +147,13 @@ export function Header() {
         {/* UTC Time */}
         <div className="text-center">
           <div
-            className="font-mono font-bold text-cyan-400 tabular-nums"
+            className="font-mono font-bold text-white tabular-nums"
             style={{ fontSize: `${baseFontSize * 2}px`, lineHeight: '1.2' }}
           >
             {formatTime(utcTime, true)}
           </div>
           <div
-            className="text-cyan-400/70 text-xs uppercase tracking-wide"
+            className="text-gray-400 text-xs uppercase tracking-wide"
             style={{ fontSize: `${baseFontSize * 0.625}px` }}
           >
             {formatDate(utcTime)} UTC
@@ -244,7 +244,7 @@ export function Header() {
             {/* SSN (Sunspot Number) */}
             <div className="text-center">
               <div
-                className="font-bold text-cyan-400 tabular-nums"
+                className="font-bold text-white tabular-nums"
                 style={{ fontSize: `${baseFontSize * 1.25}px` }}
               >
                 {spaceWeather.sunspotNumber}

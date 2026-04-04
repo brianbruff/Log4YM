@@ -102,225 +102,69 @@ html:not(.dark) select option {
 }
 
 .dark {
-  /* Surface / background colors */
-  --surface-900: 10 14 20;        /* #0a0e14 */
-  --surface-850: 14 19 25;        /* #0e1319 */
-  --surface-800: 17 24 32;        /* #111820 */
-  --surface-700: 26 35 50;        /* #1a2332 */
-  --surface-600: 42 56 78;        /* #2a384e — borders, dividers (boosted) */
-  --surface-500: 60 78 105;       /* #3c4e69 — subtle elements (boosted) */
-  --surface-400: 105 128 158;     /* #697e9e — muted interactive */
-  --surface-300: 165 180 200;     /* #a5b4c8 — muted text, tabs, form labels */
-  --surface-200: 205 215 228;     /* #cdd7e4 — secondary text */
+  /* ============================================
+     DARKROOM — Deep, focused, professional.
+     ============================================ */
 
-  /* Accent colors — amber/cyan for dark theme */
-  --accent-primary: 255 180 50;   /* #ffb432 */
-  --accent-secondary: 0 221 255;  /* #00ddff */
-  --accent-success: 0 255 136;    /* #00ff88 */
-  --accent-warning: 255 180 50;   /* #ffb432 */
-  --accent-danger: 255 68 102;    /* #ff4466 */
-  --accent-info: 0 221 255;       /* #00ddff */
+  /* Surface / background colors */
+  --surface-900: 20 20 23;        /* #141417 — deepest (sunken canvas) */
+  --surface-850: 27 27 31;        /* #1B1B1F — main body background */
+  --surface-800: 39 39 43;        /* #27272B — raised panels, cards */
+  --surface-700: 39 39 43;        /* #27272B — containers */
+  --surface-600: 58 58 64;        /* #3A3A40 — borders, dividers */
+  --surface-500: 74 74 82;        /* #4A4A52 — strong borders */
+  --surface-400: 142 142 150;     /* #8E8E96 — muted interactive */
+  --surface-300: 161 161 168;     /* #A1A1A8 — secondary text, tabs */
+  --surface-200: 228 228 231;     /* #E4E4E7 — primary text weight */
+
+  /* Accent colors — warm amber primary, sage green secondary */
+  --accent-primary: 224 138 61;   /* #E08A3D — warm amber/orange */
+  --accent-secondary: 107 163 126; /* #6BA37E — muted sage green */
+  --accent-success: 58 168 85;    /* #3AA855 — natural green */
+  --accent-warning: 212 167 46;   /* #D4A72E — golden amber */
+  --accent-danger: 229 91 91;     /* #E55B5B — warm red */
+  --accent-info: 69 128 196;      /* #4580C4 — steel blue */
 
   /* Ham radio mode colors */
-  --ham-cw: 255 180 50;           /* #ffb432 */
-  --ham-ssb: 0 255 136;           /* #00ff88 */
-  --ham-ft8: 0 221 255;           /* #00ddff */
-  --ham-rtty: 170 102 255;        /* #aa66ff */
+  --ham-cw: 224 138 61;           /* warm amber */
+  --ham-ssb: 58 168 85;           /* natural green */
+  --ham-ft8: 69 128 196;          /* steel blue */
+  --ham-rtty: 130 95 188;         /* muted purple */
 
-  /* Gray scale — boosted for dark mode readability */
-  --gray-50: 249 250 251;
-  --gray-100: 243 244 246;
-  --gray-200: 229 231 235;
-  --gray-300: 209 213 219;
-  --gray-400: 190 198 210;        /* boosted for readability */
-  --gray-500: 155 164 180;        /* boosted from 107 114 128 */
-  --gray-600: 125 135 152;        /* boosted from 75 85 99 */
-  --gray-700: 55 65 81;
-  --gray-800: 31 41 55;
-  --gray-900: 17 24 39;
+  /* Gray scale — neutral, no tint */
+  --gray-50: 248 248 249;
+  --gray-100: 228 228 231;        /* #E4E4E7 — primary text */
+  --gray-200: 210 210 215;
+  --gray-300: 190 190 196;
+  --gray-400: 161 161 168;        /* #A1A1A8 — secondary */
+  --gray-500: 142 142 150;        /* #8E8E96 — muted */
+  --gray-600: 90 90 98;           /* #5A5A62 — disabled */
+  --gray-700: 55 55 61;           /* #37373D */
+  --gray-800: 39 39 43;           /* #27272B */
+  --gray-900: 20 20 23;           /* #141417 */
 
   /* Text foreground */
-  --text-foreground: 220 228 238;  /* #dce4ee — main body text (high contrast) */
+  --text-foreground: 228 228 231;  /* #E4E4E7 */
 
-  /* Shadows — dramatic for dark theme */
-  --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.6), inset 0 1px 0 rgba(255, 180, 50, 0.05);
-  --shadow-glass-sm: 0 4px 16px 0 rgba(0, 0, 0, 0.4);
-  --shadow-glow: 0 0 20px rgba(255, 180, 50, 0.25);
-  --shadow-glow-success: 0 0 20px rgba(0, 255, 136, 0.25);
-  --shadow-glow-cyan: 0 0 20px rgba(0, 221, 255, 0.25);
+  /* Shadows — subtle, focused */
+  --shadow-glass: 0 2px 8px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgb(var(--accent-primary) / 0.04);
+  --shadow-glass-sm: 0 1px 4px rgba(0, 0, 0, 0.3);
+  --shadow-glow: 0 0 12px rgb(var(--accent-primary) / 0.2);
+  --shadow-glow-success: 0 0 12px rgb(var(--accent-success) / 0.2);
+  --shadow-glow-cyan: 0 0 12px rgb(var(--accent-secondary) / 0.2);
 
   /* Scrollbar */
-  --scrollbar-track: #0a0e14;
-  --scrollbar-thumb: #2e3d55;
-  --scrollbar-thumb-hover: #3c4e69;
+  --scrollbar-track: #141417;
+  --scrollbar-thumb: #3A3A40;
+  --scrollbar-thumb-hover: #4A4A52;
 
-  /* Text glow — enabled in dark mode */
-  --text-glow-primary: 0 0 12px rgb(var(--accent-primary) / 0.3);
-  --text-glow-secondary: 0 0 10px rgb(var(--accent-primary) / 0.2);
-
-  color-scheme: dark;
-}
-
-/* Amber & Black — pure black with amber structural accents */
-.dark.amber {
-  /* Surface / background colors — pure black */
-  --surface-900: 5 5 5;              /* #050505 — pure black */
-  --surface-850: 10 10 10;           /* #0a0a0a */
-  --surface-800: 16 16 16;           /* #101010 */
-  --surface-700: 24 24 24;           /* #181818 */
-  --surface-600: 45 38 25;           /* #2d2619 — amber-tinted borders */
-  --surface-500: 70 60 38;           /* #463c26 */
-  --surface-400: 160 148 125;        /* #a0947d — warm muted interactive */
-  --surface-300: 190 178 158;        /* #beb29e — warm muted text */
-  --surface-200: 218 208 190;        /* #dad0be — cream secondary text */
-
-  /* Accent colors — amber borders, green for buttons/headers */
-  --accent-primary: 255 176 0;       /* #ffb000 — pure amber (borders, structure) */
-  --accent-secondary: 80 200 100;    /* #50c864 — green (buttons, headers) */
-  --accent-success: 80 200 100;      /* #50c864 — green */
-  --accent-warning: 255 176 0;       /* #ffb000 — amber */
-  --accent-danger: 255 70 70;        /* #ff4646 — red */
-  --accent-info: 255 200 120;        /* #ffc878 — soft amber */
-
-  /* Ham radio mode colors */
-  --ham-cw: 255 176 0;               /* #ffb000 — amber */
-  --ham-ssb: 80 200 100;             /* #50c864 — green */
-  --ham-ft8: 100 200 180;            /* #64c8b4 — teal */
-  --ham-rtty: 255 140 0;             /* #ff8c00 — deep amber */
-
-  /* Gray scale — warm cream tones */
-  --gray-50: 240 235 225;
-  --gray-100: 228 220 208;
-  --gray-200: 210 200 185;
-  --gray-300: 190 180 165;
-  --gray-400: 165 155 138;
-  --gray-500: 130 120 105;
-  --gray-600: 90 82 68;
-  --gray-700: 45 40 32;
-  --gray-800: 24 22 18;
-  --gray-900: 10 10 10;
-
-  /* Text foreground — cream */
-  --text-foreground: 230 222 205;    /* #e6decd — warm cream text */
-
-  /* Shadows — amber structural glow */
-  --shadow-glass: 0 8px 32px 0 rgba(0, 0, 0, 0.7), inset 0 1px 0 rgba(255, 176, 0, 0.06);
-  --shadow-glass-sm: 0 4px 16px 0 rgba(0, 0, 0, 0.5);
-  --shadow-glow: 0 0 20px rgba(255, 176, 0, 0.3);
-  --shadow-glow-success: 0 0 20px rgba(80, 200, 100, 0.25);
-  --shadow-glow-cyan: 0 0 20px rgba(80, 200, 100, 0.25);
-
-  /* Scrollbar — black with amber thumb */
-  --scrollbar-track: #050505;
-  --scrollbar-thumb: #2d2619;
-  --scrollbar-thumb-hover: #463c26;
-
-  /* Text glow — subtle amber */
-  --text-glow-primary: 0 0 14px rgb(255 176 0 / 0.25);
-  --text-glow-secondary: 0 0 10px rgb(255 176 0 / 0.15);
+  /* Text glow — warm amber */
+  --text-glow-primary: 0 0 12px rgb(var(--accent-primary) / 0.25);
+  --text-glow-secondary: 0 0 10px rgb(var(--accent-primary) / 0.15);
 
   color-scheme: dark;
 }
 
-/* Amber theme: structural amber borders on layout chrome */
-.dark.amber .flexlayout__tabset {
-  border-color: rgb(var(--accent-primary) / 0.12);
-}
-
-.dark.amber .flexlayout__tabset_tabbar_outer {
-  border-bottom-color: rgb(var(--accent-primary) / 0.12);
-}
-
-.dark.amber .flexlayout__splitter {
-  background: rgb(var(--accent-primary) / 0.06);
-}
-
-.dark.amber .flexlayout__splitter:hover {
-  background: rgb(var(--accent-secondary) / 0.25);
-}
-
-.dark.amber .ag-theme-alpine-dark {
-  --ag-border-color: rgb(var(--accent-primary) / 0.10);
-  --ag-row-border-color: rgb(var(--accent-primary) / 0.05);
-  --ag-header-column-separator-color: rgb(var(--accent-primary) / 0.12);
-}
-
-/* ===== AMBER: Alternating contrast — black ↔ cream ↔ black ===== */
-
-/* Embedded containers on dark panels → cream with dark text */
-.dark.amber .bg-dark-700\/50,
-.dark.amber .bg-dark-700\/80,
-.dark.amber .bg-dark-700\/30,
-.dark.amber .bg-dark-800\/50 {
-  background-color: #ede7d9;
-  border-color: rgba(255, 176, 0, 0.2);
-  /* Flip text vars to dark for readability on cream */
-  --surface-200: 66 58 44;
-  --surface-300: 80 70 55;
-  --surface-400: 110 98 78;
-  --text-foreground: 42 37 32;
-  --gray-100: 52 46 36;
-  --gray-300: 90 80 64;
-  --gray-400: 115 102 82;
-  --gray-500: 140 128 108;
-  /* Darken accents for cream contrast */
-  --accent-primary: 200 138 0;
-  --accent-secondary: 30 140 55;
-  --accent-success: 30 140 55;
-  --accent-info: 170 118 25;
-  --accent-warning: 200 138 0;
-  /* Hover inside cream → slightly darker cream */
-  --surface-600: 218 210 195;
-}
-
-/* Hover state on cream containers */
-.dark.amber .bg-dark-700\/50 .hover\:bg-dark-600\/50:hover,
-.dark.amber .bg-dark-700\/50.hover\:bg-dark-600\/50:hover {
-  background-color: #ddd5c5;
-}
-
-/* All text inputs, textareas, selects → cream with dark text */
-.dark.amber input:not([type="checkbox"]):not([type="radio"]):not([type="range"]),
-.dark.amber textarea,
-.dark.amber select {
-  background-color: #f5f0e4;
-  color: #2a2520;
-  border-color: rgba(255, 176, 0, 0.25);
-}
-
-.dark.amber input::placeholder,
-.dark.amber textarea::placeholder {
-  color: #9a8e7e;
-}
-
-.dark.amber input:focus,
-.dark.amber textarea:focus,
-.dark.amber select:focus {
-  border-color: rgba(255, 176, 0, 0.5);
-  box-shadow: 0 0 0 2px rgba(255, 176, 0, 0.15);
-}
-
-.dark.amber select option {
-  background-color: #f5f0e4;
-  color: #2a2520;
-}
-
-/* Buttons — dark with amber accent (contrast against cream containers) */
-.dark.amber .glass-button {
-  background-color: rgba(255, 176, 0, 0.1);
-  border-color: rgba(255, 176, 0, 0.2);
-  color: #ffb000;
-}
-
-.dark.amber .glass-button:hover {
-  background-color: rgba(255, 176, 0, 0.2);
-  border-color: rgba(255, 176, 0, 0.35);
-}
-
-/* Panel header — subtle amber accent line */
-.dark.amber .glass-panel > div:first-child {
-  border-bottom-color: rgba(255, 176, 0, 0.15);
-}
 
 /* ============================================================
    BASE LAYER
@@ -767,11 +611,11 @@ html:not(.dark) .ag-theme-alpine-dark .ag-overlay-no-rows-center {
 }
 
 .dark .ag-theme-alpine-dark .ag-header-cell {
-  color: rgb(235 240 245) !important;
+  color: rgb(var(--text-foreground)) !important;
 }
 
 .dark .ag-theme-alpine-dark .ag-header-cell-text {
-  color: rgb(235 240 245) !important;
+  color: rgb(var(--text-foreground)) !important;
 }
 
 .ag-theme-alpine-dark .ag-header-cell .ag-icon {
@@ -1003,12 +847,12 @@ html:not(.dark) .ag-theme-alpine-dark .ag-overlay-no-rows-center {
    ============================================================ */
 
 .dark .leaflet-popup-content-wrapper {
-  background: rgba(10, 14, 20, 0.92);
+  background: rgb(var(--surface-900) / 0.92);
   backdrop-filter: blur(12px);
-  border: 1px solid rgba(255, 180, 50, 0.15);
+  border: 1px solid rgb(var(--accent-primary) / 0.15);
   border-radius: 10px;
-  box-shadow: 0 8px 32px rgba(0, 0, 0, 0.6), 0 0 12px rgba(255, 180, 50, 0.08);
-  color: #dce4ee;
+  box-shadow: var(--shadow-glass), 0 0 12px rgb(var(--accent-primary) / 0.08);
+  color: rgb(var(--text-foreground));
 }
 
 .dark .leaflet-popup-content {
@@ -1019,15 +863,15 @@ html:not(.dark) .ag-theme-alpine-dark .ag-overlay-no-rows-center {
 }
 
 .dark .leaflet-popup-tip {
-  background: rgba(10, 14, 20, 0.92);
-  border: 1px solid rgba(255, 180, 50, 0.15);
+  background: rgb(var(--surface-900) / 0.92);
+  border: 1px solid rgb(var(--accent-primary) / 0.15);
   border-top: none;
   border-left: none;
   box-shadow: none;
 }
 
 .dark .leaflet-popup-close-button {
-  color: rgba(165, 180, 200, 0.7) !important;
+  color: rgb(var(--surface-300) / 0.7) !important;
   font-size: 18px !important;
   width: 22px !important;
   height: 22px !important;
@@ -1036,7 +880,7 @@ html:not(.dark) .ag-theme-alpine-dark .ag-overlay-no-rows-center {
 }
 
 .dark .leaflet-popup-close-button:hover {
-  color: #ffb432 !important;
+  color: rgb(var(--accent-primary)) !important;
 }
 
 /* Light mode popup styling */
@@ -1066,14 +910,14 @@ html:not(.dark) .leaflet-popup-content {
 }
 
 .dark .map-popup-qrz-btn {
-  background: rgba(255, 180, 50, 0.12);
-  border: 1px solid rgba(255, 180, 50, 0.25);
-  color: #ffb432;
+  background: rgb(var(--accent-primary) / 0.12);
+  border: 1px solid rgb(var(--accent-primary) / 0.25);
+  color: rgb(var(--accent-primary));
 }
 
 .dark .map-popup-qrz-btn:hover {
-  background: rgba(255, 180, 50, 0.22);
-  box-shadow: 0 0 8px rgba(255, 180, 50, 0.2);
+  background: rgb(var(--accent-primary) / 0.22);
+  box-shadow: 0 0 8px rgb(var(--accent-primary) / 0.2);
 }
 
 html:not(.dark) .map-popup-qrz-btn {

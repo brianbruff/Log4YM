@@ -1,15 +1,21 @@
 # Hamlib Native Libraries
 
-This directory contains native Hamlib libraries for each supported platform. The application will automatically load the correct library based on the runtime platform.
+This directory contains native Hamlib libraries for each supported platform. The application automatically loads the correct library based on the runtime platform.
 
 ## Bundled Libraries
 
-**Hamlib 4.6.5** binaries are included for:
-- **Windows x64** - All required DLLs bundled
-- **Windows x86 (32-bit)** - All required DLLs bundled (see win-x86/native/README.md)
-- **macOS ARM64** - For Apple Silicon Macs
+Official pre-built **Hamlib** binaries are bundled for all platforms:
 
-For other platforms, the application will automatically search system library paths.
+| Platform | RID | Source | Bundled |
+|----------|-----|--------|---------|
+| Windows x64 | win-x64 | [Hamlib GitHub Releases](https://github.com/Hamlib/Hamlib/releases) | Yes |
+| Windows x86 | win-x86 | [Hamlib GitHub Releases](https://github.com/Hamlib/Hamlib/releases) | See win-x86/native/README.md |
+| macOS ARM64 | osx-arm64 | Homebrew (`brew install hamlib`) | Yes |
+| macOS x64 | osx-x64 | Homebrew (`brew install hamlib`) | CI only |
+| Linux x64 | linux-x64 | apt (`libhamlib4`) | CI only |
+| Linux ARM64 | linux-arm64 | apt (`libhamlib4`) | CI only |
+
+"CI only" means binaries are provisioned during the release build. For local development, run the download script or install via your package manager.
 
 ## Directory Structure
 
@@ -21,83 +27,67 @@ runtimes/
 │   ├── libwinpthread-1.dll   (dependency)
 │   └── libusb-1.0.dll        (dependency)
 ├── win-x86/native/
-│   ├── libhamlib-4.dll       (main library, 32-bit)
-│   ├── libgcc_s_dw2-1.dll    (dependency, may vary)
-│   ├── libwinpthread-1.dll   (dependency)
-│   └── libusb-1.0.dll        (dependency)
-├── linux-x64/native/
-│   └── (install via package manager - see below)
-├── linux-arm64/native/
-│   └── (install via package manager - see below)
+│   └── (see win-x86/native/README.md)
+├── osx-arm64/native/
+│   ├── libhamlib.4.dylib     (main library, rpaths fixed)
+│   └── libusb-1.0.0.dylib    (dependency)
 ├── osx-x64/native/
-│   └── (install via Homebrew - see below)
-└── osx-arm64/native/
-    └── libhamlib.4.dylib     (bundled)
+│   └── (provisioned by CI or download script)
+├── linux-x64/native/
+│   ├── libhamlib.so.4         (provisioned by CI or download script)
+│   └── libusb-1.0.so.0        (dependency)
+└── linux-arm64/native/
+    └── (provisioned by CI or download script)
 ```
 
-## Platform Setup
+## Provisioning Binaries
 
-### Windows x64
-**Pre-bundled** - No action required. Libraries are included in this repository.
+### Automated (recommended)
 
-### Windows x86 (32-bit)
-**Pre-bundled** - Libraries should be placed in `win-x86/native/`. See [win-x86/native/README.md](win-x86/native/README.md) for instructions on obtaining the 32-bit Hamlib DLLs.
+Use the download script to provision binaries for your current platform:
 
-### macOS ARM64 (Apple Silicon)
-**Pre-bundled** - No action required. Libraries are included in this repository.
+```bash
+# Auto-detect platform
+./scripts/download-hamlib.sh
 
-### macOS x64 (Intel)
-Install via Homebrew (library will be auto-detected from system path):
+# Specify platform explicitly
+./scripts/download-hamlib.sh --platform macos
+./scripts/download-hamlib.sh --platform linux
+./scripts/download-hamlib.sh --platform windows
+```
+
+The script:
+- **Windows**: Downloads from Hamlib GitHub releases
+- **macOS**: Installs via Homebrew, bundles libusb, fixes rpaths with `install_name_tool`
+- **Linux**: Installs via apt/dnf/pacman, bundles libusb, patches RPATH with `patchelf`
+
+### Manual
+
+#### Windows
+Download from [Hamlib Releases](https://github.com/Hamlib/Hamlib/releases):
+```bash
+# Download and extract hamlib-w64-X.X.X.zip
+# Copy all .dll files from bin/ to runtimes/win-x64/native/
+```
+
+#### macOS
 ```bash
 brew install hamlib
+# The download script handles copying and rpath fixing
+./scripts/download-hamlib.sh --platform macos
 ```
 
-Or copy to the runtimes folder:
-```bash
-cp /usr/local/opt/hamlib/lib/libhamlib.4.dylib runtimes/osx-x64/native/
-```
-
-### Linux (x64/ARM64)
-Install via your package manager (library will be auto-detected from system path):
-
+#### Linux
 ```bash
 # Debian/Ubuntu
 sudo apt install libhamlib4
-
 # Fedora/RHEL
-sudo dnf install hamlib
-
+sudo dnf install hamlib-libs
 # Arch Linux
 sudo pacman -S hamlib
 ```
 
-The application searches these system paths automatically:
-- `/usr/lib/x86_64-linux-gnu/libhamlib.so.4` (Debian x64)
-- `/usr/lib/aarch64-linux-gnu/libhamlib.so.4` (Debian ARM64)
-- `/usr/lib64/libhamlib.so.4` (Fedora/RHEL)
-- `/usr/local/lib/libhamlib.so.4` (manual install)
-
-## Updating Libraries
-
-### Windows
-Download from [Hamlib Releases](https://github.com/Hamlib/Hamlib/releases):
-```bash
-# For 64-bit (x64)
-# Download and extract hamlib-w64-X.X.X.zip
-# Copy all .dll files from bin/ to runtimes/win-x64/native/
-
-# For 32-bit (x86)
-# Download and extract hamlib-w32-X.X.X.zip
-# Copy all .dll files from bin/ to runtimes/win-x86/native/
-```
-
-### macOS
-```bash
-brew upgrade hamlib
-cp /opt/homebrew/opt/hamlib/lib/libhamlib.4.dylib runtimes/osx-arm64/native/
-# or for Intel:
-cp /usr/local/opt/hamlib/lib/libhamlib.4.dylib runtimes/osx-x64/native/
-```
+The application also searches system library paths as a fallback when bundled libraries are not present.
 
 ## Minimum Version
 
@@ -111,7 +101,8 @@ If the native library fails to load, check the server console for `[Hamlib]` pre
 - Any error messages
 
 Common issues:
-1. **Library not found** - Ensure library exists in `runtimes/{RID}/native/` or is installed system-wide
+1. **Library not found** - Run `./scripts/download-hamlib.sh` or install via package manager
 2. **Permission denied** - On Linux/macOS, verify the library has read permissions
-3. **Missing dependencies** - On Windows, ensure all DLLs from the Hamlib release are present
+3. **Missing dependencies** - Ensure libusb is bundled alongside libhamlib
 4. **Architecture mismatch** - Ensure the library matches your CPU architecture (x64 vs x86 vs arm64)
+5. **macOS rpath issues** - Use the download script which fixes rpaths automatically

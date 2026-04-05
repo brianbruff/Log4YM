@@ -77,6 +77,20 @@ jobs:
         run: |
           npm version ${{ steps.version.outputs.version }} --no-git-tag-version --allow-same-version
 
+      - name: Provision Hamlib native libraries (macOS)
+        if: matrix.platform == 'mac'
+        run: |
+          brew install hamlib
+          ./scripts/download-hamlib.sh --platform macos
+
+      - name: Provision Hamlib native libraries (Linux)
+        if: matrix.platform == 'linux'
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y libhamlib4t64 2>/dev/null || sudo apt-get install -y libhamlib4
+          sudo apt-get install -y patchelf
+          ./scripts/download-hamlib.sh --platform linux
+
       - name: Build .NET backend
         run: |
           dotnet publish src/Log4YM.Server -c Release --self-contained -r ${{ matrix.dotnet_rid }} -o src/Log4YM.Desktop/backend

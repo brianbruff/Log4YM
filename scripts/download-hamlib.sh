@@ -93,6 +93,14 @@ provision_macos() {
         echo "  WARNING: libusb not found at $libusb_lib - USB radio support may not work"
     fi
 
+    # Re-sign libraries after rpath modifications (install_name_tool invalidates
+    # the original Homebrew signatures; unsigned dylibs cause SIGKILL on macOS)
+    echo "  Re-signing libraries (ad-hoc)..."
+    codesign --force --sign - "$dest/libhamlib.4.dylib"
+    if [[ -f "$dest/libusb-1.0.0.dylib" ]]; then
+        codesign --force --sign - "$dest/libusb-1.0.0.dylib"
+    fi
+
     echo "  Verifying library dependencies..."
     otool -L "$dest/libhamlib.4.dylib" | grep -v "/usr/lib/" | grep -v "@loader_path" | grep -v "libhamlib" | head -5 || true
 

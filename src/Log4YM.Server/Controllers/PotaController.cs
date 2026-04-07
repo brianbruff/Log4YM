@@ -22,7 +22,7 @@ public class PotaController : ControllerBase
     }
 
     /// <summary>
-    /// Get active POTA spots from POTA API, enriched with park coordinates
+    /// Get active POTA spots from POTA API (/spot/activator endpoint), enriched with park coordinates
     /// </summary>
     [HttpGet("spots")]
     [ProducesResponseType(typeof(IEnumerable<PotaSpot>), StatusCodes.Status200OK)]
@@ -33,7 +33,7 @@ public class PotaController : ControllerBase
             var httpClient = _httpClientFactory.CreateClient();
             httpClient.Timeout = TimeSpan.FromSeconds(10);
 
-            var response = await httpClient.GetAsync("https://api.pota.app/spot/");
+            var response = await httpClient.GetAsync("https://api.pota.app/spot/activator");
             response.EnsureSuccessStatusCode();
 
             var content = await response.Content.ReadAsStringAsync();
@@ -55,6 +55,14 @@ public class PotaController : ControllerBase
                 {
                     spot.Latitude = coords.Lat;
                     spot.Longitude = coords.Lon;
+                }
+
+                // POTA API returns UTC timestamps without 'Z' suffix, violating ISO 8601
+                // Ensure timestamps are properly interpreted as UTC
+                if (!string.IsNullOrEmpty(spot.SpotTime) &&
+                    !spot.SpotTime.EndsWith("Z", StringComparison.OrdinalIgnoreCase))
+                {
+                    spot.SpotTime += "Z";
                 }
             }
 

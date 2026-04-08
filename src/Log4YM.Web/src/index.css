@@ -54,12 +54,18 @@
   /* Text foreground — dark for light bg */
   --text-foreground: 32 30 26;    /* #201e1a — warm dark text */
 
-  /* Shadows — soft and subtle for light surfaces */
-  --shadow-glass: 0 2px 10px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05);
-  --shadow-glass-sm: 0 1px 4px rgba(0, 0, 0, 0.06);
+  /* Shadows — soft with glass rim highlight for light surfaces */
+  --shadow-glass: 0 2px 10px rgba(0, 0, 0, 0.08), 0 1px 3px rgba(0, 0, 0, 0.05), inset 0 1px 0 rgba(255, 255, 255, 0.8);
+  --shadow-glass-sm: 0 1px 4px rgba(0, 0, 0, 0.06), inset 0 1px 0 rgba(255, 255, 255, 0.7);
   --shadow-glow: 0 0 12px rgba(192, 82, 22, 0.15);
   --shadow-glow-success: 0 0 12px rgba(56, 142, 60, 0.15);
   --shadow-glow-cyan: 0 0 12px rgba(205, 115, 35, 0.15);
+
+  /* Glass reflection gradients — subtle white sheen for light mode */
+  --glass-gradient: linear-gradient(180deg, rgba(255, 255, 255, 0.9) 0%, rgba(255, 255, 255, 0.55) 100%);
+  --glass-gradient-panel: linear-gradient(180deg, rgba(255, 255, 255, 0.8) 0%, rgba(250, 249, 247, 0.6) 100%);
+  --glass-gradient-header: linear-gradient(180deg, rgba(255, 255, 255, 0.95) 0%, rgba(245, 243, 240, 0.85) 100%);
+  --body-bg-gradient: radial-gradient(ellipse at top, rgba(255, 252, 245, 0.85) 0%, rgba(236, 234, 230, 1) 60%);
 
   /* Scrollbar — light */
   --scrollbar-track: #eceae6;
@@ -146,12 +152,18 @@ html:not(.dark) select option {
   /* Text foreground */
   --text-foreground: 228 228 231;  /* #E4E4E7 */
 
-  /* Shadows — subtle, focused */
-  --shadow-glass: 0 2px 8px rgba(0, 0, 0, 0.4), inset 0 1px 0 rgb(var(--accent-primary) / 0.04);
-  --shadow-glass-sm: 0 1px 4px rgba(0, 0, 0, 0.3);
+  /* Shadows — depth with amber glass rim highlight */
+  --shadow-glass: 0 4px 20px rgba(0, 0, 0, 0.5), 0 1px 3px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgb(var(--accent-primary) / 0.28), inset 0 0 0 1px rgba(255, 255, 255, 0.03);
+  --shadow-glass-sm: 0 1px 4px rgba(0, 0, 0, 0.3), inset 0 1px 0 rgb(var(--accent-primary) / 0.18);
   --shadow-glow: 0 0 12px rgb(var(--accent-primary) / 0.2);
   --shadow-glow-success: 0 0 12px rgb(var(--accent-success) / 0.2);
   --shadow-glow-cyan: 0 0 12px rgb(var(--accent-secondary) / 0.2);
+
+  /* Glass reflection gradients — warm amber sheen for dark mode */
+  --glass-gradient: linear-gradient(180deg, rgb(var(--surface-700) / 0.95) 0%, rgb(var(--surface-800) / 0.75) 50%, rgb(var(--surface-900) / 0.65) 100%);
+  --glass-gradient-panel: linear-gradient(180deg, rgb(var(--surface-700) / 0.75) 0%, rgb(var(--surface-800) / 0.85) 30%, rgb(var(--surface-850) / 0.85) 100%);
+  --glass-gradient-header: linear-gradient(180deg, rgb(var(--surface-700)) 0%, rgb(var(--surface-800) / 0.9) 100%);
+  --body-bg-gradient: radial-gradient(ellipse 1200px 600px at 30% -10%, rgb(var(--accent-primary) / 0.1) 0%, transparent 50%), radial-gradient(ellipse 900px 500px at 85% 100%, rgb(var(--accent-secondary) / 0.08) 0%, transparent 55%), radial-gradient(ellipse 600px 400px at 50% 50%, rgb(var(--surface-800) / 0.5) 0%, transparent 70%), rgb(var(--surface-900));
 
   /* Scrollbar */
   --scrollbar-track: #141417;
@@ -181,7 +193,9 @@ html:not(.dark) select option {
   }
 
   body {
-    @apply bg-dark-900 text-gray-100 antialiased;
+    @apply text-gray-100 antialiased;
+    background: var(--body-bg-gradient);
+    background-attachment: fixed;
     font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
   }
 
@@ -212,11 +226,15 @@ html:not(.dark) select option {
 @layer components {
   /* Glassmorphic panel — dark=glass, light=card */
   .glass-panel {
-    @apply bg-dark-800/90 backdrop-blur-xl border border-glass-100 rounded-xl shadow-glass;
+    @apply backdrop-blur-xl border border-glass-100 rounded-xl shadow-glass;
+    background: var(--glass-gradient-panel);
+    backdrop-filter: blur(20px) saturate(140%);
+    -webkit-backdrop-filter: blur(20px) saturate(140%);
   }
 
   .glass-panel-solid {
-    @apply bg-dark-800 border border-glass-100 rounded-xl shadow-glass;
+    @apply border border-glass-100 rounded-xl shadow-glass;
+    background: var(--glass-gradient-panel);
   }
 
   /* Glassmorphic input — themed focus ring */
@@ -228,15 +246,21 @@ html:not(.dark) select option {
     font-family: 'JetBrains Mono', 'Consolas', monospace;
   }
 
-  /* Glassmorphic button — themed */
+  /* Glassmorphic button — themed with subtle gradient */
   .glass-button {
-    @apply bg-dark-700/80 backdrop-blur-sm border border-glass-100 rounded-lg px-4 py-2
+    @apply backdrop-blur-sm border border-glass-100 rounded-lg px-4 py-2
            text-gray-100 font-medium
-           hover:bg-dark-600/80 hover:border-glass-200
+           hover:border-glass-200
            focus:outline-none focus:ring-2 focus:ring-accent-primary/40
            active:scale-95
            transition-all duration-200;
+    background: var(--glass-gradient);
+    box-shadow: var(--shadow-glass-sm);
     font-family: 'Space Grotesk', system-ui, sans-serif;
+  }
+
+  .glass-button:hover {
+    filter: brightness(1.08);
   }
 
   .glass-button-primary {
@@ -362,25 +386,46 @@ html:not(.dark) .flexlayout__tab_button--selected {
 }
 
 .flexlayout__tabset {
-  background: rgb(var(--surface-800));
+  background: var(--glass-gradient-panel);
+  backdrop-filter: blur(16px) saturate(140%);
+  -webkit-backdrop-filter: blur(16px) saturate(140%);
   border: 1px solid rgb(var(--surface-600));
   border-radius: 8px 8px 0 0;
   overflow: hidden;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, 0.08);
 }
 
 .flexlayout__tabset_tabbar_outer {
-  background: rgb(var(--surface-800));
+  background:
+    url('/brushed-metal.svg') 0 0 / 100% 100% no-repeat,
+    var(--glass-gradient-header);
+  background-blend-mode: overlay, normal;
   border-bottom: 1px solid rgb(var(--surface-600));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.16),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.35);
 }
 
-/* Light mode: clean light panel header bars */
+/* Light mode: clean light panel header bars with subtle metallic sheen */
 html:not(.dark) .flexlayout__tabset_tabbar_outer {
-  background: rgb(var(--surface-800));
+  background:
+    url('/brushed-metal.svg') 0 0 / 100% 100% no-repeat,
+    var(--glass-gradient-header);
+  background-blend-mode: soft-light, normal;
   border-bottom: 1px solid rgb(var(--surface-600));
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.08);
 }
 
 .flexlayout__tab {
-  background: rgb(var(--surface-900));
+  background: rgb(var(--surface-900) / 0.7);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+}
+
+html:not(.dark) .flexlayout__tab {
+  background: rgba(255, 255, 255, 0.55);
 }
 
 .flexlayout__splitter {
@@ -681,10 +726,30 @@ html:not(.dark) .ag-theme-alpine-dark .ag-overlay-no-rows-center {
   height: 100%;
   width: 100%;
   overflow: hidden;
-  background: rgb(var(--surface-900));
+  background:
+    url('/brushed-metal.svg') 0 0 / 100% 100% no-repeat,
+    var(--glass-gradient-header);
+  background-blend-mode: overlay, normal;
+  backdrop-filter: blur(12px) saturate(140%);
+  -webkit-backdrop-filter: blur(12px) saturate(140%);
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.18),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+    inset 0 0 0 1px rgb(var(--accent-primary) / 0.06);
   font-family: 'Space Grotesk', system-ui, -apple-system, sans-serif;
   box-sizing: border-box;
   --ts: 48;
+}
+
+html:not(.dark) .header-plugin {
+  background:
+    url('/brushed-metal.svg') 0 0 / 100% 100% no-repeat,
+    var(--glass-gradient-header);
+  background-blend-mode: soft-light, normal;
+  box-shadow:
+    inset 0 1px 0 rgba(255, 255, 255, 0.95),
+    inset 0 -1px 0 rgba(0, 0, 0, 0.1),
+    inset 0 0 0 1px rgba(192, 82, 22, 0.06);
 }
 
 .header-plugin__sep { display: none; }

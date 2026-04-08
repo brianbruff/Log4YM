@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="800" height="40" viewBox="0 0 800 40" preserveAspectRatio="none">
+  <defs>
+    <!-- Horizontal brushed-metal grain via fractalNoise stretched on the X axis -->
+    <filter id="brushed" x="0" y="0" width="100%" height="100%">
+      <feTurbulence type="fractalNoise" baseFrequency="2.4 0.04" numOctaves="3" seed="7" stitchTiles="stitch"/>
+      <feColorMatrix type="matrix" values="0 0 0 0 1
+                                            0 0 0 0 1
+                                            0 0 0 0 1
+                                            0 0 0 0.6 0"/>
+      <feComposite in2="SourceGraphic" operator="in"/>
+    </filter>
+
+    <!-- Top-to-bottom polished sheen: bright crown, mid shadow, slight bottom lift -->
+    <linearGradient id="sheen" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0.32"/>
+      <stop offset="18%" stop-color="#ffffff" stop-opacity="0.18"/>
+      <stop offset="48%" stop-color="#000000" stop-opacity="0.08"/>
+      <stop offset="78%" stop-color="#000000" stop-opacity="0.18"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0.06"/>
+    </linearGradient>
+
+    <!-- Soft horizontal highlight band — like a light bouncing off a polished bar -->
+    <linearGradient id="hotspot" x1="0" y1="0" x2="1" y2="0">
+      <stop offset="0%" stop-color="#ffffff" stop-opacity="0"/>
+      <stop offset="35%" stop-color="#ffffff" stop-opacity="0.1"/>
+      <stop offset="65%" stop-color="#ffffff" stop-opacity="0.04"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Layer 1: vertical sheen (top highlight, mid valley, bottom rim) -->
+  <rect width="800" height="40" fill="url(#sheen)"/>
+
+  <!-- Layer 2: horizontal brushed grain -->
+  <rect width="800" height="40" fill="#888888" filter="url(#brushed)" opacity="0.55"/>
+
+  <!-- Layer 3: horizontal hotspot, biased slightly above mid -->
+  <rect y="6" width="800" height="14" fill="url(#hotspot)"/>
+</svg>

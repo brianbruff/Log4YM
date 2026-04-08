@@ -213,6 +213,8 @@ public class DxClusterService : IDxClusterService, IHostedService, IDisposable
             callsign,
             config.Password,
             config.AutoReconnect,
+            config.FilterSkimmer,
+            config.FilterFt8,
             _logger,
             OnSpotReceived,
             OnStatusChanged
@@ -396,6 +398,8 @@ internal class ClusterConnectionHandler
     private readonly string _callsign;
     private readonly string? _password;
     private readonly bool _autoReconnect;
+    private readonly bool _filterSkimmer;
+    private readonly bool _filterFt8;
     private readonly ILogger _logger;
     private readonly Func<ParsedSpot, string, string, Task> _onSpotReceived;
     private readonly Action<string, string, string, string?> _onStatusChanged;
@@ -424,6 +428,8 @@ internal class ClusterConnectionHandler
         string callsign,
         string? password,
         bool autoReconnect,
+        bool filterSkimmer,
+        bool filterFt8,
         ILogger logger,
         Func<ParsedSpot, string, string, Task> onSpotReceived,
         Action<string, string, string, string?> onStatusChanged)
@@ -435,6 +441,8 @@ internal class ClusterConnectionHandler
         _callsign = callsign;
         _password = password;
         _autoReconnect = autoReconnect;
+        _filterSkimmer = filterSkimmer;
+        _filterFt8 = filterFt8;
         _logger = logger;
         _onSpotReceived = onSpotReceived;
         _onStatusChanged = onStatusChanged;
@@ -522,6 +530,7 @@ internal class ClusterConnectionHandler
         var loginSent = false;
         var passwordSent = false;
         var ccModeEnabled = false;
+        var filtersSent = false;
 
         // Use chunk-based reading instead of ReadLineAsync to handle telnet-style
         // prompts (login:, password:) that don't end with newlines
@@ -556,7 +565,7 @@ internal class ClusterConnectionHandler
                     _logger.LogDebug("Cluster {Name} recv: {Line}", _name, line);
 
                     if (HandleInteractivePrompt(line, writer, ref loginSent, ref passwordSent,
-                            ref ccModeEnabled, ct))
+                            ref ccModeEnabled, ref filtersSent, ct))
                         continue;
 
                     // Skip empty lines and prompts
@@ -572,7 +581,7 @@ internal class ClusterConnectionHandler
             // that arrive without trailing newlines (e.g. "login: ", "password: ")
             var pendingText = pending.ToString();
             if (HandleInteractivePrompt(pendingText, writer, ref loginSent, ref passwordSent,
-                    ref ccModeEnabled, ct))
+                    ref ccModeEnabled, ref filtersSent, ct))
             {
                 pending.Clear();
             }
@@ -585,7 +594,7 @@ internal class ClusterConnectionHandler
     /// </summary>
     private bool HandleInteractivePrompt(string text, StreamWriter writer,
         ref bool loginSent, ref bool passwordSent,
-        ref bool ccModeEnabled,
+        ref bool ccModeEnabled, ref bool filtersSent,
         CancellationToken ct)
     {
         // Handle login prompt
@@ -632,8 +641,26 @@ internal class ClusterConnectionHandler
             return true;
         }
 
-        // Note: No longer disabling skimmers/FT8 to maximize spot coverage
-        // Previously filtered with "set/noskimmer" and "set/noft8"
+        // After CC mode is on, send mode/source filters at the next prompt.
+        // ve7cc.net default-feeds RBN skimmer spots which are ~95% FT8, drowning out
+        // human spots. set/noskimmer drops the -# skimmer feed; set/noft8 also strips
+        // any human FT8 spots if the user wants a fully digital-free view.
+        if (loginSent && ccModeEnabled && !filtersSent && text.TrimEnd().EndsWith(">"))
+        {
+            Task.Delay(300, ct).Wait(ct);
+            if (_filterSkimmer)
+            {
+                _logger.LogInformation("Disabling skimmer spots on {Name}", _name);
+                writer.WriteLine("set/noskimmer");
+            }
+            if (_filterFt8)
+            {
+                _logger.LogInformation("Disabling FT8 spots on {Name}", _name);
+                writer.WriteLine("set/noft8");
+            }
+            filtersSent = true;
+            return _filterSkimmer || _filterFt8;
+        }
 
         return false;
     }

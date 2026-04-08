@@ -343,6 +343,12 @@ public class ClusterConnection
 
     [BsonElement("autoReconnect")]
     public bool AutoReconnect { get; set; } = false;
+
+    [BsonElement("filterSkimmer")]
+    public bool FilterSkimmer { get; set; } = true;  // Drop RBN/skimmer (-#) spots — they're mostly FT8 noise
+
+    [BsonElement("filterFt8")]
+    public bool FilterFt8 { get; set; } = false;  // Drop FT8 spots entirely (skimmer filter usually enough)
 }
 
 [BsonIgnoreExtraElements]

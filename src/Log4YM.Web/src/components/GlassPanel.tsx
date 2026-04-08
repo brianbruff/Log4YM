@@ -15,7 +15,7 @@ export function GlassPanel({ children, className = '', title, icon, actions }: G
         <div className="flex items-center justify-between px-4 py-3 border-b border-glass-100">
           <div className="flex items-center gap-2">
             {icon && <span className="text-accent-secondary">{icon}</span>}
-            {title && <h3 className="font-semibold text-accent-success font-ui text-sm tracking-wide uppercase">{title}</h3>}
+            {title && <h3 className="font-semibold text-accent-primary font-ui text-sm tracking-wide uppercase">{title}</h3>}
           </div>
           {actions && <div className="flex items-center gap-2">{actions}</div>}
         </div>

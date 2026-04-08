@@ -1,0 +1,39 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="200" height="40" viewBox="0 0 200 40" preserveAspectRatio="none">
+  <defs>
+    <!-- Two-tone polished gradient: bright top crown,
+         hard reflection break around mid, then a darker bottom curve -->
+    <linearGradient id="polish" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"  stop-color="#ffffff" stop-opacity="0.55"/>
+      <stop offset="8%"  stop-color="#ffffff" stop-opacity="0.38"/>
+      <stop offset="46%" stop-color="#ffffff" stop-opacity="0.06"/>
+      <stop offset="50%" stop-color="#000000" stop-opacity="0.02"/>
+      <stop offset="54%" stop-color="#000000" stop-opacity="0.10"/>
+      <stop offset="92%" stop-color="#000000" stop-opacity="0.32"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.42"/>
+    </linearGradient>
+
+    <!-- Curved highlight ellipse to fake a wide-angle reflection -->
+    <radialGradient id="glow" cx="50%" cy="-20%" r="80%" fx="50%" fy="-20%">
+      <stop offset="0%"   stop-color="#ffffff" stop-opacity="0.55"/>
+      <stop offset="35%"  stop-color="#ffffff" stop-opacity="0.16"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </radialGradient>
+
+    <!-- Crisp top bevel -->
+    <linearGradient id="bevel" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#ffffff" stop-opacity="0.95"/>
+      <stop offset="100%" stop-color="#ffffff" stop-opacity="0"/>
+    </linearGradient>
+
+    <!-- Bottom rim shadow -->
+    <linearGradient id="rim" x1="0" y1="0" x2="0" y2="1">
+      <stop offset="0%"   stop-color="#000000" stop-opacity="0"/>
+      <stop offset="100%" stop-color="#000000" stop-opacity="0.55"/>
+    </linearGradient>
+  </defs>
+
+  <rect width="200" height="40" fill="url(#polish)"/>
+  <rect width="200" height="40" fill="url(#glow)"/>
+  <rect width="200" height="2"  fill="url(#bevel)"/>
+  <rect width="200" height="3"  y="37" fill="url(#rim)"/>
+</svg>

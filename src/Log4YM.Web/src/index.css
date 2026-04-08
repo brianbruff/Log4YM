@@ -123,9 +123,9 @@ html:not(.dark) select option {
   --surface-300: 161 161 168;     /* #A1A1A8 — secondary text, tabs */
   --surface-200: 228 228 231;     /* #E4E4E7 — primary text weight */
 
-  /* Accent colors — warm amber primary, sage green secondary */
+  /* Accent colors — warm amber primary, vivid sapphire secondary */
   --accent-primary: 224 138 61;   /* #E08A3D — warm amber/orange */
-  --accent-secondary: 107 163 126; /* #6BA37E — muted sage green */
+  --accent-secondary: 91 165 250; /* #5BA5FA — vivid sapphire blue */
   --accent-success: 58 168 85;    /* #3AA855 — natural green */
   --accent-warning: 212 167 46;   /* #D4A72E — golden amber */
   --accent-danger: 229 91 91;     /* #E55B5B — warm red */
@@ -246,39 +246,82 @@ html:not(.dark) select option {
     font-family: 'JetBrains Mono', 'Consolas', monospace;
   }
 
-  /* Glassmorphic button — themed with subtle gradient */
+  /* Glassmorphic button — polished metal surface */
   .glass-button {
-    @apply backdrop-blur-sm border border-glass-100 rounded-lg px-4 py-2
+    @apply border border-glass-100 rounded-lg px-4 py-2
            text-gray-100 font-medium
            hover:border-glass-200
            focus:outline-none focus:ring-2 focus:ring-accent-primary/40
            active:scale-95
            transition-all duration-200;
-    background: var(--glass-gradient);
-    box-shadow: var(--shadow-glass-sm);
+    background:
+      url('/polished-metal.svg') 0 0 / 100% 100% no-repeat,
+      var(--glass-gradient);
+    background-blend-mode: overlay, normal;
+    box-shadow:
+      var(--shadow-glass-sm),
+      inset 0 1px 0 rgba(255, 255, 255, 0.22),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.4);
     font-family: 'Space Grotesk', system-ui, sans-serif;
   }
 
+  html:not(.dark) .glass-button {
+    background-blend-mode: soft-light, normal;
+    box-shadow:
+      var(--shadow-glass-sm),
+      inset 0 1px 0 rgba(255, 255, 255, 0.95),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.08);
+  }
+
   .glass-button:hover {
-    filter: brightness(1.08);
+    filter: brightness(1.12) saturate(1.1);
+    box-shadow:
+      var(--shadow-glass-sm),
+      inset 0 1px 0 rgba(255, 255, 255, 0.32),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.4),
+      0 0 0 1px rgb(var(--accent-primary) / 0.25);
   }
 
   .glass-button-primary {
-    @apply bg-accent-primary/20 backdrop-blur-sm border border-accent-primary/30 rounded-lg px-4 py-2
+    @apply border border-accent-primary/40 rounded-lg px-4 py-2
            text-accent-primary font-medium
-           hover:bg-accent-primary/30 hover:shadow-glow
+           hover:shadow-glow
            focus:outline-none focus:ring-2 focus:ring-accent-primary/40
            active:scale-95
            transition-all duration-200;
+    background:
+      url('/polished-metal.svg') 0 0 / 100% 100% no-repeat,
+      linear-gradient(180deg, rgb(var(--accent-primary) / 0.32) 0%, rgb(var(--accent-primary) / 0.18) 100%);
+    background-blend-mode: overlay, normal;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.28),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+      0 1px 3px rgba(0, 0, 0, 0.3);
+  }
+
+  .glass-button-primary:hover {
+    filter: brightness(1.15) saturate(1.15);
   }
 
   .glass-button-success {
-    @apply bg-accent-success/20 backdrop-blur-sm border border-accent-success/30 rounded-lg px-4 py-2
+    @apply border border-accent-success/40 rounded-lg px-4 py-2
            text-accent-success font-medium
-           hover:bg-accent-success/30 hover:shadow-glow-success
+           hover:shadow-glow-success
            focus:outline-none focus:ring-2 focus:ring-accent-success/40
            active:scale-95
            transition-all duration-200;
+    background:
+      url('/polished-metal.svg') 0 0 / 100% 100% no-repeat,
+      linear-gradient(180deg, rgb(var(--accent-success) / 0.32) 0%, rgb(var(--accent-success) / 0.18) 100%);
+    background-blend-mode: overlay, normal;
+    box-shadow:
+      inset 0 1px 0 rgba(255, 255, 255, 0.28),
+      inset 0 -1px 0 rgba(0, 0, 0, 0.35),
+      0 1px 3px rgba(0, 0, 0, 0.3);
+  }
+
+  .glass-button-success:hover {
+    filter: brightness(1.15) saturate(1.15);
   }
 
   /* Mode badges */
@@ -786,7 +829,7 @@ html:not(.dark) .header-plugin {
   font-weight: 600;
   letter-spacing: 1.5px;
   text-transform: uppercase;
-  color: rgb(var(--accent-success));
+  color: rgb(var(--accent-secondary));
 }
 
 .header-plugin__time {

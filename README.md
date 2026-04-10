@@ -4,7 +4,8 @@
 
 > **Alpha Software** — Log4YM is under active development. Features may change and bugs are expected.
 
-![Log4YM](screenshots/hero.png)
+<img width="3438" height="1409" alt="image" src="https://github.com/user-attachments/assets/8103d81f-dfac-407f-82ae-b01bd225232f" />
+
 
 Log4YM is an amateur radio logger for Windows, macOS, and Linux with drag-and-drop panels, real-time DX cluster, interactive maps, AI talk points, and cloud sync via MongoDB.
 

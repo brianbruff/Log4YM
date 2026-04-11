@@ -32,18 +32,38 @@ public class SpotStatusServiceTests
         return services.BuildServiceProvider();
     }
 
+    #region GetSpotStatus — cache-not-ready guard
+
+    [Fact]
+    public void GetSpotStatus_BeforeCacheBuilt_ReturnsNull()
+    {
+        // StartAsync not yet called — the initial background cache build hasn't run,
+        // so every country would erroneously look "unworked". The guard must return
+        // null so spots arriving during startup don't get stamped with a wrong status.
+        _service.GetSpotStatus("YU7DX", "Serbia", 3700.0, "SSB")
+            .Should().BeNull();
+    }
+
+    #endregion
+
     #region GetSpotStatus — null country
 
     [Fact]
-    public void GetSpotStatus_NullCountry_ReturnsNull()
+    public async Task GetSpotStatus_NullCountry_ReturnsNull()
     {
+        await _service.StartAsync(CancellationToken.None);
+        await _service.CacheReady;
+
         _service.GetSpotStatus("W1ABC", null, 14000.0, "SSB")
             .Should().BeNull();
     }
 
     [Fact]
-    public void GetSpotStatus_EmptyCountry_ReturnsNull()
+    public async Task GetSpotStatus_EmptyCountry_ReturnsNull()
     {
+        await _service.StartAsync(CancellationToken.None);
+        await _service.CacheReady;
+
         _service.GetSpotStatus("W1ABC", "", 14000.0, "SSB")
             .Should().BeNull();
     }
@@ -53,8 +73,11 @@ public class SpotStatusServiceTests
     #region GetSpotStatus — Unknown band
 
     [Fact]
-    public void GetSpotStatus_UnknownBand_ReturnsNull()
+    public async Task GetSpotStatus_UnknownBand_ReturnsNull()
     {
+        await _service.StartAsync(CancellationToken.None);
+        await _service.CacheReady;
+
         // 500 kHz is not an amateur band
         _service.GetSpotStatus("W1ABC", "United States", 500.0, "SSB")
             .Should().BeNull();

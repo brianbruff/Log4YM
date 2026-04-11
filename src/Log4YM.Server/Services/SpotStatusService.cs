@@ -85,6 +85,13 @@ public class SpotStatusService : ISpotStatusService, IHostedService
 
     public string? GetSpotStatus(string dxCall, string? country, double frequencyKhz, string? mode)
     {
+        // Until the initial cache build completes, _workedCountries is empty and every
+        // lookup would return "newDxcc" — which then sticks on the spot in the UI even
+        // after the cache is ready. Return null (no status) during that window so spots
+        // arriving early show no indicator rather than a wrong one.
+        if (!_cacheReady.Task.IsCompleted)
+            return null;
+
         if (string.IsNullOrEmpty(country))
             return null;
 

@@ -59,13 +59,14 @@ public class MongoDbContext : IDbContext
 
                 Log.Information("MongoDB connecting to database: {DatabaseName}", databaseName);
 
-                // Configure client with aggressive timeouts to prevent blocking on startup.
-                // SRV DNS lookups for unreachable Atlas clusters can hang for minutes
-                // if we rely solely on the driver's built-in timeouts.
+                // Aggressive *connection* timeouts prevent blocking on startup when
+                // SRV DNS lookups for unreachable Atlas clusters hang for minutes.
+                // SocketTimeout is left at the driver default — it applies to every
+                // read/write on an established connection, and a small value kills
+                // legitimate bulk queries (e.g. fetching all QSOs for the DXCC cache).
                 var settings = MongoClientSettings.FromConnectionString(connectionString);
                 settings.ConnectTimeout = TimeSpan.FromSeconds(5);
                 settings.ServerSelectionTimeout = TimeSpan.FromSeconds(5);
-                settings.SocketTimeout = TimeSpan.FromSeconds(5);
 
                 _client = new MongoClient(settings);
                 _database = _client.GetDatabase(databaseName);

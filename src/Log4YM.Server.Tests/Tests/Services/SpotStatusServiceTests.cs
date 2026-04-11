@@ -68,6 +68,7 @@ public class SpotStatusServiceTests
     public async Task GetSpotStatus_NeverWorkedCountry_ReturnsNewDxcc()
     {
         await _service.StartAsync(CancellationToken.None);
+        await _service.CacheReady;
 
         _service.GetSpotStatus("W1ABC", "United States", 14000.0, "SSB")
             .Should().Be("newDxcc");
@@ -81,6 +82,7 @@ public class SpotStatusServiceTests
             MakeQso("DL1ABC", country: "Germany", band: "20m", mode: "SSB"),
         });
         await _service.StartAsync(CancellationToken.None);
+        await _service.CacheReady;
 
         // United States was never worked, only Germany
         _service.GetSpotStatus("W1ABC", "United States", 14000.0, "SSB")
@@ -99,6 +101,7 @@ public class SpotStatusServiceTests
             MakeQso("W1ABC", country: "United States", band: "40m", mode: "SSB"),
         });
         await _service.StartAsync(CancellationToken.None);
+        await _service.CacheReady;
 
         // Same country but on 20m instead of 40m
         _service.GetSpotStatus("W2XYZ", "United States", 14000.0, "SSB")
@@ -117,6 +120,7 @@ public class SpotStatusServiceTests
             MakeQso("W1ABC", country: "United States", band: "20m", mode: "SSB"),
         });
         await _service.StartAsync(CancellationToken.None);
+        await _service.CacheReady;
 
         // Same country+band+mode — "worked" regardless of specific callsign
         _service.GetSpotStatus("W1ABC", "United States", 14000.0, "SSB")
@@ -131,6 +135,7 @@ public class SpotStatusServiceTests
             MakeQso("W1ABC", country: "United States", band: "20m", mode: "SSB"),
         });
         await _service.StartAsync(CancellationToken.None);
+        await _service.CacheReady;
 
         // Different callsign but same country+band+mode → still "worked"
         _service.GetSpotStatus("W9XYZ", "United States", 14000.0, "SSB")
@@ -145,6 +150,7 @@ public class SpotStatusServiceTests
             MakeQso("w1abc", country: "united states", band: "20m", mode: "ssb"),
         });
         await _service.StartAsync(CancellationToken.None);
+        await _service.CacheReady;
 
         _service.GetSpotStatus("W1ABC", "United States", 14000.0, "SSB")
             .Should().Be("worked");
@@ -167,6 +173,7 @@ public class SpotStatusServiceTests
             MakeQso("W1ABC", country: "United States", band: "20m", mode: loggedMode),
         });
         await _service.StartAsync(CancellationToken.None);
+        await _service.CacheReady;
 
         _service.GetSpotStatus("W1ABC", "United States", 14000.0, spotMode)
             .Should().Be("worked");
@@ -184,6 +191,7 @@ public class SpotStatusServiceTests
             MakeQso("W1ABC", country: "United States", band: "20m", mode: "SSB"),
         });
         await _service.StartAsync(CancellationToken.None);
+        await _service.CacheReady;
 
         // Same country+band but no mode in spot — can't determine worked status, returns null
         _service.GetSpotStatus("W1ABC", "United States", 14000.0, null)
@@ -198,6 +206,7 @@ public class SpotStatusServiceTests
     public async Task OnQsoLogged_UpdatesCache_NewDxccBecomesWorked()
     {
         await _service.StartAsync(CancellationToken.None);
+        await _service.CacheReady;
 
         _service.GetSpotStatus("W1ABC", "United States", 14000.0, "SSB")
             .Should().Be("newDxcc");
@@ -216,6 +225,7 @@ public class SpotStatusServiceTests
             MakeQso("W1ABC", country: "United States", band: "40m", mode: "SSB"),
         });
         await _service.StartAsync(CancellationToken.None);
+        await _service.CacheReady;
 
         _service.GetSpotStatus("W2XYZ", "United States", 14000.0, "SSB")
             .Should().Be("newBand");
@@ -234,6 +244,7 @@ public class SpotStatusServiceTests
     public async Task InvalidateCacheAsync_RebuildsCacheFromDatabase()
     {
         await _service.StartAsync(CancellationToken.None);
+        await _service.CacheReady;
 
         _service.GetSpotStatus("W1ABC", "United States", 14000.0, "SSB")
             .Should().Be("newDxcc");
@@ -265,6 +276,7 @@ public class SpotStatusServiceTests
             MakeQso("W1ABC", country: qsoCountry, band: "20m", mode: "SSB"),
         });
         await _service.StartAsync(CancellationToken.None);
+        await _service.CacheReady;
 
         // Spot uses alias name, QSO uses ADIF name — should still match
         _service.GetSpotStatus("W1ABC", spotCountry, 14000.0, "SSB")
@@ -281,6 +293,7 @@ public class SpotStatusServiceTests
             MakeQso("G4ABC", country: "England", band: "40m", mode: "SSB"),
         });
         await _service.StartAsync(CancellationToken.None);
+        await _service.CacheReady;
 
         _service.GetSpotStatus("M7JTV", "England", 14000.0, "CW")
             .Should().Be("worked");
@@ -294,6 +307,7 @@ public class SpotStatusServiceTests
     public async Task OnQsoLogged_SameEntityName_MatchesSpotLookup()
     {
         await _service.StartAsync(CancellationToken.None);
+        await _service.CacheReady;
 
         // Log a QSO with ADIF entity name
         _service.OnQsoLogged("G4ABC", "England", "20m", "SSB");
@@ -313,6 +327,7 @@ public class SpotStatusServiceTests
             MakeQso("DL1ABC", country: "Germany", band: "20m", mode: "SSB"),
         });
         await _service.StartAsync(CancellationToken.None);
+        await _service.CacheReady;
 
         // Spot arrives with cty.dat name "Fed. Rep. of Germany" — should NOT be newDxcc
         _service.GetSpotStatus("DL2RH", "Fed. Rep. of Germany", 14000.0, "SSB")
@@ -323,6 +338,7 @@ public class SpotStatusServiceTests
     public async Task OnQsoLogged_CtyDatNameMismatch_AlsoIndexesCtyName()
     {
         await _service.StartAsync(CancellationToken.None);
+        await _service.CacheReady;
 
         // Log a QSO with common name "Germany" for a DL callsign
         _service.OnQsoLogged("DL1ABC", "Germany", "20m", "CW");
@@ -348,6 +364,7 @@ public class SpotStatusServiceTests
             MakeQso("W1ABC", country: country, band: expectedBand, mode: "CW"),
         });
         await _service.StartAsync(CancellationToken.None);
+        await _service.CacheReady;
 
         _service.GetSpotStatus("W1ABC", country, freqKhz, "CW")
             .Should().Be("worked");

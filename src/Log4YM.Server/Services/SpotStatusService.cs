@@ -28,15 +28,59 @@ public class SpotStatusService : ISpotStatusService, IHostedService
         _logger = logger;
     }
 
-    public async Task StartAsync(CancellationToken cancellationToken)
+    // Await this to know the initial cache build has finished (used by tests).
+    internal Task CacheReady => _cacheReady.Task;
+    private readonly TaskCompletionSource _cacheReady = new(TaskCreationOptions.RunContinuationsAsynchronously);
+    private readonly CancellationTokenSource _cacheRetryCts = new();
+
+    public Task StartAsync(CancellationToken cancellationToken)
     {
-        _logger.LogInformation("SpotStatusService starting, building cache...");
-        await BuildCacheAsync();
+        _logger.LogInformation("SpotStatusService starting, building cache in background...");
+
+        // Build the cache in the background so a slow MongoDB query
+        // (e.g. 4000+ QSOs over an Atlas link) never blocks app startup.
+        _ = Task.Run(async () =>
+        {
+            if (!await BuildCacheAsync())
+            {
+                await RetryBuildCacheAsync(_cacheRetryCts.Token);
+            }
+            _cacheReady.TrySetResult();
+        });
+
+        return Task.CompletedTask;
     }
 
     public Task StopAsync(CancellationToken cancellationToken)
     {
+        _cacheRetryCts.Cancel();
+        _cacheReady.TrySetResult();
         return Task.CompletedTask;
+    }
+
+    private async Task RetryBuildCacheAsync(CancellationToken ct)
+    {
+        var delaySeconds = 5;
+        while (!ct.IsCancellationRequested)
+        {
+            try
+            {
+                await Task.Delay(TimeSpan.FromSeconds(delaySeconds), ct);
+            }
+            catch (OperationCanceledException)
+            {
+                return;
+            }
+
+            _logger.LogInformation("SpotStatusService retrying cache build...");
+            if (await BuildCacheAsync())
+            {
+                _logger.LogInformation("SpotStatusService cache build succeeded on retry");
+                return;
+            }
+
+            delaySeconds = Math.Min(delaySeconds * 2, 60);
+        }
     }
 
     public string? GetSpotStatus(string dxCall, string? country, double frequencyKhz, string? mode)
@@ -117,7 +161,7 @@ public class SpotStatusService : ISpotStatusService, IHostedService
         await BuildCacheAsync();
     }
 
-    private async Task BuildCacheAsync()
+    private async Task<bool> BuildCacheAsync()
     {
         try
         {
@@ -177,10 +221,13 @@ public class SpotStatusService : ISpotStatusService, IHostedService
             _logger.LogInformation(
                 "SpotStatusService cache built: {CountryCount} countries, {BandCount} country+band combos, {ModeCount} country+band+mode entries",
                 newCountries.Count, newCountryBands.Count, newCountryBandModes.Count);
+
+            return true;
         }
         catch (Exception ex)
         {
             _logger.LogError(ex, "Failed to build SpotStatusService cache");
+            return false;
         }
     }
 

@@ -229,4 +229,33 @@ public class LiteQsoRepository : IQsoRepository
         _context.Database.Checkpoint();
         return Task.FromResult((long)count);
     }
+
+    public Task<HashSet<string>> GetAllDuplicateKeysAsync()
+    {
+        // Load all QSOs and build the composite key set in a single pass.
+        // Use .Date to strip the time component — matches ExistsAsync behaviour.
+        var keys = new HashSet<string>(StringComparer.OrdinalIgnoreCase);
+        foreach (var q in _context.Qsos.FindAll())
+        {
+            keys.Add($"{q.Callsign?.ToUpperInvariant()}|{q.QsoDate.Date:yyyyMMdd}|{q.TimeOn}|{q.Band}|{q.Mode}");
+        }
+        return Task.FromResult(keys);
+    }
+
+    public Task<IEnumerable<Qso>> CreateManyAsync(IEnumerable<Qso> qsos)
+    {
+        var qsoList = qsos.ToList();
+        if (qsoList.Count == 0) return Task.FromResult<IEnumerable<Qso>>(qsoList);
+
+        // Generate IDs for any QSOs that don't have one yet
+        foreach (var qso in qsoList.Where(q => string.IsNullOrEmpty(q.Id)))
+            qso.Id = ObjectId.NewObjectId().ToString();
+
+        // InsertBulk wraps inserts in transactions of batchSize without
+        // per-record overhead. A single Checkpoint() at the end flushes to disk.
+        _context.Qsos.InsertBulk(qsoList);
+        _context.Database.Checkpoint();
+
+        return Task.FromResult<IEnumerable<Qso>>(qsoList);
+    }
 }

@@ -1,3 +1,4 @@
+using System.Text;
 using FluentAssertions;
 using Microsoft.AspNetCore.SignalR;
 using Microsoft.Extensions.Logging;
@@ -579,6 +580,141 @@ public class AdifServiceTests
         qsos[0].Continent.Should().Be("NA"); // Should be filled in from lookup
         qsos[0].Station!.Country.Should().Be("Canada");
         qsos[0].Station.Continent.Should().Be("NA");
+    }
+
+    #endregion
+
+    #region ImportAdifAsync - Batch import behaviour
+
+    private void SetupHubMock()
+    {
+        var clientsMock = new Mock<IHubClients<ILogHubClient>>();
+        var clientMock = new Mock<ILogHubClient>();
+        clientMock.Setup(c => c.OnAdifImportProgress(It.IsAny<Log4YM.Contracts.Events.AdifImportProgressEvent>()))
+            .Returns(Task.CompletedTask);
+        clientsMock.Setup(c => c.All).Returns(clientMock.Object);
+        _hubMock.Setup(h => h.Clients).Returns(clientsMock.Object);
+    }
+
+    [Fact]
+    public async Task ImportAdifAsync_UsesBulkInsert_NotPerQsoInsert()
+    {
+        // Arrange
+        SetupHubMock();
+        _qsoRepoMock.Setup(r => r.GetAllDuplicateKeysAsync())
+            .ReturnsAsync(new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+        _qsoRepoMock.Setup(r => r.CreateManyAsync(It.IsAny<IEnumerable<Qso>>()))
+            .ReturnsAsync((IEnumerable<Qso> q) => q);
+
+        var adif = "<CALL:5>W1AW <QSO_DATE:8>20240101 <TIME_ON:4>1234 <BAND:3>20m <MODE:3>SSB <EOR>\n" +
+                   "<CALL:6>VE3ABC <QSO_DATE:8>20240102 <TIME_ON:4>1500 <BAND:3>40m <MODE:2>CW <EOR>";
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(adif));
+
+        // Act
+        var result = await _service.ImportAdifAsync(stream);
+
+        // Assert
+        result.TotalRecords.Should().Be(2);
+        result.ImportedCount.Should().Be(2);
+        result.SkippedDuplicates.Should().Be(0);
+
+        // Must use bulk insert, never individual CreateAsync
+        _qsoRepoMock.Verify(r => r.CreateManyAsync(It.IsAny<IEnumerable<Qso>>()), Times.Once);
+        _qsoRepoMock.Verify(r => r.CreateAsync(It.IsAny<Qso>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ImportAdifAsync_SkipsDuplicates_WithSingleQueryNotPerQsoQuery()
+    {
+        // Arrange — W1AW on 20240101 already exists in the DB
+        SetupHubMock();
+        var existingKeys = new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+        {
+            "W1AW|20240101|1234|20m|SSB"
+        };
+        _qsoRepoMock.Setup(r => r.GetAllDuplicateKeysAsync()).ReturnsAsync(existingKeys);
+        _qsoRepoMock.Setup(r => r.CreateManyAsync(It.IsAny<IEnumerable<Qso>>()))
+            .ReturnsAsync((IEnumerable<Qso> q) => q);
+
+        var adif = "<CALL:5>W1AW <QSO_DATE:8>20240101 <TIME_ON:4>1234 <BAND:3>20m <MODE:3>SSB <EOR>\n" +
+                   "<CALL:6>VE3ABC <QSO_DATE:8>20240102 <TIME_ON:4>1500 <BAND:3>40m <MODE:2>CW <EOR>";
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(adif));
+
+        // Act
+        var result = await _service.ImportAdifAsync(stream, skipDuplicates: true);
+
+        // Assert
+        result.TotalRecords.Should().Be(2);
+        result.ImportedCount.Should().Be(1);   // VE3ABC only
+        result.SkippedDuplicates.Should().Be(1); // W1AW skipped
+
+        // Exactly ONE bulk query — never N individual ExistsAsync calls
+        _qsoRepoMock.Verify(r => r.GetAllDuplicateKeysAsync(), Times.Once);
+        _qsoRepoMock.Verify(r => r.ExistsAsync(
+            It.IsAny<string>(), It.IsAny<DateTime>(),
+            It.IsAny<string>(), It.IsAny<string>(), It.IsAny<string>()), Times.Never);
+    }
+
+    [Fact]
+    public async Task ImportAdifAsync_SkipsInFileDuplicates()
+    {
+        // Arrange — two identical QSOs in the file; only the first should be inserted
+        SetupHubMock();
+        _qsoRepoMock.Setup(r => r.GetAllDuplicateKeysAsync())
+            .ReturnsAsync(new HashSet<string>(StringComparer.OrdinalIgnoreCase));
+        _qsoRepoMock.Setup(r => r.CreateManyAsync(It.IsAny<IEnumerable<Qso>>()))
+            .ReturnsAsync((IEnumerable<Qso> q) => q);
+
+        var adif = "<CALL:5>W1AW <QSO_DATE:8>20240101 <TIME_ON:4>1234 <BAND:3>20m <MODE:3>SSB <EOR>\n" +
+                   "<CALL:5>W1AW <QSO_DATE:8>20240101 <TIME_ON:4>1234 <BAND:3>20m <MODE:3>SSB <EOR>";
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(adif));
+
+        // Act
+        var result = await _service.ImportAdifAsync(stream, skipDuplicates: true);
+
+        // Assert
+        result.TotalRecords.Should().Be(2);
+        result.ImportedCount.Should().Be(1);
+        result.SkippedDuplicates.Should().Be(1);
+    }
+
+    [Fact]
+    public async Task ImportAdifAsync_WhenSkipDuplicatesFalse_DoesNotQueryExistingKeys()
+    {
+        // Arrange
+        SetupHubMock();
+        _qsoRepoMock.Setup(r => r.CreateManyAsync(It.IsAny<IEnumerable<Qso>>()))
+            .ReturnsAsync((IEnumerable<Qso> q) => q);
+
+        var adif = "<CALL:5>W1AW <QSO_DATE:8>20240101 <TIME_ON:4>1234 <BAND:3>20m <MODE:3>SSB <EOR>";
+        using var stream = new MemoryStream(Encoding.UTF8.GetBytes(adif));
+
+        // Act
+        var result = await _service.ImportAdifAsync(stream, skipDuplicates: false);
+
+        // Assert
+        result.ImportedCount.Should().Be(1);
+        _qsoRepoMock.Verify(r => r.GetAllDuplicateKeysAsync(), Times.Never);
+    }
+
+    [Fact]
+    public void MakeDuplicateKey_UsesDateOnlyForQsoDate()
+    {
+        // Arrange — QsoDate with time component
+        var qso = new Qso
+        {
+            Callsign = "w1aw",
+            QsoDate = new DateTime(2024, 1, 15, 12, 34, 56, DateTimeKind.Utc),
+            TimeOn = "1234",
+            Band = "20m",
+            Mode = "SSB"
+        };
+
+        // Act
+        var key = AdifService.MakeDuplicateKey(qso);
+
+        // Assert — date portion is date-only (yyyyMMdd), callsign is uppercased
+        key.Should().Be("W1AW|20240115|1234|20m|SSB");
     }
 
     #endregion

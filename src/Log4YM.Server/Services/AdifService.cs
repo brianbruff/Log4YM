@@ -107,120 +107,144 @@ public partial class AdifService : IAdifService
 
     public async Task<AdifImportResult> ImportAdifAsync(Stream stream, bool skipDuplicates = true, bool markAsSyncedToQrz = true, bool clearExistingLogs = false, CancellationToken cancellationToken = default)
     {
-        var qsos = ParseAdif(stream).ToList();
-        var importedCount = 0;
-        var skippedDuplicates = 0;
-        var errorCount = 0;
-        var errors = new List<string>();
+        // ── Step 1: Parse ────────────────────────────────────────────────────
+        await _hub.BroadcastAdifImportProgress(new AdifImportProgressEvent(
+            0, 0, 0, 0, 0, false, null, "Parsing ADIF file..."));
+
+        var allParsed = ParseAdif(stream).ToList();
+        var totalRecords = allParsed.Count;
 
         _logger.LogInformation("Importing {Count} QSO records from ADIF (markAsSynced={Synced}, clearExisting={Clear})",
-            qsos.Count, markAsSyncedToQrz, clearExistingLogs);
+            totalRecords, markAsSyncedToQrz, clearExistingLogs);
 
-        // Send initial progress update
         await _hub.BroadcastAdifImportProgress(new AdifImportProgressEvent(
-            qsos.Count, 0, 0, 0, 0, false, null, "Starting import..."));
+            totalRecords, 0, 0, 0, 0, false, null, $"Found {totalRecords} records..."));
 
-        // Clear existing logs if requested
+        // ── Step 2: Clear existing logs if requested ─────────────────────────
         if (clearExistingLogs)
         {
+            cancellationToken.ThrowIfCancellationRequested();
             var deletedCount = await _qsoRepository.DeleteAllAsync();
             _logger.LogInformation("Cleared {Count} existing QSOs before import", deletedCount);
         }
 
-        for (int i = 0; i < qsos.Count; i++)
+        // ── Step 3: Load all existing keys in ONE query ──────────────────────
+        // This replaces N individual ExistsAsync() round-trips with a single
+        // bulk read + in-memory HashSet lookups (O(1) per check).
+        HashSet<string>? existingKeys = null;
+        if (skipDuplicates && !clearExistingLogs)
         {
-            // Check for cancellation
+            await _hub.BroadcastAdifImportProgress(new AdifImportProgressEvent(
+                totalRecords, 0, 0, 0, 0, false, null, "Loading existing QSOs for duplicate detection..."));
+
+            existingKeys = await _qsoRepository.GetAllDuplicateKeysAsync();
+            _logger.LogInformation("Loaded {Count} existing duplicate keys", existingKeys.Count);
+        }
+
+        // ── Step 4: Filter in-memory (no DB round-trips) ────────────────────
+        var now = DateTime.UtcNow;
+        var qrzLogId = markAsSyncedToQrz ? $"imported-{now:yyyyMMddHHmmss}" : null;
+
+        // seenInFile detects duplicates within the ADIF file itself
+        var seenInFile = skipDuplicates
+            ? new HashSet<string>(StringComparer.OrdinalIgnoreCase)
+            : null;
+
+        var toInsert = new List<Qso>(totalRecords);
+        var skippedDuplicates = 0;
+        var errors = new List<string>();
+
+        foreach (var qso in allParsed)
+        {
             cancellationToken.ThrowIfCancellationRequested();
 
-            var qso = qsos[i];
+            if (skipDuplicates)
+            {
+                var key = MakeDuplicateKey(qso);
+
+                if (existingKeys != null && existingKeys.Contains(key))
+                {
+                    skippedDuplicates++;
+                    continue;
+                }
+
+                if (!seenInFile!.Add(key))
+                {
+                    // Duplicate within the ADIF file itself
+                    skippedDuplicates++;
+                    continue;
+                }
+            }
+
+            qso.CreatedAt = now;
+            qso.UpdatedAt = now;
+
+            if (markAsSyncedToQrz)
+            {
+                qso.QrzSyncStatus = SyncStatus.Synced;
+                qso.QrzSyncedAt = now;
+                qso.QrzLogId = qrzLogId;
+            }
+
+            toInsert.Add(qso);
+        }
+
+        _logger.LogInformation("After deduplication: {ToInsert} to insert, {Skipped} duplicates skipped",
+            toInsert.Count, skippedDuplicates);
+
+        // ── Step 5: Bulk insert in batches ───────────────────────────────────
+        // No per-QSO OnQsoLogged events — the frontend refreshes via
+        // importMutation.onSuccess when the HTTP POST response arrives.
+        const int batchSize = 1000;
+        var importedCount = 0;
+        var errorCount = 0;
+        var totalBatches = Math.Max(1, (toInsert.Count + batchSize - 1) / batchSize);
+
+        for (int batchIndex = 0; batchIndex < totalBatches; batchIndex++)
+        {
+            cancellationToken.ThrowIfCancellationRequested();
+
+            var batch = toInsert.Skip(batchIndex * batchSize).Take(batchSize).ToList();
+            if (batch.Count == 0) break;
+
             try
             {
-                if (skipDuplicates && !clearExistingLogs)
-                {
-                    // Check for duplicate based on callsign, date, time, band, and mode
-                    // Skip check if we just cleared all logs
-                    var isDuplicate = await _qsoRepository.ExistsAsync(
-                        qso.Callsign,
-                        qso.QsoDate,
-                        qso.TimeOn,
-                        qso.Band,
-                        qso.Mode
-                    );
-
-                    if (isDuplicate)
-                    {
-                        skippedDuplicates++;
-                        continue;
-                    }
-                }
-
-                qso.CreatedAt = DateTime.UtcNow;
-                qso.UpdatedAt = DateTime.UtcNow;
-
-                // Mark as already synced to QRZ if requested (useful for QRZ exports)
-                if (markAsSyncedToQrz)
-                {
-                    qso.QrzSyncStatus = SyncStatus.Synced;
-                    qso.QrzSyncedAt = DateTime.UtcNow;
-                    // Use a placeholder ID to indicate it came from QRZ import
-                    qso.QrzLogId = $"imported-{DateTime.UtcNow:yyyyMMddHHmmss}";
-                }
-
-                var created = await _qsoRepository.CreateAsync(qso);
-                importedCount++;
-
-                // Broadcast to connected clients
-                await _hub.BroadcastQso(new QsoLoggedEvent(
-                    created.Id,
-                    created.Callsign,
-                    created.QsoDate,
-                    created.TimeOn,
-                    created.Band,
-                    created.Mode,
-                    created.Frequency,
-                    created.RstSent,
-                    created.RstRcvd,
-                    created.Station?.Grid
-                ));
-
-                // Send progress update every 10 records or on last record
-                if ((i + 1) % 10 == 0 || i == qsos.Count - 1)
-                {
-                    await _hub.BroadcastAdifImportProgress(new AdifImportProgressEvent(
-                        qsos.Count,
-                        i + 1,
-                        importedCount,
-                        skippedDuplicates,
-                        errorCount,
-                        false,
-                        qso.Callsign,
-                        $"Importing {qso.Callsign}..."
-                    ));
-                }
+                await _qsoRepository.CreateManyAsync(batch);
+                importedCount += batch.Count;
             }
             catch (Exception ex)
             {
-                errorCount++;
-                var errorMsg = $"{qso.Callsign}: {ex.Message}";
+                errorCount += batch.Count;
+                var errorMsg = $"Batch {batchIndex + 1} failed: {ex.Message}";
                 errors.Add(errorMsg);
-                _logger.LogWarning(ex, "Error importing QSO with {Callsign}", qso.Callsign);
+                _logger.LogWarning(ex, "Error importing batch {Batch}", batchIndex + 1);
             }
+
+            await _hub.BroadcastAdifImportProgress(new AdifImportProgressEvent(
+                totalRecords,
+                skippedDuplicates + importedCount + errorCount,
+                importedCount,
+                skippedDuplicates,
+                errorCount,
+                false,
+                batch.Last().Callsign,
+                $"Inserting batch {batchIndex + 1} of {totalBatches}..."
+            ));
         }
 
         _logger.LogInformation(
             "ADIF import complete: {Imported} imported, {Skipped} duplicates skipped, {Errors} errors",
             importedCount, skippedDuplicates, errorCount);
 
-        // Rebuild spot status cache after import
+        // ── Step 6: Post-import housekeeping ─────────────────────────────────
         if (_spotStatusService != null && importedCount > 0)
         {
             _ = _spotStatusService.InvalidateCacheAsync();
         }
 
-        // Send final progress update
         await _hub.BroadcastAdifImportProgress(new AdifImportProgressEvent(
-            qsos.Count,
-            qsos.Count,
+            totalRecords,
+            totalRecords,
             importedCount,
             skippedDuplicates,
             errorCount,
@@ -229,8 +253,16 @@ public partial class AdifService : IAdifService
             errorCount > 0 ? $"Import complete with {errorCount} error(s)" : "Import complete"
         ));
 
-        return new AdifImportResult(qsos.Count, importedCount, skippedDuplicates, errorCount, errors);
+        return new AdifImportResult(totalRecords, importedCount, skippedDuplicates, errorCount, errors);
     }
+
+    /// <summary>
+    /// Builds the composite duplicate-detection key for a QSO.
+    /// Must match the format produced by <see cref="IQsoRepository.GetAllDuplicateKeysAsync"/>.
+    /// Uses QsoDate.Date (strips time) to match ExistsAsync behaviour.
+    /// </summary>
+    internal static string MakeDuplicateKey(Qso qso)
+        => $"{qso.Callsign.ToUpperInvariant()}|{qso.QsoDate.Date:yyyyMMdd}|{qso.TimeOn}|{qso.Band}|{qso.Mode}";
 
     public async Task<string> ExportQsosAsync(AdifExportRequest? request = null)
     {

@@ -21,6 +21,19 @@ public interface IQsoRepository
     Task<bool> UpdateQrzSyncStatusAsync(string id, string qrzLogId);
     Task<int> GetPendingSyncCountAsync();
     Task<long> DeleteAllAsync();
+
+    /// <summary>
+    /// Returns a HashSet of all existing composite duplicate keys in the format
+    /// "CALLSIGN|yyyyMMdd|TIMEON|BAND|MODE" (all uppercase). Used for O(1)
+    /// in-memory duplicate detection during bulk ADIF import instead of per-QSO queries.
+    /// </summary>
+    Task<HashSet<string>> GetAllDuplicateKeysAsync();
+
+    /// <summary>
+    /// Inserts multiple QSOs in a single bulk operation. Far more efficient than
+    /// calling CreateAsync() N times during ADIF import.
+    /// </summary>
+    Task<IEnumerable<Qso>> CreateManyAsync(IEnumerable<Qso> qsos);
 }
 
 public class QsoRepository : IQsoRepository
@@ -229,5 +242,31 @@ public class QsoRepository : IQsoRepository
     {
         var result = await _collection.DeleteManyAsync(_ => true);
         return result.DeletedCount;
+    }
+
+    public async Task<HashSet<string>> GetAllDuplicateKeysAsync()
+    {
+        // Project only the 5 fields needed for duplicate detection to minimise data transfer
+        var items = await _collection
+            .Find(FilterDefinition<Qso>.Empty)
+            .Project(q => new { q.Callsign, q.QsoDate, q.TimeOn, q.Band, q.Mode })
+            .ToListAsync();
+
+        var keys = new HashSet<string>(items.Count, StringComparer.OrdinalIgnoreCase);
+        foreach (var item in items)
+        {
+            // Use .Date to strip time component — matches ExistsAsync behaviour
+            keys.Add($"{item.Callsign?.ToUpperInvariant()}|{item.QsoDate.Date:yyyyMMdd}|{item.TimeOn}|{item.Band}|{item.Mode}");
+        }
+        return keys;
+    }
+
+    public async Task<IEnumerable<Qso>> CreateManyAsync(IEnumerable<Qso> qsos)
+    {
+        var qsoList = qsos.ToList();
+        if (qsoList.Count == 0) return qsoList;
+
+        await _collection.InsertManyAsync(qsoList);
+        return qsoList;
     }
 }

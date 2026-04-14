@@ -181,6 +181,11 @@ public class LiteDbContext : IDbContext, IDisposable
         Qsos.EnsureIndex(q => q.Mode);
         Qsos.EnsureIndex(q => q.QrzSyncStatus);
 
+        // Composite index for duplicate detection during ADIF import
+        // This significantly speeds up ExistsAsync queries
+        Qsos.EnsureIndex("idx_duplicate_check",
+            "$.Callsign + '|' + $.QsoDate + '|' + $.TimeOn + '|' + $.Band + '|' + $.Mode");
+
         // Callsign map image indexes
         CallsignMapImages.EnsureIndex(i => i.Callsign, true);
         CallsignMapImages.EnsureIndex(i => i.SavedAt);

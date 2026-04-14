@@ -113,6 +113,32 @@ public class LiteQsoRepository : IQsoRepository
         return Task.FromResult(qso);
     }
 
+    public Task<IEnumerable<Qso>> CreateBulkAsync(IEnumerable<Qso> qsos)
+    {
+        var qsoList = qsos.ToList();
+        var now = DateTime.UtcNow;
+
+        foreach (var qso in qsoList)
+        {
+            qso.CreatedAt = now;
+            qso.UpdatedAt = now;
+
+            // Generate an ID if not set
+            if (string.IsNullOrEmpty(qso.Id))
+            {
+                qso.Id = ObjectId.NewObjectId().ToString();
+            }
+        }
+
+        // Bulk insert all QSOs
+        _context.Qsos.InsertBulk(qsoList);
+
+        // Single checkpoint after all inserts - this is the key optimization
+        _context.Database.Checkpoint();
+
+        return Task.FromResult<IEnumerable<Qso>>(qsoList);
+    }
+
     public Task<bool> UpdateAsync(string id, Qso qso)
     {
         qso.UpdatedAt = DateTime.UtcNow;

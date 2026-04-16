@@ -45,6 +45,9 @@ public class UserSettings
     [BsonElement("layoutJson")]
     public string? LayoutJson { get; set; }
 
+    [BsonElement("windowLayouts")]
+    public List<WindowLayout>? WindowLayouts { get; set; }
+
     [BsonElement("gridStates")]
     public Dictionary<string, string>? GridStates { get; set; }
 
@@ -400,6 +403,22 @@ public class SpectrumSettings
 
     [BsonElement("sourceIp")]
     public string? SourceIp { get; set; }  // Optional: only accept packets from this IP (e.g. Thetis machine)
+}
+
+[BsonIgnoreExtraElements]
+public class WindowLayout
+{
+    [BsonElement("id")]
+    public string Id { get; set; } = Guid.NewGuid().ToString();
+
+    [BsonElement("layoutJson")]
+    public string? LayoutJson { get; set; }
+
+    [BsonElement("status")]
+    public string Status { get; set; } = "active"; // "active" | "orphaned"
+
+    [BsonElement("updatedAt")]
+    public DateTime UpdatedAt { get; set; } = DateTime.UtcNow;
 }
 
 public class PluginSettings

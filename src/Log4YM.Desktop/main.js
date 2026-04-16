@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, shell, dialog, ipcMain } = require('electron');
+const { app, BrowserWindow, Menu, shell, dialog, ipcMain, screen } = require('electron');
 const { spawn } = require('child_process');
 const path = require('path');
 const net = require('net');
@@ -9,6 +9,7 @@ const { checkForUpdates } = require('./updater');
 // Zoom level persistence using a simple JSON file
 const userDataPath = app.getPath('userData');
 const zoomConfigPath = path.join(userDataPath, 'zoom-config.json');
+const windowStateConfigPath = path.join(userDataPath, 'window-state.json');
 
 function getStoredZoomLevel() {
   try {
@@ -57,6 +58,183 @@ let backendPort;
 let isDevMode = process.argv.includes('--dev');
 let useViteDevServer = process.argv.includes('--vite') || process.env.VITE_DEV === 'true';
 const VITE_DEV_PORT = 5173;
+
+// Multi-window state
+const secondaryWindows = new Map(); // windowId -> BrowserWindow
+let isAppQuitting = false;
+
+/**
+ * Read secondary window bounds from disk
+ */
+function getWindowStates() {
+  try {
+    if (fs.existsSync(windowStateConfigPath)) {
+      const data = fs.readFileSync(windowStateConfigPath, 'utf8');
+      const state = JSON.parse(data);
+      return state;
+    }
+  } catch (err) {
+    log.warn('Failed to read window state:', err.message);
+  }
+  return { secondary: {} };
+}
+
+/**
+ * Persist secondary window bounds to disk
+ */
+function saveWindowState(windowId, bounds) {
+  try {
+    const state = getWindowStates();
+    state.secondary = state.secondary || {};
+    state.secondary[windowId] = bounds;
+    fs.writeFileSync(windowStateConfigPath, JSON.stringify(state, null, 2), 'utf8');
+  } catch (err) {
+    log.error('Failed to save window state:', err.message);
+  }
+}
+
+/**
+ * Remove a secondary window from persistent state
+ */
+function removeWindowState(windowId) {
+  try {
+    const state = getWindowStates();
+    if (state.secondary) {
+      delete state.secondary[windowId];
+      fs.writeFileSync(windowStateConfigPath, JSON.stringify(state, null, 2), 'utf8');
+    }
+  } catch (err) {
+    log.error('Failed to remove window state:', err.message);
+  }
+}
+
+/**
+ * Check whether a window with given bounds overlaps any display by ≥50%
+ */
+function isWindowVisible(bounds) {
+  const displays = screen.getAllDisplays();
+  return displays.some(display => {
+    const wa = display.workArea;
+    const overlapX = Math.max(0, Math.min(bounds.x + bounds.width, wa.x + wa.width) - Math.max(bounds.x, wa.x));
+    const overlapY = Math.max(0, Math.min(bounds.y + bounds.height, wa.y + wa.height) - Math.max(bounds.y, wa.y));
+    const overlap = overlapX * overlapY;
+    const windowArea = bounds.width * bounds.height;
+    return windowArea > 0 && (overlap / windowArea) >= 0.5;
+  });
+}
+
+/**
+ * Clamp window bounds to the primary display work area
+ */
+function clampToPrimaryDisplay(bounds) {
+  const primary = screen.getPrimaryDisplay();
+  const { workArea } = primary;
+  const width = Math.max(bounds.width || 900, 800);
+  const height = Math.max(bounds.height || 700, 600);
+  const x = Math.max(workArea.x, Math.min((bounds.x != null ? bounds.x : workArea.x + 80), workArea.x + workArea.width - width));
+  const y = Math.max(workArea.y, Math.min((bounds.y != null ? bounds.y : workArea.y + 80), workArea.y + workArea.height - height));
+  return { x, y, width, height };
+}
+
+/**
+ * Create a secondary (detached) application window for a given layout slot
+ */
+function createSecondaryWindow(windowId, savedBounds) {
+  if (secondaryWindows.has(windowId)) {
+    secondaryWindows.get(windowId).focus();
+    return secondaryWindows.get(windowId);
+  }
+
+  let bounds;
+  if (savedBounds && isWindowVisible(savedBounds)) {
+    bounds = savedBounds;
+  } else {
+    bounds = clampToPrimaryDisplay(savedBounds || {});
+  }
+
+  const win = new BrowserWindow({
+    x: bounds.x,
+    y: bounds.y,
+    width: bounds.width,
+    height: bounds.height,
+    minWidth: 800,
+    minHeight: 600,
+    title: 'Log4YM',
+    icon: path.join(__dirname, 'assets', 'icon.png'),
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      webSecurity: true,
+      preload: path.join(__dirname, 'preload.js'),
+    },
+    backgroundColor: '#0a0a0f',
+  });
+
+  const loadUrl = useViteDevServer
+    ? `http://localhost:${VITE_DEV_PORT}?windowId=${windowId}`
+    : `http://localhost:${backendPort}?windowId=${windowId}`;
+
+  log.info(`Loading secondary window: ${loadUrl}`);
+  win.loadURL(loadUrl);
+
+  win.webContents.setWindowOpenHandler(({ url }) => {
+    shell.openExternal(url);
+    return { action: 'deny' };
+  });
+
+  // Restore zoom level on secondary windows too
+  win.once('ready-to-show', () => {
+    const savedZoomLevel = getStoredZoomLevel();
+    if (savedZoomLevel !== 0) {
+      win.webContents.setZoomLevel(savedZoomLevel);
+    }
+  });
+
+  win.on('close', () => {
+    if (isAppQuitting) {
+      // Persist bounds for next startup
+      saveWindowState(windowId, win.getBounds());
+    } else {
+      // User explicitly closed this window — don't auto-restore next startup
+      removeWindowState(windowId);
+    }
+  });
+
+  win.on('closed', () => {
+    secondaryWindows.delete(windowId);
+  });
+
+  secondaryWindows.set(windowId, win);
+  return win;
+}
+
+/**
+ * Restore secondary windows saved from previous session
+ */
+async function restoreSecondaryWindows() {
+  const state = getWindowStates();
+  const saved = state.secondary || {};
+  const windowIds = Object.keys(saved);
+  if (windowIds.length === 0) return;
+
+  log.info(`Restoring ${windowIds.length} secondary window(s)...`);
+
+  for (const windowId of windowIds) {
+    try {
+      const response = await fetch(`http://localhost:${backendPort}/api/settings/window-layout/${windowId}`);
+      if (response.ok) {
+        createSecondaryWindow(windowId, saved[windowId]);
+        log.info(`Restored secondary window: ${windowId}`);
+      } else {
+        // Layout was deleted from MongoDB — drop the saved bounds too
+        removeWindowState(windowId);
+        log.warn(`Secondary window ${windowId} not found in DB, removing from state`);
+      }
+    } catch (err) {
+      log.warn(`Failed to restore secondary window ${windowId}: ${err.message}`);
+    }
+  }
+}
 
 /**
  * Find an available port starting from the given port
@@ -482,11 +660,32 @@ app.whenReady().then(async () => {
     }
   });
 
+  // Multi-window IPC: open a secondary window for a given layout slot
+  ipcMain.handle('open-secondary-window', (event, windowId) => {
+    if (!windowId || typeof windowId !== 'string') {
+      log.warn('open-secondary-window: invalid windowId');
+      return;
+    }
+    const state = getWindowStates();
+    const savedBounds = (state.secondary && state.secondary[windowId]) || null;
+    createSecondaryWindow(windowId, savedBounds);
+    log.info(`Opened secondary window: ${windowId}`);
+  });
+
+  // Multi-window IPC: close a secondary window
+  ipcMain.handle('close-secondary-window', (event, windowId) => {
+    const win = secondaryWindows.get(windowId);
+    if (win && !win.isDestroyed()) {
+      win.close();
+    }
+  });
+
   try {
     createSplashWindow();
     await startBackend();
     createMenu();
     createWindow();
+    await restoreSecondaryWindows();
 
     // Close splash and show main window when ready
     mainWindow.once('ready-to-show', () => {
@@ -542,7 +741,16 @@ app.on('window-all-closed', () => {
 });
 
 // Cleanup before quit
-app.on('before-quit', cleanup);
+app.on('before-quit', () => {
+  isAppQuitting = true;
+  // Persist bounds of all currently-open secondary windows so they can be restored
+  for (const [windowId, win] of secondaryWindows.entries()) {
+    if (!win.isDestroyed()) {
+      saveWindowState(windowId, win.getBounds());
+    }
+  }
+  cleanup();
+});
 app.on('will-quit', cleanup);
 
 // Handle uncaught exceptions

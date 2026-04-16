@@ -21,5 +21,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   restartApp: () => ipcRenderer.invoke('restart-app'),
   // Zoom level management
   getZoomLevel: () => ipcRenderer.invoke('get-zoom-level'),
-  setZoomLevel: (level) => ipcRenderer.invoke('set-zoom-level', level)
+  setZoomLevel: (level) => ipcRenderer.invoke('set-zoom-level', level),
+  // Multi-window support
+  openSecondaryWindow: (windowId) => ipcRenderer.invoke('open-secondary-window', windowId),
+  closeSecondaryWindow: (windowId) => ipcRenderer.invoke('close-secondary-window', windowId)
 });

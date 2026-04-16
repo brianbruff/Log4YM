@@ -4,7 +4,7 @@ import type { IJsonModel } from 'flexlayout-react';
 // Default layout configuration
 export const defaultLayout: IJsonModel = {
   global: {
-    tabEnableFloat: false,
+    tabEnableFloat: true,
     tabSetMinWidth: 100,
     tabSetMinHeight: 40,
     borderMinSize: 100,
@@ -97,8 +97,11 @@ interface LayoutState {
   // Layout data
   layout: IJsonModel;
   isLoaded: boolean;
+  // null = primary window, set to UUID for secondary windows
+  windowId: string | null;
 
   // Actions
+  setWindowId: (windowId: string | null) => void;
   setLayout: (layout: IJsonModel) => void;
   resetLayout: () => void;
   syncToMongo: (layout: IJsonModel) => Promise<void>;
@@ -112,6 +115,11 @@ interface LayoutState {
 export const useLayoutStore = create<LayoutState>()((set, get) => ({
   layout: defaultLayout,
   isLoaded: false,
+  windowId: null,
+
+  setWindowId: (windowId) => {
+    set({ windowId });
+  },
 
   setLayout: (layout) => {
     set({ layout, isLoaded: true });
@@ -125,17 +133,22 @@ export const useLayoutStore = create<LayoutState>()((set, get) => ({
   },
 
   // Sync layout to MongoDB (background, non-blocking)
+  // Uses window-specific endpoint for secondary windows
   syncToMongo: async (layout) => {
-    const { isLoaded } = get();
+    const { isLoaded, windowId } = get();
     if (!isLoaded) {
       console.warn('[layoutStore] Layout not loaded yet, skipping save to prevent stale data');
       return;
     }
 
+    const url = windowId
+      ? `/api/settings/window-layout/${windowId}`
+      : '/api/settings/layout';
+
     try {
-      console.log('[layoutStore] Syncing layout to MongoDB');
+      console.log('[layoutStore] Syncing layout to MongoDB', windowId ? `(window ${windowId})` : '(primary)');
       const layoutJson = JSON.stringify(layout);
-      const response = await fetch('/api/settings/layout', {
+      const response = await fetch(url, {
         method: 'PUT',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify(layoutJson),
@@ -154,11 +167,15 @@ export const useLayoutStore = create<LayoutState>()((set, get) => ({
   // Sync layout to MongoDB synchronously (for beforeunload)
   // Uses sendBeacon for reliable shutdown saves
   syncToMongoSync: (layout) => {
-    const { isLoaded } = get();
+    const { isLoaded, windowId } = get();
     if (!isLoaded) {
       console.warn('[layoutStore] Layout not loaded yet, skipping save to prevent stale data');
       return;
     }
+
+    const url = windowId
+      ? `/api/settings/window-layout/${windowId}`
+      : '/api/settings/layout';
 
     try {
       console.log('[layoutStore] Syncing layout to MongoDB (sync)');
@@ -169,7 +186,7 @@ export const useLayoutStore = create<LayoutState>()((set, get) => ({
       // The server endpoint expects a JSON string (not an object), so this works correctly
       if (navigator.sendBeacon) {
         const blob = new Blob([JSON.stringify(layoutJson)], { type: 'application/json' });
-        const sent = navigator.sendBeacon('/api/settings/layout', blob);
+        const sent = navigator.sendBeacon(url, blob);
         if (sent) {
           console.log('[layoutStore] Layout sent via sendBeacon');
           return;
@@ -178,7 +195,7 @@ export const useLayoutStore = create<LayoutState>()((set, get) => ({
 
       // Fallback: synchronous XHR (not ideal, but works)
       const xhr = new XMLHttpRequest();
-      xhr.open('PUT', '/api/settings/layout', false); // false = synchronous
+      xhr.open('PUT', url, false); // false = synchronous
       xhr.setRequestHeader('Content-Type', 'application/json');
       xhr.send(JSON.stringify(layoutJson));
       console.log('[layoutStore] Layout saved synchronously via XHR');
@@ -188,23 +205,45 @@ export const useLayoutStore = create<LayoutState>()((set, get) => ({
   },
 
   // Load layout from MongoDB on app startup
+  // Secondary windows load from their own window-specific endpoint
   loadFromMongo: async () => {
+    const { windowId } = get();
+
     try {
-      console.log('[layoutStore] Loading layout from MongoDB');
-      const response = await fetch('/api/settings');
-      if (response.ok) {
-        const settings = await response.json();
-        if (settings.layoutJson) {
-          const layout = JSON.parse(settings.layoutJson);
-          console.log('[layoutStore] Layout loaded successfully');
-          set({ layout, isLoaded: true });
+      if (windowId) {
+        console.log(`[layoutStore] Loading secondary window layout from MongoDB (window ${windowId})`);
+        const response = await fetch(`/api/settings/window-layout/${windowId}`);
+        if (response.ok) {
+          const layoutJson = await response.json();
+          if (layoutJson) {
+            const layout = JSON.parse(layoutJson);
+            console.log('[layoutStore] Secondary window layout loaded successfully');
+            set({ layout, isLoaded: true });
+          } else {
+            console.log('[layoutStore] No saved secondary window layout found, using default');
+            set({ isLoaded: true });
+          }
         } else {
-          console.log('[layoutStore] No saved layout found, using default');
+          console.error('[layoutStore] Failed to load secondary window layout, status:', response.status);
           set({ isLoaded: true });
         }
       } else {
-        console.error('[layoutStore] Failed to load layout, status:', response.status);
-        set({ isLoaded: true });
+        console.log('[layoutStore] Loading layout from MongoDB');
+        const response = await fetch('/api/settings');
+        if (response.ok) {
+          const settings = await response.json();
+          if (settings.layoutJson) {
+            const layout = JSON.parse(settings.layoutJson);
+            console.log('[layoutStore] Layout loaded successfully');
+            set({ layout, isLoaded: true });
+          } else {
+            console.log('[layoutStore] No saved layout found, using default');
+            set({ isLoaded: true });
+          }
+        } else {
+          console.error('[layoutStore] Failed to load layout, status:', response.status);
+          set({ isLoaded: true });
+        }
       }
     } catch (e) {
       console.error('[layoutStore] Failed to load layout from MongoDB:', e);

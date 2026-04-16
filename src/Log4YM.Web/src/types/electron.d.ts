@@ -6,6 +6,11 @@ interface ElectronAPI {
   removeOpenAboutListener: () => void;
   restartApp: () => Promise<void>;
   openExternal: (url: string) => Promise<void>;
+  getZoomLevel: () => Promise<number>;
+  setZoomLevel: (level: number) => Promise<void>;
+  // Multi-window support
+  openSecondaryWindow: (windowId: string) => Promise<void>;
+  closeSecondaryWindow: (windowId: string) => Promise<void>;
 }
 
 declare global {

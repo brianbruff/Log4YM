@@ -1,6 +1,6 @@
 import { useEffect, useRef, useCallback, useState } from 'react';
 import { Layout, Model, TabNode, TabSetNode, BorderNode, ITabSetRenderValues, Actions, DockLocation } from 'flexlayout-react';
-import { X, Radio, Book, Zap, LayoutGrid, Antenna, Plus, Map, Compass, Gauge, User, Calendar, Sun, Clock, Bot, MapPin, Search, BarChart3 } from 'lucide-react';
+import { X, Radio, Book, Zap, LayoutGrid, Antenna, Plus, Map, Compass, Gauge, User, Calendar, Sun, Clock, Bot, MapPin, Search, BarChart3, ExternalLink } from 'lucide-react';
 import { StatusBar } from './components/StatusBar';
 import { SettingsPanel } from './components/SettingsPanel';
 import { ConnectionOverlay } from './components/ConnectionOverlay';
@@ -11,6 +11,11 @@ import { useSignalRConnection } from './hooks/useSignalR';
 import { LogEntryPlugin, LogHistoryPlugin, ClusterPlugin, MapPlugin, RotatorPlugin, GlobePlugin, AntennaGeniusPlugin, PgxlPlugin, TunerGeniusPlugin, SmartUnlinkPlugin, RigPlugin, QrzProfilePlugin, ContestsPlugin, SolarPanelPlugin, AnalogClockPlugin, HeaderPlugin, DXpeditionsPlugin, ChatAiPlugin, POTAPlugin, PropagationPanelPlugin, CwKeyerPlugin, PanadapterPlugin, StatisticsPlugin } from './plugins';
 import { Globe as Globe3D } from 'lucide-react';
 import { useLayoutStore, defaultLayout } from './store/layoutStore';
+
+// Detect secondary window from URL — stable across the lifetime of this page load
+const _urlParams = new URLSearchParams(window.location.search);
+const _currentWindowId = _urlParams.get('windowId');
+const isSecondaryWindow = Boolean(_currentWindowId);
 import { useSettingsStore } from './store/settingsStore';
 import { useSetupStore } from './store/setupStore';
 import { useAppStore } from './store/appStore';
@@ -194,7 +199,7 @@ const PLUGINS: Record<string, PluginDef> = {
 
 export function App() {
   const layoutRef = useRef<Layout>(null);
-  const { layout, setLayout, resetLayout: resetLayoutStore, loadFromMongo: loadLayout, syncToMongoSync } = useLayoutStore();
+  const { layout, setLayout, resetLayout: resetLayoutStore, loadFromMongo: loadLayout, syncToMongoSync, setWindowId } = useLayoutStore();
   const { loadSettings, openSettings, settings } = useSettingsStore();
   const { fetchStatus, status: setupStatus, isLoading: setupLoading } = useSetupStore();
   const { setStationInfo, setDatabaseConnected, setDatabaseProvider } = useAppStore();
@@ -242,10 +247,14 @@ export function App() {
   useSignalRConnection();
 
   // Load settings and layout from MongoDB on mount (will gracefully fail if not connected)
+  // For secondary windows, set the windowId BEFORE loading so the correct endpoint is used
   useEffect(() => {
+    if (_currentWindowId) {
+      setWindowId(_currentWindowId);
+    }
     loadSettings();
     loadLayout();
-  }, [loadSettings, loadLayout]);
+  }, [loadSettings, loadLayout, setWindowId]);
 
   // Sync station info to app store whenever settings change
   // This ensures map/globe components have access to station coordinates
@@ -393,9 +402,71 @@ export function App() {
     }
   }, []);
 
-  // Custom tabset rendering - add + button to each tabset
+  // Pop out a tabset into a separate Electron window
+  const handlePopOut = useCallback(async (node: TabSetNode) => {
+    if (!window.electronAPI?.openSecondaryWindow) return;
+
+    const windowId = crypto.randomUUID();
+
+    // Build a layout containing only the tabs from this tabset
+    const tabs = node.getChildren()
+      .filter(child => (child as TabNode).getComponent() !== 'header-bar')
+      .map(child => ({
+        type: 'tab' as const,
+        name: (child as TabNode).getName(),
+        component: (child as TabNode).getComponent() || '',
+      }));
+
+    if (tabs.length === 0) return;
+
+    const popoutLayout = {
+      global: { ...defaultLayout.global },
+      borders: [],
+      layout: {
+        type: 'row',
+        weight: 100,
+        children: [{
+          type: 'tabset',
+          weight: 100,
+          children: tabs,
+        }],
+      },
+    };
+
+    // Save layout to MongoDB, then open the new window
+    const layoutJson = JSON.stringify(popoutLayout);
+    try {
+      await fetch(`/api/settings/window-layout/${windowId}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(layoutJson),
+      });
+      window.electronAPI.openSecondaryWindow(windowId);
+    } catch (e) {
+      console.error('[App] Failed to create secondary window:', e);
+    }
+  }, []);
+
+  // Custom tabset rendering - add + button and (in Electron) pop-out button to each tabset
   const onRenderTabSet = useCallback((node: TabSetNode | BorderNode, renderValues: ITabSetRenderValues) => {
     if (node instanceof TabSetNode) {
+      // Pop-out button: only in Electron, only in the primary window, only for non-header tabsets
+      const hasHeaderBar = node.getChildren().some(
+        child => (child as TabNode).getComponent() === 'header-bar'
+      );
+      if (!isSecondaryWindow && !hasHeaderBar && window.electronAPI?.openSecondaryWindow) {
+        renderValues.stickyButtons.push(
+          <button
+            key="pop-out"
+            title="Pop out to new window"
+            className="flexlayout__tab_toolbar_button"
+            onClick={() => handlePopOut(node)}
+          >
+            <ExternalLink className="w-3.5 h-3.5" />
+          </button>
+        );
+      }
+
       renderValues.stickyButtons.push(
         <button
           key="add-panel"
@@ -410,7 +481,7 @@ export function App() {
         </button>
       );
     }
-  }, []);
+  }, [handlePopOut]);
 
   // Reset layout to default
   const handleResetLayout = useCallback(() => {
@@ -418,11 +489,11 @@ export function App() {
     resetLayoutStore();
   }, [resetLayoutStore]);
 
-  const showSetupWizard = !setupLoading && setupStatus !== null && !setupStatus.isConfigured;
+  const showSetupWizard = !isSecondaryWindow && !setupLoading && setupStatus !== null && !setupStatus.isConfigured;
 
   return (
     <div className="h-screen flex flex-col bg-dark-900 text-gray-100 crt-scanlines relative">
-      {/* Setup Wizard - blocks UI when not configured */}
+      {/* Setup Wizard - blocks UI when not configured (primary window only) */}
       {showSetupWizard && (
         <SetupWizard onComplete={() => fetchStatus()} />
       )}
@@ -541,16 +612,16 @@ export function App() {
         )}
       </main>
 
-      <StatusBar />
+      {!isSecondaryWindow && <StatusBar />}
 
       {/* Settings Panel (Modal) */}
-      <SettingsPanel />
+      {!isSecondaryWindow && <SettingsPanel />}
 
       {/* Connection Overlay - blocks UI when disconnected */}
       <ConnectionOverlay />
 
       {/* Splash Screen - shown on startup */}
-      <SplashScreen />
+      {!isSecondaryWindow && <SplashScreen />}
     </div>
   );
 }

@@ -179,4 +179,63 @@ public class SettingsController : ControllerBase
         var saved = await _settingsService.SaveSettingsAsync(settings);
         return Ok(saved);
     }
+
+    /// <summary>
+    /// Get layout JSON for a specific secondary window
+    /// </summary>
+    [HttpGet("window-layout/{windowId}")]
+    [ProducesResponseType(typeof(string), StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult<string?>> GetWindowLayout(string windowId)
+    {
+        var settings = await _settingsService.GetSettingsAsync();
+        var windowLayout = settings.WindowLayouts?.FirstOrDefault(w => w.Id == windowId);
+        if (windowLayout == null)
+            return NotFound();
+        return Ok(windowLayout.LayoutJson);
+    }
+
+    /// <summary>
+    /// Update layout JSON for a specific secondary window
+    /// </summary>
+    [HttpPut("window-layout/{windowId}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    public async Task<ActionResult> UpdateWindowLayout(string windowId, [FromBody] string layoutJson)
+    {
+        _logger.LogInformation("Updating secondary window layout: {WindowId}", windowId);
+        var settings = await _settingsService.GetSettingsAsync();
+        settings.WindowLayouts ??= new List<WindowLayout>();
+
+        var existing = settings.WindowLayouts.FirstOrDefault(w => w.Id == windowId);
+        if (existing != null)
+        {
+            existing.LayoutJson = layoutJson;
+            existing.UpdatedAt = DateTime.UtcNow;
+        }
+        else
+        {
+            settings.WindowLayouts.Add(new WindowLayout { Id = windowId, LayoutJson = layoutJson });
+        }
+
+        await _settingsService.SaveSettingsAsync(settings);
+        return Ok();
+    }
+
+    /// <summary>
+    /// Delete layout for a specific secondary window
+    /// </summary>
+    [HttpDelete("window-layout/{windowId}")]
+    [ProducesResponseType(StatusCodes.Status200OK)]
+    [ProducesResponseType(StatusCodes.Status404NotFound)]
+    public async Task<ActionResult> DeleteWindowLayout(string windowId)
+    {
+        var settings = await _settingsService.GetSettingsAsync();
+        var existing = settings.WindowLayouts?.FirstOrDefault(w => w.Id == windowId);
+        if (existing == null)
+            return NotFound();
+
+        settings.WindowLayouts!.Remove(existing);
+        await _settingsService.SaveSettingsAsync(settings);
+        return Ok();
+    }
 }

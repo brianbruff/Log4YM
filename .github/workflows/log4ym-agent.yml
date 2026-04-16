@@ -25,7 +25,7 @@ jobs:
         uses: anthropics/claude-code-action@v1
         with:
           github_token: ${{ steps.app-token.outputs.token }}
-          anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
+          claude_code_oauth_token: ${{ secrets.CLAUDE_CODE_OAUTH_TOKEN }}
           claude_args: "--max-turns 5 --model claude-sonnet-4-6"
           prompt: |
             You are **Log4YM-Agent** 📻, the automated triage assistant for Log4YM

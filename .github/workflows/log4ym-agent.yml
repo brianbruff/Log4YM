@@ -14,9 +14,17 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
+      - name: Mint Log4YM-Agent App token
+        id: app-token
+        uses: actions/create-github-app-token@v1
+        with:
+          app-id: ${{ secrets.LOG4YM_AGENT_APP_ID }}
+          private-key: ${{ secrets.LOG4YM_AGENT_PRIVATE_KEY }}
+
       - name: Run Log4YM-Agent
         uses: anthropics/claude-code-action@v1
         with:
+          github_token: ${{ steps.app-token.outputs.token }}
           anthropic_api_key: ${{ secrets.ANTHROPIC_API_KEY }}
           claude_args: "--max-turns 5 --model claude-sonnet-4-6"
           prompt: |

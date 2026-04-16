@@ -1,0 +1,65 @@
+name: Bug Report
+description: Report a problem with Log4YM
+labels: ["bug"]
+body:
+  - type: textarea
+    id: what-happened
+    attributes:
+      label: What happened?
+      description: A clear description of the bug and what you expected to happen.
+    validations:
+      required: true
+
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      placeholder: |
+        1. Open '...'
+        2. Click on '...'
+        3. See error
+    validations:
+      required: true
+
+  - type: dropdown
+    id: component
+    attributes:
+      label: Component
+      options:
+        - Desktop app (Electron)
+        - Web UI
+        - Backend / API
+        - DX Cluster / Spots
+        - ADIF import/export
+        - QRZ / AI lookup
+        - Other / not sure
+    validations:
+      required: true
+
+  - type: input
+    id: version
+    attributes:
+      label: Log4YM version
+      placeholder: e.g. 0.5.2 or commit SHA
+    validations:
+      required: false
+
+  - type: dropdown
+    id: os
+    attributes:
+      label: Operating system
+      options:
+        - macOS
+        - Windows
+        - Linux
+    validations:
+      required: true
+
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs / screenshots
+      description: Paste any relevant logs, stack traces, or screenshots.
+      render: shell
+    validations:
+      required: false

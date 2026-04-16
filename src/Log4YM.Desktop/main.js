@@ -534,11 +534,12 @@ app.whenReady().then(async () => {
   }
 });
 
-// Quit when all windows are closed (except on macOS)
+// Quit when all windows are closed on all platforms.
+// On macOS the default Electron convention keeps the app alive in the dock,
+// but Log4YM owns a .NET backend process that has no value running headlessly,
+// so we always quit to ensure it is torn down via the before-quit/will-quit cleanup.
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+  app.quit();
 });
 
 // Cleanup before quit

@@ -1,4 +1,5 @@
 import { useState, useCallback, useMemo, useRef, useEffect } from 'react';
+import { createPortal } from 'react-dom';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import { Book, Search, Calendar, Radio, Filter, ChevronLeft, ChevronRight, ChevronsLeft, ChevronsRight, ChevronUp, ChevronDown, X, CloudUpload, Loader2, Pencil, Trash2, Upload, Download, FileText, CheckCircle, AlertTriangle, XCircle } from 'lucide-react';
 import { AgGridReact } from 'ag-grid-react';
@@ -873,7 +874,7 @@ export function LogHistoryPlugin() {
       )}
 
       {/* Delete Confirmation Modal */}
-      {deletingQso && (
+      {deletingQso && createPortal(
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
           <div className="bg-dark-800 rounded-lg p-6 max-w-md w-full mx-4 border border-glass-200">
             <h3 className="text-lg font-ui font-semibold text-white mb-4">Delete QSO?</h3>
@@ -911,11 +912,12 @@ export function LogHistoryPlugin() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* ADIF Import Modal */}
-      {showImportModal && (
+      {showImportModal && createPortal(
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
           <div className="bg-dark-800 rounded-lg p-6 max-w-lg w-full mx-4 border border-glass-200">
             <div className="flex items-center justify-between mb-4">
@@ -1018,11 +1020,12 @@ export function LogHistoryPlugin() {
               </button>
             </div>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
 
       {/* Import Results */}
-      {importResult && (
+      {importResult && createPortal(
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
           <div className="bg-dark-800 rounded-lg p-6 max-w-md w-full mx-4 border border-glass-200">
             <h3 className="text-lg font-ui font-semibold text-white flex items-center gap-2 mb-4">
@@ -1073,7 +1076,8 @@ export function LogHistoryPlugin() {
               Close
             </button>
           </div>
-        </div>
+        </div>,
+        document.body
       )}
     </GlassPanel>
   );
@@ -1129,7 +1133,7 @@ function EditQsoModal({
     });
   };
 
-  return (
+  return createPortal(
     <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50">
       <div className="bg-dark-800 rounded-lg p-6 max-w-2xl w-full mx-4 border border-glass-200 max-h-[90vh] overflow-y-auto">
         <h3 className="text-lg font-ui font-semibold text-white mb-4">Edit QSO</h3>
@@ -1326,6 +1330,7 @@ function EditQsoModal({
           </div>
         </form>
       </div>
-    </div>
+    </div>,
+    document.body
   );
 }

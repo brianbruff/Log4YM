@@ -12,6 +12,7 @@ public interface IQsoRepository
     Task<IEnumerable<Qso>> GetUnsyncedToQrzAsync();
     Task<(IEnumerable<Qso> Items, int TotalCount)> SearchAsync(QsoSearchRequest criteria);
     Task<Qso> CreateAsync(Qso qso);
+    Task<IEnumerable<Qso>> CreateBulkAsync(IEnumerable<Qso> qsos);
     Task<bool> UpdateAsync(string id, Qso qso);
     Task<bool> DeleteAsync(string id);
     Task<QsoStatistics> GetStatisticsAsync();
@@ -101,6 +102,21 @@ public class QsoRepository : IQsoRepository
         qso.UpdatedAt = DateTime.UtcNow;
         await _collection.InsertOneAsync(qso);
         return qso;
+    }
+
+    public async Task<IEnumerable<Qso>> CreateBulkAsync(IEnumerable<Qso> qsos)
+    {
+        var qsoList = qsos.ToList();
+        var now = DateTime.UtcNow;
+
+        foreach (var qso in qsoList)
+        {
+            qso.CreatedAt = now;
+            qso.UpdatedAt = now;
+        }
+
+        await _collection.InsertManyAsync(qsoList);
+        return qsoList;
     }
 
     public async Task<bool> UpdateAsync(string id, Qso qso)

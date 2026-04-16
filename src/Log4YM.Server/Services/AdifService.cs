@@ -127,84 +127,115 @@ public partial class AdifService : IAdifService
             _logger.LogInformation("Cleared {Count} existing QSOs before import", deletedCount);
         }
 
-        for (int i = 0; i < qsos.Count; i++)
+        // Build in-memory duplicate detection set for performance
+        HashSet<string>? existingQsoKeys = null;
+        if (skipDuplicates && !clearExistingLogs)
+        {
+            await _hub.BroadcastAdifImportProgress(new AdifImportProgressEvent(
+                qsos.Count, 0, 0, 0, 0, false, null, "Building duplicate detection index..."));
+
+            var existingQsos = await _qsoRepository.GetAllAsync();
+            existingQsoKeys = existingQsos
+                .Select(q => GetQsoKey(q.Callsign, q.QsoDate, q.TimeOn, q.Band, q.Mode))
+                .ToHashSet();
+
+            _logger.LogInformation("Built duplicate detection index with {Count} existing QSOs", existingQsoKeys.Count);
+        }
+
+        // Process QSOs in batches for optimal performance
+        const int batchSize = 1000;
+        var batches = qsos
+            .Select((qso, index) => new { qso, index })
+            .GroupBy(x => x.index / batchSize)
+            .Select(g => g.Select(x => x.qso).ToList())
+            .ToList();
+
+        _logger.LogInformation("Processing {TotalQsos} QSOs in {BatchCount} batches of {BatchSize}",
+            qsos.Count, batches.Count, batchSize);
+
+        var processedCount = 0;
+
+        foreach (var batch in batches)
         {
             // Check for cancellation
             cancellationToken.ThrowIfCancellationRequested();
 
-            var qso = qsos[i];
-            try
-            {
-                if (skipDuplicates && !clearExistingLogs)
-                {
-                    // Check for duplicate based on callsign, date, time, band, and mode
-                    // Skip check if we just cleared all logs
-                    var isDuplicate = await _qsoRepository.ExistsAsync(
-                        qso.Callsign,
-                        qso.QsoDate,
-                        qso.TimeOn,
-                        qso.Band,
-                        qso.Mode
-                    );
+            var qsosToImport = new List<Qso>();
 
-                    if (isDuplicate)
+            foreach (var qso in batch)
+            {
+                try
+                {
+                    // Check for duplicates using in-memory HashSet (much faster than DB queries)
+                    if (existingQsoKeys != null)
                     {
-                        skippedDuplicates++;
-                        continue;
+                        var qsoKey = GetQsoKey(qso.Callsign, qso.QsoDate, qso.TimeOn, qso.Band, qso.Mode);
+                        if (existingQsoKeys.Contains(qsoKey))
+                        {
+                            skippedDuplicates++;
+                            processedCount++;
+                            continue;
+                        }
+
+                        // Add to the set so we don't import duplicates within the same file
+                        existingQsoKeys.Add(qsoKey);
                     }
+
+                    qso.CreatedAt = DateTime.UtcNow;
+                    qso.UpdatedAt = DateTime.UtcNow;
+
+                    // Mark as already synced to QRZ if requested (useful for QRZ exports)
+                    if (markAsSyncedToQrz)
+                    {
+                        qso.QrzSyncStatus = SyncStatus.Synced;
+                        qso.QrzSyncedAt = DateTime.UtcNow;
+                        // Use a placeholder ID to indicate it came from QRZ import
+                        qso.QrzLogId = $"imported-{DateTime.UtcNow:yyyyMMddHHmmss}";
+                    }
+
+                    qsosToImport.Add(qso);
                 }
-
-                qso.CreatedAt = DateTime.UtcNow;
-                qso.UpdatedAt = DateTime.UtcNow;
-
-                // Mark as already synced to QRZ if requested (useful for QRZ exports)
-                if (markAsSyncedToQrz)
+                catch (Exception ex)
                 {
-                    qso.QrzSyncStatus = SyncStatus.Synced;
-                    qso.QrzSyncedAt = DateTime.UtcNow;
-                    // Use a placeholder ID to indicate it came from QRZ import
-                    qso.QrzLogId = $"imported-{DateTime.UtcNow:yyyyMMddHHmmss}";
+                    errorCount++;
+                    var errorMsg = $"{qso.Callsign}: {ex.Message}";
+                    errors.Add(errorMsg);
+                    _logger.LogWarning(ex, "Error preparing QSO for import: {Callsign}", qso.Callsign);
                 }
 
-                var created = await _qsoRepository.CreateAsync(qso);
-                importedCount++;
-
-                // Broadcast to connected clients
-                await _hub.BroadcastQso(new QsoLoggedEvent(
-                    created.Id,
-                    created.Callsign,
-                    created.QsoDate,
-                    created.TimeOn,
-                    created.Band,
-                    created.Mode,
-                    created.Frequency,
-                    created.RstSent,
-                    created.RstRcvd,
-                    created.Station?.Grid
-                ));
-
-                // Send progress update every 10 records or on last record
-                if ((i + 1) % 10 == 0 || i == qsos.Count - 1)
-                {
-                    await _hub.BroadcastAdifImportProgress(new AdifImportProgressEvent(
-                        qsos.Count,
-                        i + 1,
-                        importedCount,
-                        skippedDuplicates,
-                        errorCount,
-                        false,
-                        qso.Callsign,
-                        $"Importing {qso.Callsign}..."
-                    ));
-                }
+                processedCount++;
             }
-            catch (Exception ex)
+
+            // Bulk insert the entire batch with a single database operation
+            if (qsosToImport.Count > 0)
             {
-                errorCount++;
-                var errorMsg = $"{qso.Callsign}: {ex.Message}";
-                errors.Add(errorMsg);
-                _logger.LogWarning(ex, "Error importing QSO with {Callsign}", qso.Callsign);
+                try
+                {
+                    await _qsoRepository.CreateBulkAsync(qsosToImport);
+                    importedCount += qsosToImport.Count;
+
+                    _logger.LogInformation("Imported batch: {Imported} QSOs", qsosToImport.Count);
+                }
+                catch (Exception ex)
+                {
+                    errorCount += qsosToImport.Count;
+                    var errorMsg = $"Batch import failed: {ex.Message}";
+                    errors.Add(errorMsg);
+                    _logger.LogError(ex, "Error importing batch of {Count} QSOs", qsosToImport.Count);
+                }
             }
+
+            // Send progress update after each batch
+            await _hub.BroadcastAdifImportProgress(new AdifImportProgressEvent(
+                qsos.Count,
+                processedCount,
+                importedCount,
+                skippedDuplicates,
+                errorCount,
+                false,
+                batch.LastOrDefault()?.Callsign,
+                $"Processing batch {batches.IndexOf(batch) + 1} of {batches.Count}..."
+            ));
         }
 
         _logger.LogInformation(
@@ -230,6 +261,11 @@ public partial class AdifService : IAdifService
         ));
 
         return new AdifImportResult(qsos.Count, importedCount, skippedDuplicates, errorCount, errors);
+    }
+
+    private static string GetQsoKey(string callsign, DateTime qsoDate, string timeOn, string band, string mode)
+    {
+        return $"{callsign.ToUpperInvariant()}|{qsoDate.Date:yyyyMMdd}|{timeOn}|{band}|{mode}";
     }
 
     public async Task<string> ExportQsosAsync(AdifExportRequest? request = null)

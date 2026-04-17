@@ -64,6 +64,9 @@ public interface ILogHubClient
     // ADIF Import events
     Task OnAdifImportProgress(AdifImportProgressEvent evt);
 
+    // LOTW upload events
+    Task OnLotwUploadProgress(LotwUploadProgressEvent evt);
+
     // DX Cluster events
     Task OnClusterStatusChanged(ClusterStatusChangedEvent evt);
 
@@ -1098,6 +1101,11 @@ public static class LogHubExtensions
     public static async Task BroadcastAdifImportProgress(this IHubContext<LogHub, ILogHubClient> hub, AdifImportProgressEvent evt)
     {
         await hub.Clients.All.OnAdifImportProgress(evt);
+    }
+
+    public static async Task BroadcastLotwUploadProgress(this IHubContext<LogHub, ILogHubClient> hub, LotwUploadProgressEvent evt)
+    {
+        await hub.Clients.All.OnLotwUploadProgress(evt);
     }
 
     public static async Task BroadcastClusterStatusChanged(this IHubContext<LogHub, ILogHubClient> hub, ClusterStatusChangedEvent evt)

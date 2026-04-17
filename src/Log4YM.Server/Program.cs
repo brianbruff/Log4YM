@@ -128,6 +128,8 @@ builder.Services.AddScoped<IQsoService, QsoService>();
 builder.Services.AddScoped<IAwardsService, AwardsService>();
 builder.Services.AddScoped<ISettingsService, SettingsService>();
 builder.Services.AddScoped<IQrzService, QrzService>();
+builder.Services.AddSingleton<ITqslRunner, TqslRunner>();
+builder.Services.AddScoped<ILotwService, LotwService>();
 builder.Services.AddScoped<IAdifService, AdifService>();
 builder.Services.AddScoped<IAiService, AiService>();
 

@@ -567,6 +567,15 @@ export interface QrzSyncProgressEvent {
   message: string | null;
 }
 
+// LOTW Upload types
+export interface LotwUploadProgressEvent {
+  stage: string; // "preparing" | "signing" | "uploading" | "done" | "error"
+  qsoCount: number;
+  isComplete: boolean;
+  tqslExitCode: number | null;
+  message: string | null;
+}
+
 // ADIF Import types
 export interface AdifImportProgressEvent {
   total: number;
@@ -649,6 +658,8 @@ type EventHandlers = {
   onSmartUnlinkStatus?: (evt: SmartUnlinkStatusEvent) => void;
   // QRZ Sync handlers
   onQrzSyncProgress?: (evt: QrzSyncProgressEvent) => void;
+  // LOTW Upload handlers
+  onLotwUploadProgress?: (evt: LotwUploadProgressEvent) => void;
   // ADIF Import handlers
   onAdifImportProgress?: (evt: AdifImportProgressEvent) => void;
   // DX Cluster handlers
@@ -991,6 +1002,11 @@ class SignalRService {
     // QRZ Sync events
     this.connection.on('OnQrzSyncProgress', (evt: QrzSyncProgressEvent) => {
       this.handlers.onQrzSyncProgress?.(evt);
+    });
+
+    // LOTW Upload events
+    this.connection.on('OnLotwUploadProgress', (evt: LotwUploadProgressEvent) => {
+      this.handlers.onLotwUploadProgress?.(evt);
     });
 
     // ADIF Import events

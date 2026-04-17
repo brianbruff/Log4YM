@@ -483,12 +483,22 @@ public partial class AdifService : IAdifService
 
     private void ExportQsoRecord(StringBuilder sb, Qso qso, string? stationCallsign)
     {
-        // Required fields
-        AppendAdifField(sb, "CALL", qso.Callsign);
-        AppendAdifField(sb, "QSO_DATE", qso.QsoDate.ToString("yyyyMMdd"));
-        AppendAdifField(sb, "TIME_ON", FormatTime(qso.TimeOn));
-        AppendAdifField(sb, "BAND", qso.Band);
-        AppendAdifField(sb, "MODE", qso.Mode);
+        // Required fields. BAND and MODE must be uppercase — LOTW's ingestion silently drops
+        // QSOs with lowercase band values like "20m" even though the ADIF spec says enums are
+        // case-insensitive. Every mainstream logger writes uppercase here.
+        //
+        // QSO_DATE and TIME_ON must be in UTC and must agree. We derive both from the same
+        // ToUniversalTime() DateTime so they can't drift. Previously we output QSO_DATE via
+        // qso.QsoDate.ToString(...) which, if LiteDB round-tripped the DateTime as Kind=Local,
+        // would produce the local date (e.g. Apr 17 in Ireland BST) while TIME_ON was the UTC
+        // time (23:52 Apr 16). The mismatch looked to LOTW like a QSO in the future, so it
+        // silently dropped the record during ingestion.
+        var qsoUtc = qso.QsoDate.ToUniversalTime();
+        AppendAdifField(sb, "CALL", qso.Callsign?.ToUpperInvariant());
+        AppendAdifField(sb, "QSO_DATE", qsoUtc.ToString("yyyyMMdd"));
+        AppendAdifField(sb, "TIME_ON", qsoUtc.ToString("HHmmss"));
+        AppendAdifField(sb, "BAND", qso.Band?.ToUpperInvariant());
+        AppendAdifField(sb, "MODE", qso.Mode?.ToUpperInvariant());
 
         // Optional standard fields
         if (!string.IsNullOrEmpty(qso.TimeOff))
@@ -657,8 +667,14 @@ public partial class AdifService : IAdifService
 
     private static string FormatTime(string? time)
     {
+        // ADIF TIME_ON / TIME_OFF is HHMM or HHMMSS, UTC, zero-padded on the LEFT.
+        // A raw "945" means 09:45, not 94:50 — PadRight was wrong and would push LOTW to
+        // silently drop the QSO on ingestion (invalid time component).
         if (string.IsNullOrEmpty(time)) return "0000";
-        return time.Replace(":", "").PadRight(4, '0')[..4];
+        var digits = time.Replace(":", "");
+        if (digits.Length <= 4) return digits.PadLeft(4, '0');
+        if (digits.Length <= 6) return digits.PadLeft(6, '0');
+        return digits[..6];
     }
 
     private static string DeriveFromFrequency(Dictionary<string, object> fields)

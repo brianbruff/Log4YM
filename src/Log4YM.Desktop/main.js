@@ -482,6 +482,20 @@ app.whenReady().then(async () => {
     }
   });
 
+  // Native file picker. Accepts { title?, defaultPath?, filters? } and returns
+  // the chosen absolute path (string) or null if the user cancelled.
+  ipcMain.handle('select-file', async (_event, options = {}) => {
+    if (!mainWindow) return null;
+    const result = await dialog.showOpenDialog(mainWindow, {
+      title: options.title || 'Select File',
+      defaultPath: options.defaultPath,
+      filters: options.filters,
+      properties: ['openFile']
+    });
+    if (result.canceled || result.filePaths.length === 0) return null;
+    return result.filePaths[0];
+  });
+
   try {
     createSplashWindow();
     await startBackend();

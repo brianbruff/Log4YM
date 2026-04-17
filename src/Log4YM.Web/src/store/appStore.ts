@@ -114,6 +114,10 @@ interface AppState {
   qrzSyncProgress: QrzSyncProgress | null;
   setQrzSyncProgress: (progress: QrzSyncProgress | null) => void;
 
+  // LOTW Upload
+  lotwUploadProgress: LotwUploadProgress | null;
+  setLotwUploadProgress: (progress: LotwUploadProgress | null) => void;
+
   // ADIF Import
   adifImportProgress: AdifImportProgress | null;
   setAdifImportProgress: (progress: AdifImportProgress | null) => void;
@@ -190,6 +194,14 @@ export interface QrzSyncProgress {
   failed: number;
   isComplete: boolean;
   currentCallsign: string | null;
+  message: string | null;
+}
+
+export interface LotwUploadProgress {
+  stage: string; // "preparing" | "signing" | "uploading" | "done" | "error"
+  qsoCount: number;
+  isComplete: boolean;
+  tqslExitCode: number | null;
   message: string | null;
 }
 
@@ -456,6 +468,10 @@ export const useAppStore = create<AppState>((set) => ({
   // QRZ Sync
   qrzSyncProgress: null,
   setQrzSyncProgress: (progress) => set({ qrzSyncProgress: progress }),
+
+  // LOTW Upload
+  lotwUploadProgress: null,
+  setLotwUploadProgress: (progress) => set({ lotwUploadProgress: progress }),
 
   // ADIF Import
   adifImportProgress: null,

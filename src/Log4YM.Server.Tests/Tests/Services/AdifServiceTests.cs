@@ -296,7 +296,8 @@ public class AdifServiceTests
         var adif = _service.ExportToAdif(new[] { qso });
 
         adif.Should().Contain("<CALL:4>W1AW");
-        adif.Should().Contain("<BAND:3>20m");
+        // BAND is uppercased on export — LOTW silently drops "20m".
+        adif.Should().Contain("<BAND:3>20M");
         adif.Should().Contain("<MODE:3>SSB");
         adif.Should().Contain("<QSO_DATE:8>20240115");
         adif.Should().Contain("<EOR>");
@@ -410,7 +411,8 @@ public class AdifServiceTests
 
         reExported.Should().Contain("<CALL:4>W1AW");
         reExported.Should().Contain("<QSO_DATE:8>20240115");
-        reExported.Should().Contain("<BAND:3>20m");
+        // Export uppercases BAND even when the source ADIF had lowercase — LOTW is strict.
+        reExported.Should().Contain("<BAND:3>20M");
         reExported.Should().Contain("<MODE:3>SSB");
         reExported.Should().Contain("<RST_SENT:2>59");
         reExported.Should().Contain("<RST_RCVD:2>57");

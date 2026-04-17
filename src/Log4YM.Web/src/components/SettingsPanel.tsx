@@ -34,6 +34,9 @@ import {
   Sun,
   Moon,
   BarChart3,
+  CloudUpload,
+  FileCode,
+  FolderOpen,
 } from 'lucide-react';
 import { useSettingsStore, SettingsSection, StationSettings } from '../store/settingsStore';
 import { gridToLatLon } from '../utils/maidenhead';
@@ -54,6 +57,12 @@ const SETTINGS_SECTIONS: { id: SettingsSection; name: string; icon: React.ReactN
     name: 'QRZ.com',
     icon: <Globe className="w-5 h-5" />,
     description: 'QRZ lookup credentials',
+  },
+  {
+    id: 'lotw',
+    name: 'LOTW',
+    icon: <CloudUpload className="w-5 h-5" />,
+    description: 'TQSL binary path for LOTW upload',
   },
   {
     id: 'rotator',
@@ -464,6 +473,182 @@ function QrzSettingsSection() {
             </span>
           )}
         </div>
+      </div>
+    </div>
+  );
+}
+
+// LOTW Settings Section — minimal: just what the upload path needs (TQSL binary + optional
+// station location). LOTW user/password are only needed for the confirmation-download phase,
+// which is a future add-on — not included here.
+function LotwSettingsSection() {
+  const { settings, updateLotwSettings } = useSettingsStore();
+  const [testStatus, setTestStatus] = useState<'idle' | 'testing' | 'success' | 'error'>('idle');
+  const [testMessage, setTestMessage] = useState('');
+
+  const lotw = settings.lotw;
+
+  const handleTest = async () => {
+    if (!lotw.tqslPath) return;
+    setTestStatus('testing');
+    setTestMessage('');
+    try {
+      const response = await fetch('/api/lotw/test-tqsl', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ path: lotw.tqslPath }),
+      });
+      const data = await response.json();
+      if (data.ok) {
+        setTestStatus('success');
+        setTestMessage(data.version || 'TQSL found');
+      } else {
+        setTestStatus('error');
+        setTestMessage(data.error || 'Could not run TQSL');
+      }
+    } catch {
+      setTestStatus('error');
+      setTestMessage('Failed to reach backend');
+    }
+    setTimeout(() => { setTestStatus('idle'); setTestMessage(''); }, 5000);
+  };
+
+  // Shown only when running under Electron — the preload script exposes the native picker.
+  // In browser/Vite-dev, the user types/pastes the path manually.
+  const hasElectronFilePicker = typeof window !== 'undefined'
+    && (window as unknown as { electronAPI?: { selectFile?: unknown } }).electronAPI?.selectFile !== undefined;
+
+  const handleBrowse = async () => {
+    const api = (window as unknown as { electronAPI: { selectFile: (opts: {
+      title?: string;
+      defaultPath?: string;
+      filters?: { name: string; extensions: string[] }[];
+    }) => Promise<string | null> } }).electronAPI;
+
+    // Platform-aware filters. On macOS the user usually drills into Tqsl.app/Contents/MacOS/tqsl,
+    // so we don't restrict by extension there. Windows wants .exe.
+    const platform = navigator.platform.toLowerCase();
+    const filters = platform.includes('win')
+      ? [{ name: 'Executables', extensions: ['exe'] }, { name: 'All Files', extensions: ['*'] }]
+      : [{ name: 'All Files', extensions: ['*'] }];
+
+    const picked = await api.selectFile({
+      title: 'Locate tqsl executable',
+      defaultPath: lotw.tqslPath || undefined,
+      filters
+    });
+    if (picked) updateLotwSettings({ tqslPath: picked });
+  };
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h3 className="text-lg font-semibold font-ui text-dark-200 mb-1">LOTW (Logbook of The World)</h3>
+        <p className="text-sm text-dark-300">
+          Sign and upload QSOs to ARRL LOTW via your local TQSL install.
+          TQSL must be installed separately — download from{' '}
+          <a
+            href="https://lotw.arrl.org/lotw-help/installation/"
+            target="_blank"
+            rel="noopener noreferrer"
+            className="text-accent-primary hover:underline"
+          >
+            ARRL
+          </a>.
+        </p>
+      </div>
+
+      {/* Enable toggle */}
+      <div className="flex items-center justify-between p-4 bg-dark-700/50 rounded-lg border border-glass-100">
+        <div>
+          <p className="font-medium font-ui text-dark-200">Enable LOTW Upload</p>
+          <p className="text-sm text-dark-300">Shows a "Push to LOTW" button in Log History</p>
+        </div>
+        <button
+          onClick={() => updateLotwSettings({ enabled: !lotw.enabled })}
+          className={`relative w-11 h-6 rounded-full transition-colors ${
+            lotw.enabled ? 'bg-accent-success' : 'bg-dark-600 border border-dark-400'
+          }`}
+        >
+          <span
+            className={`absolute top-0.5 left-0.5 w-5 h-5 rounded-full bg-white shadow transition-transform duration-200 ${
+              lotw.enabled ? 'translate-x-5' : 'translate-x-0'
+            }`}
+          />
+        </button>
+      </div>
+
+      <div className={`space-y-4 ${!lotw.enabled ? 'opacity-50 pointer-events-none' : ''}`}>
+        {/* TQSL binary path */}
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 text-sm font-medium font-ui text-dark-200">
+            <FileCode className="w-4 h-4 text-accent-primary" />
+            Path to TQSL Executable
+          </label>
+          <div className="flex gap-2">
+            <input
+              type="text"
+              value={lotw.tqslPath}
+              onChange={(e) => updateLotwSettings({ tqslPath: e.target.value })}
+              placeholder="Not set — click Browse to locate tqsl"
+              className="glass-input w-full font-mono text-sm"
+              disabled={!lotw.enabled}
+              spellCheck={false}
+            />
+            {hasElectronFilePicker && (
+              <button
+                onClick={handleBrowse}
+                disabled={!lotw.enabled}
+                className="glass-button px-4 py-2 flex items-center gap-2 disabled:opacity-50 whitespace-nowrap"
+                title="Browse for the tqsl executable"
+              >
+                <FolderOpen className="w-4 h-4" />
+                <span>Browse</span>
+              </button>
+            )}
+            <button
+              onClick={handleTest}
+              disabled={!lotw.tqslPath || testStatus === 'testing'}
+              className="glass-button px-4 py-2 flex items-center gap-2 disabled:opacity-50 whitespace-nowrap"
+            >
+              {testStatus === 'testing' && <Loader2 className="w-4 h-4 animate-spin" />}
+              {testStatus === 'success' && <CheckCircle className="w-4 h-4 text-accent-success" />}
+              {testStatus === 'error' && <AlertCircle className="w-4 h-4 text-accent-danger" />}
+              {testStatus === 'idle' && <CheckCircle className="w-4 h-4" />}
+              <span>{testStatus === 'testing' ? 'Testing...' : 'Test'}</span>
+            </button>
+          </div>
+          {testMessage && (
+            <p className={`text-xs ${testStatus === 'success' ? 'text-accent-success' : 'text-accent-danger'}`}>
+              {testMessage}
+            </p>
+          )}
+          <p className="text-xs text-dark-300">
+            Absolute path to the tqsl binary. Log4YM shells out to it for LOTW signing and upload —
+            same mechanism TQSL uses when you run it manually.
+          </p>
+        </div>
+
+        {/* Optional station location override */}
+        <div className="space-y-2">
+          <label className="flex items-center gap-2 text-sm font-medium font-ui text-dark-200">
+            <User className="w-4 h-4 text-accent-primary" />
+            TQSL Station Location <span className="text-xs text-dark-300">(optional)</span>
+          </label>
+          <input
+            type="text"
+            value={lotw.stationCallsign}
+            onChange={(e) => updateLotwSettings({ stationCallsign: e.target.value })}
+            placeholder="Leave blank to use TQSL's default"
+            className="glass-input w-full"
+            disabled={!lotw.enabled}
+          />
+          <p className="text-xs text-dark-300">
+            Passed to TQSL as <code className="font-mono">-l &lt;name&gt;</code>.
+            Useful if your TQSL has multiple station locations configured.
+          </p>
+        </div>
+
       </div>
     </div>
   );
@@ -2078,6 +2263,8 @@ export function SettingsPanel() {
         return <StationSettingsSection />;
       case 'qrz':
         return <QrzSettingsSection />;
+      case 'lotw':
+        return <LotwSettingsSection />;
       case 'rotator':
         return <RotatorSettingsSection />;
       case 'database':

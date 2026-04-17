@@ -10,6 +10,7 @@ import { api, QsoResponse, UpdateQsoRequest, AdifImportResponse } from '../api/c
 import { GlassPanel } from '../components/GlassPanel';
 import { getCountryFlag } from '../core/countryFlags';
 import { useAppStore } from '../store/appStore';
+import { useSettingsStore } from '../store/settingsStore';
 import { useAgGridState } from '../hooks/useAgGridState';
 
 // Common RST values for phone modes (SSB, AM, FM)
@@ -116,7 +117,9 @@ export function LogHistoryPlugin() {
   const fileInputRef = useRef<HTMLInputElement>(null);
 
   const queryClient = useQueryClient();
-  const { qrzSyncProgress, setQrzSyncProgress, adifImportProgress, setAdifImportProgress, logHistoryCallsignFilter } = useAppStore();
+  const { qrzSyncProgress, setQrzSyncProgress, adifImportProgress, setAdifImportProgress, logHistoryCallsignFilter, lotwUploadProgress, setLotwUploadProgress } = useAppStore();
+  const lotwEnabled = useSettingsStore((s) => s.settings.lotw.enabled);
+  const [isLotwUploading, setIsLotwUploading] = useState(false);
 
   const handleSyncToQrz = useCallback(async () => {
     if (isSyncing) return;
@@ -130,6 +133,40 @@ export function LogHistoryPlugin() {
       setIsSyncing(false);
     }
   }, [isSyncing, setQrzSyncProgress]);
+
+  const handlePushToLotw = useCallback(async () => {
+    if (isLotwUploading) return;
+    setIsLotwUploading(true);
+    setLotwUploadProgress(null);
+    try {
+      const result = await api.uploadToLotw({});
+      // Belt-and-suspenders: surface the final result via the progress banner even
+      // if SignalR didn't deliver (disconnected, slow, whatever). Same shape as the
+      // LotwUploadProgressEvent the backend broadcasts.
+      setLotwUploadProgress({
+        stage: result.success ? 'done' : 'error',
+        qsoCount: result.qsoCount,
+        isComplete: true,
+        tqslExitCode: result.tqslExitCode,
+        message: result.message,
+      });
+      if (result.success) {
+        // Marked-sent flags may have flipped — refresh the grid.
+        queryClient.invalidateQueries({ queryKey: ['qsos'] });
+      }
+    } catch (error) {
+      console.error('Failed to push to LOTW:', error);
+      setLotwUploadProgress({
+        stage: 'error',
+        qsoCount: 0,
+        isComplete: true,
+        tqslExitCode: -1,
+        message: error instanceof Error ? error.message : 'Request failed',
+      });
+    } finally {
+      setIsLotwUploading(false);
+    }
+  }, [isLotwUploading, setLotwUploadProgress, queryClient]);
 
   const handleCancelSync = useCallback(async () => {
     try {
@@ -409,6 +446,25 @@ export function LogHistoryPlugin() {
               )}
               <span className="text-xs">Push to QRZ</span>
             </button>
+            {lotwEnabled && (
+              <button
+                onClick={handlePushToLotw}
+                disabled={isLotwUploading}
+                className="glass-button p-1.5 flex items-center gap-1.5 text-accent-warning hover:text-accent-primary disabled:opacity-50 disabled:cursor-not-allowed"
+                title="Sign and upload eligible QSOs to ARRL LOTW via TQSL"
+              >
+                {isLotwUploading ? (
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                ) : (
+                  <CloudUpload className="w-4 h-4" />
+                )}
+                <span className="text-xs">
+                  {lotwUploadProgress && !lotwUploadProgress.isComplete
+                    ? `LOTW: ${lotwUploadProgress.stage}`
+                    : 'Push to LOTW'}
+                </span>
+              </button>
+            )}
           </div>
         </div>
       }
@@ -507,6 +563,57 @@ export function LogHistoryPlugin() {
             </div>
           </div>
         )}
+
+        {/* LOTW Upload status — live progress or final result (error or success).
+            Message may be multi-line (e.g. includes TQSL's own stdout); we split so the
+            "TQSL output:" block renders as a monospace block underneath the summary. */}
+        {lotwUploadProgress && (() => {
+          const raw = lotwUploadProgress.message
+            || `LOTW: ${lotwUploadProgress.stage}${lotwUploadProgress.qsoCount > 0 ? ` (${lotwUploadProgress.qsoCount} QSOs)` : ''}`;
+          const splitIdx = raw.indexOf('\n\nTQSL output:\n');
+          const summary = splitIdx >= 0 ? raw.slice(0, splitIdx) : raw;
+          const tqslOutput = splitIdx >= 0 ? raw.slice(splitIdx + '\n\nTQSL output:\n'.length) : '';
+          return (
+            <div className={`bg-dark-700/80 rounded-lg p-3 border ${
+              lotwUploadProgress.stage === 'error'
+                ? 'border-accent-danger/30'
+                : lotwUploadProgress.isComplete
+                  ? 'border-accent-success/30'
+                  : 'border-accent-info/30'
+            }`}>
+              <div className="flex items-start justify-between gap-3">
+                <div className="flex items-start gap-2 flex-1 min-w-0">
+                  <div className="mt-0.5 shrink-0">
+                    {!lotwUploadProgress.isComplete && (
+                      <Loader2 className="w-4 h-4 text-accent-info animate-spin" />
+                    )}
+                    {lotwUploadProgress.isComplete && lotwUploadProgress.stage === 'error' && (
+                      <AlertTriangle className="w-4 h-4 text-accent-danger" />
+                    )}
+                    {lotwUploadProgress.isComplete && lotwUploadProgress.stage !== 'error' && (
+                      <CheckCircle className="w-4 h-4 text-accent-success" />
+                    )}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-sm text-dark-200 font-ui whitespace-pre-wrap">{summary}</div>
+                    {tqslOutput && (
+                      <pre className="mt-2 text-xs text-dark-300 font-mono bg-dark-800/60 rounded px-2 py-1.5 overflow-x-auto whitespace-pre-wrap">{tqslOutput}</pre>
+                    )}
+                  </div>
+                </div>
+                {lotwUploadProgress.isComplete && (
+                  <button
+                    onClick={() => setLotwUploadProgress(null)}
+                    className="text-dark-300 hover:text-dark-200 shrink-0"
+                    title="Dismiss"
+                  >
+                    <X className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            </div>
+          );
+        })()}
 
         {/* ADIF Import Starting (before first progress event) */}
         {importMutation.isPending && !adifImportProgress && (

@@ -90,26 +90,27 @@ public class LotwService : ILotwService
 
         var adif = _adifService.ExportToAdif(eligible, stationCallsign);
 
-        // Persist the uploaded ADIF under %APPDATA%\Log4YM\lotw-uploads\ (or equivalent on
-        // mac/linux) with a timestamp — previously we wrote to %TEMP% and deleted in finally,
-        // which made post-mortem diff against another logger's ADIF impossible. Retained
-        // files are small (a few KB per QSO) and give the user a clear forensic trail when
-        // LOTW silently drops an upload during ingestion.
+        // Write the ADIF under %APPDATA%\Log4YM\lotw-uploads\ (or the equivalent on mac/linux).
+        // On success we delete it — the QSO is marked sent in the DB and TQSL's copy is enough.
+        // On failure we keep it so the user can diff against a known-good ADIF, rerun signing
+        // manually with `tqsl -d -u <file>`, etc.
         var archiveDir = Path.Combine(
             Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData),
             "Log4YM", "lotw-uploads");
         Directory.CreateDirectory(archiveDir);
         var timestamp = DateTime.UtcNow.ToString("yyyyMMdd-HHmmss");
-        var tempPath = Path.Combine(archiveDir, $"lotw-upload-{timestamp}-{Guid.NewGuid():N}.adi");
+        var adifPath = Path.Combine(archiveDir, $"lotw-upload-{timestamp}-{Guid.NewGuid():N}.adi");
+        var keepAdif = false;
         try
         {
-            await File.WriteAllTextAsync(tempPath, adif, cancellationToken);
+            await File.WriteAllTextAsync(adifPath, adif, cancellationToken);
 
             await BroadcastAsync("signing", eligible.Count, null, "Handing off to TQSL for signing and upload", false);
 
-            var tqslResult = await _tqsl.UploadAsync(lotw.TqslPath!, tempPath, lotw.StationCallsign, cancellationToken);
+            var tqslResult = await _tqsl.UploadAsync(lotw.TqslPath!, adifPath, lotw.StationCallsign, cancellationToken);
 
             var (success, message) = InterpretExitCode(tqslResult.ExitCode, eligible.Count);
+            keepAdif = !success;
 
             // Include TQSL's own output — lets the user see exactly what the binary reported
             // (e.g. "5 QSOs uploaded to LoTW"). Distinguishes "TQSL signed & transmitted" from
@@ -119,7 +120,10 @@ public class LotwService : ILotwService
             var fullMessage = string.IsNullOrWhiteSpace(tqslOutput)
                 ? message
                 : $"{message}\n\nTQSL output:\n{tqslOutput}";
-            fullMessage += $"\n\nADIF saved to: {tempPath}";
+            if (keepAdif)
+            {
+                fullMessage += $"\n\nADIF retained for inspection: {adifPath}";
+            }
 
             var markedAsSent = 0;
             if (success)
@@ -135,14 +139,24 @@ public class LotwService : ILotwService
         }
         catch (OperationCanceledException)
         {
+            keepAdif = true;
             await BroadcastAsync("error", eligible.Count, null, "Upload cancelled", true);
             throw;
         }
         catch (Exception ex)
         {
+            keepAdif = true;
             _logger.LogError(ex, "LOTW upload failed");
             await BroadcastAsync("error", eligible.Count, null, ex.Message, true);
             return new LotwUploadResult(eligible.Count, false, -1, ex.Message, 0);
+        }
+        finally
+        {
+            if (!keepAdif)
+            {
+                try { if (File.Exists(adifPath)) File.Delete(adifPath); }
+                catch (Exception ex) { _logger.LogWarning(ex, "Failed to delete ADIF {Path}", adifPath); }
+            }
         }
     }
 

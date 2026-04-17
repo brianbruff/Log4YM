@@ -21,5 +21,8 @@ contextBridge.exposeInMainWorld('electronAPI', {
   restartApp: () => ipcRenderer.invoke('restart-app'),
   // Zoom level management
   getZoomLevel: () => ipcRenderer.invoke('get-zoom-level'),
-  setZoomLevel: (level) => ipcRenderer.invoke('set-zoom-level', level)
+  setZoomLevel: (level) => ipcRenderer.invoke('set-zoom-level', level),
+  // Native file picker — returns the selected absolute path, or null if cancelled.
+  // Used by the LOTW settings section to locate the TQSL binary.
+  selectFile: (options) => ipcRenderer.invoke('select-file', options)
 });

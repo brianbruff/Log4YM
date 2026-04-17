@@ -390,6 +390,27 @@ class ApiClient {
     });
   }
 
+  async uploadToLotw(filter: LotwUploadFilter = {}): Promise<LotwUploadResult> {
+    return this.fetch('/lotw/upload', {
+      method: 'POST',
+      body: JSON.stringify(filter),
+    });
+  }
+
+  async previewLotw(filter: LotwUploadFilter = {}): Promise<LotwPreviewResponse> {
+    return this.fetch('/lotw/preview', {
+      method: 'POST',
+      body: JSON.stringify(filter),
+    });
+  }
+
+  async testTqsl(path: string): Promise<LotwTestTqslResponse> {
+    return this.fetch('/lotw/test-tqsl', {
+      method: 'POST',
+      body: JSON.stringify({ path }),
+    });
+  }
+
   async lookupCallsignQrz(callsign: string): Promise<QrzCallsignResponse> {
     return this.fetch(`/qrz/lookup/${encodeURIComponent(callsign)}`);
   }
@@ -664,6 +685,44 @@ export interface AdifExportRequest {
   fromDate?: string;
   toDate?: string;
   qsoIds?: string[];
+}
+
+export interface LotwUploadFilter {
+  dateFrom?: string;
+  dateTo?: string;
+  stationCallsign?: string;
+  bands?: string[];
+  modes?: string[];
+  includeIgnored?: boolean;
+  includeNotSent?: boolean;
+}
+
+export interface LotwUploadResult {
+  qsoCount: number;
+  success: boolean;
+  tqslExitCode: number;
+  message: string;
+  markedAsSent: number;
+}
+
+export interface LotwPreviewItem {
+  id: string;
+  callsign: string;
+  qsoDate: string;
+  band: string;
+  mode: string;
+  lotwSent: string | null;
+}
+
+export interface LotwPreviewResponse {
+  count: number;
+  sample: LotwPreviewItem[];
+}
+
+export interface LotwTestTqslResponse {
+  ok: boolean;
+  version: string | null;
+  error: string | null;
 }
 
 // Contest Types

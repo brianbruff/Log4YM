@@ -781,6 +781,21 @@ public record AdifImportProgressEvent(
     string? Message
 );
 
+// ===== LOTW Upload Events =====
+
+/// <summary>
+/// LOTW upload progress update. Stages: "preparing", "signing", "uploading", "done", "error".
+/// TQSL runs as an opaque subprocess, so per-QSO progress is not available — the event
+/// reports coarse phase transitions plus totals and the TQSL exit code on completion.
+/// </summary>
+public record LotwUploadProgressEvent(
+    string Stage,
+    int QsoCount,
+    bool IsComplete,
+    int? TqslExitCode,
+    string? Message
+);
+
 // ===== Tuner Genius Events =====
 
 /// <summary>

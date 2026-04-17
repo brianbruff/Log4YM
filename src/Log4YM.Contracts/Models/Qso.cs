@@ -99,6 +99,14 @@ public class Qso
     [BsonElement("qrzSyncStatus")]
     [BsonRepresentation(BsonType.String)]
     public SyncStatus QrzSyncStatus { get; set; } = SyncStatus.NotSynced;
+
+    // LOTW sync tracking
+    [BsonElement("lotwSyncedAt")]
+    public DateTime? LotwSyncedAt { get; set; }
+
+    [BsonElement("lotwSyncStatus")]
+    [BsonRepresentation(BsonType.String)]
+    public SyncStatus LotwSyncStatus { get; set; } = SyncStatus.NotSynced;
 }
 
 public class StationInfo
@@ -166,8 +174,14 @@ public class LotwStatus
     [BsonElement("sent")]
     public string? Sent { get; set; }
 
+    [BsonElement("sentDate")]
+    public DateTime? SentDate { get; set; }
+
     [BsonElement("rcvd")]
     public string? Rcvd { get; set; }
+
+    [BsonElement("rcvdDate")]
+    public DateTime? RcvdDate { get; set; }
 }
 
 public class EqslStatus

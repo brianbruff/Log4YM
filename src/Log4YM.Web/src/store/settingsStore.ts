@@ -18,6 +18,15 @@ export interface QrzSettings {
   enabled: boolean;
 }
 
+export interface LotwSettings {
+  enabled: boolean;
+  // Absolute path to the local TQSL binary (e.g. C:\Program Files\TrustedQSL\tqsl.exe).
+  // Entered manually; TQSL must be installed separately.
+  tqslPath: string;
+  // Optional TQSL station location name (passed as `-l <name>`); empty = TQSL default.
+  stationCallsign: string;
+}
+
 export interface AppearanceSettings {
   theme: 'dark' | 'light';
   compactMode: boolean;
@@ -151,6 +160,7 @@ export interface AiSettings {
 export interface Settings {
   station: StationSettings;
   qrz: QrzSettings;
+  lotw: LotwSettings;
   appearance: AppearanceSettings;
   rotator: RotatorSettings;
   radio: RadioSettings;
@@ -163,7 +173,7 @@ export interface Settings {
   gridStates: Record<string, string>;
 }
 
-export type SettingsSection = 'station' | 'qrz' | 'rotator' | 'database' | 'appearance' | 'map' | 'header' | 'ai' | 'spectrum' | 'about';
+export type SettingsSection = 'station' | 'qrz' | 'lotw' | 'rotator' | 'database' | 'appearance' | 'map' | 'header' | 'ai' | 'spectrum' | 'about';
 
 interface SettingsState {
   // Settings data
@@ -186,6 +196,7 @@ interface SettingsState {
   // Settings updates
   updateStationSettings: (station: Partial<StationSettings>) => void;
   updateQrzSettings: (qrz: Partial<QrzSettings>) => void;
+  updateLotwSettings: (lotw: Partial<LotwSettings>) => void;
   updateAppearanceSettings: (appearance: Partial<AppearanceSettings>) => void;
   updateRotatorSettings: (rotator: Partial<RotatorSettings>) => void;
   updateRadioSettings: (radio: Partial<RadioSettings>) => void;
@@ -223,6 +234,11 @@ const defaultSettings: Settings = {
     password: '',
     apiKey: '',
     enabled: false,
+  },
+  lotw: {
+    enabled: false,
+    tqslPath: '',
+    stationCallsign: '',
   },
   appearance: {
     theme: 'dark',
@@ -354,6 +370,16 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
       settings: {
         ...state.settings,
         qrz: { ...state.settings.qrz, ...qrz },
+      },
+      isDirty: true,
+    })),
+
+  // LOTW settings
+  updateLotwSettings: (lotw) =>
+    set((state) => ({
+      settings: {
+        ...state.settings,
+        lotw: { ...state.settings.lotw, ...lotw },
       },
       isDirty: true,
     })),
@@ -578,6 +604,7 @@ export const useSettingsStore = create<SettingsState>()((set, get) => ({
         const mergedSettings: Settings = {
           station: { ...defaultSettings.station, ...settings.station },
           qrz: { ...defaultSettings.qrz, ...settings.qrz },
+          lotw: { ...defaultSettings.lotw, ...settings.lotw },
           appearance: { ...defaultSettings.appearance, ...settings.appearance },
           rotator: { ...defaultSettings.rotator, ...settings.rotator },
           radio: {

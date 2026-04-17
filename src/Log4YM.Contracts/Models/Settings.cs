@@ -15,6 +15,9 @@ public class UserSettings
     [BsonElement("qrz")]
     public QrzSettings Qrz { get; set; } = new();
 
+    [BsonElement("lotw")]
+    public LotwSettings Lotw { get; set; } = new();
+
     [BsonElement("appearance")]
     public AppearanceSettings Appearance { get; set; } = new();
 
@@ -97,6 +100,25 @@ public class QrzSettings
 
     [BsonElement("subscriptionCheckedAt")]
     public DateTime? SubscriptionCheckedAt { get; set; }
+}
+
+[BsonIgnoreExtraElements]
+public class LotwSettings
+{
+    // Absolute path to the local TQSL binary (e.g. C:\Program Files\TrustedQSL\tqsl.exe).
+    // Entered manually in Settings; no auto-detection in v1.
+    [BsonElement("tqslPath")]
+    public string? TqslPath { get; set; } = string.Empty;
+
+    // Optional TQSL station location name passed via `-l`. Null = TQSL default.
+    [BsonElement("stationCallsign")]
+    public string? StationCallsign { get; set; } = string.Empty;
+
+    [BsonElement("enabled")]
+    public bool Enabled { get; set; }
+
+    [BsonElement("lastUploadAt")]
+    public DateTime? LastUploadAt { get; set; }
 }
 
 [BsonIgnoreExtraElements]

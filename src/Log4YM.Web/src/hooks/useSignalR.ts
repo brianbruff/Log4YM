@@ -39,6 +39,7 @@ export function useSignalRConnection() {
     removeSmartUnlinkRadio,
     setSmartUnlinkRadios,
     setQrzSyncProgress,
+    setLotwUploadProgress,
     setAdifImportProgress,
     setSelectedSpot,
     setLogHistoryCallsignFilter,
@@ -311,6 +312,11 @@ export function useSignalRConnection() {
           onQrzSyncProgress: (evt) => {
             console.log('QRZ sync progress:', evt.completed, '/', evt.total);
             setQrzSyncProgress(evt);
+          },
+          // LOTW Upload handler
+          onLotwUploadProgress: (evt) => {
+            console.log('LOTW upload progress:', evt.stage, evt.message);
+            setLotwUploadProgress(evt);
           },
           // ADIF Import handler
           onAdifImportProgress: (evt) => {

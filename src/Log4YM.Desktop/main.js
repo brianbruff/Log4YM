@@ -1,4 +1,4 @@
-const { app, BrowserWindow, Menu, shell, dialog, ipcMain } = require('electron');
+const { app, BrowserWindow, Menu, shell, dialog, ipcMain, screen } = require('electron');
 const { spawn } = require('child_process');
 const path = require('path');
 const net = require('net');
@@ -9,6 +9,83 @@ const { checkForUpdates } = require('./updater');
 // Zoom level persistence using a simple JSON file
 const userDataPath = app.getPath('userData');
 const zoomConfigPath = path.join(userDataPath, 'zoom-config.json');
+const windowStatePath = path.join(userDataPath, 'window-state.json');
+
+/**
+ * Load saved window bounds from disk
+ */
+function loadWindowBounds() {
+  try {
+    if (fs.existsSync(windowStatePath)) {
+      const data = fs.readFileSync(windowStatePath, 'utf8');
+      return JSON.parse(data);
+    }
+  } catch (err) {
+    log.warn('Failed to read window state:', err.message);
+  }
+  return null;
+}
+
+/**
+ * Save window bounds to disk
+ */
+function saveWindowBounds(bounds) {
+  try {
+    fs.writeFileSync(windowStatePath, JSON.stringify(bounds, null, 2), 'utf8');
+  } catch (err) {
+    log.error('Failed to save window state:', err.message);
+  }
+}
+
+/**
+ * Validate window bounds against available displays.
+ * Returns adjusted bounds that are always visible on at least one display.
+ * A window is considered visible when at least 50% of its area overlaps a display work area.
+ */
+function getValidatedWindowBounds(savedBounds) {
+  const displays = screen.getAllDisplays();
+  const primary = screen.getPrimaryDisplay();
+
+  const defaultBounds = {
+    x: primary.workArea.x + 100,
+    y: primary.workArea.y + 100,
+    width: 1400,
+    height: 900,
+  };
+
+  if (!savedBounds) {
+    return defaultBounds;
+  }
+
+  const wb = savedBounds;
+
+  // Check if at least 50% of the window overlaps with any display's work area
+  const isVisible = displays.some((display) => {
+    const wa = display.workArea;
+    const overlapX = Math.max(0, Math.min(wb.x + wb.width, wa.x + wa.width) - Math.max(wb.x, wa.x));
+    const overlapY = Math.max(0, Math.min(wb.y + wb.height, wa.y + wa.height) - Math.max(wb.y, wa.y));
+    const overlapArea = overlapX * overlapY;
+    const windowArea = wb.width * wb.height;
+    return overlapArea >= windowArea * 0.5;
+  });
+
+  if (!isVisible) {
+    log.warn('Saved window position is off-screen or on a disconnected monitor, resetting to primary display');
+    return {
+      x: primary.workArea.x + 100,
+      y: primary.workArea.y + 100,
+      width: Math.min(wb.width, primary.workArea.width - 100),
+      height: Math.min(wb.height, primary.workArea.height - 100),
+    };
+  }
+
+  // Ensure minimum size is respected
+  return {
+    ...wb,
+    width: Math.max(wb.width, 800),
+    height: Math.max(wb.height, 600),
+  };
+}
 
 function getStoredZoomLevel() {
   try {
@@ -253,9 +330,11 @@ function createSplashWindow() {
  * Create the main application window
  */
 function createWindow() {
+  const savedBounds = loadWindowBounds();
+  const validBounds = getValidatedWindowBounds(savedBounds);
+
   mainWindow = new BrowserWindow({
-    width: 1400,
-    height: 900,
+    ...validBounds,
     minWidth: 800,
     minHeight: 600,
     title: 'Log4YM',
@@ -293,9 +372,14 @@ function createWindow() {
     mainWindow = null;
   });
 
-  // Save zoom level before window closes
+  // Save window bounds and zoom level before the window closes
   mainWindow.on('close', () => {
     if (mainWindow) {
+      // Only save bounds when the window is not maximized/fullscreen
+      if (!mainWindow.isMaximized() && !mainWindow.isFullScreen()) {
+        saveWindowBounds(mainWindow.getBounds());
+        log.debug('Saved window bounds on close');
+      }
       const currentZoom = mainWindow.webContents.getZoomLevel();
       saveZoomLevel(currentZoom);
       log.debug(`Saved zoom level on close: ${currentZoom}`);
@@ -537,6 +621,35 @@ app.whenReady().then(async () => {
         createWindow();
       }
     });
+
+    // Move any off-screen windows to primary display when a monitor is removed
+    screen.on('display-removed', () => {
+      const displays = screen.getAllDisplays();
+      const primary = screen.getPrimaryDisplay();
+
+      BrowserWindow.getAllWindows().forEach((win) => {
+        const bounds = win.getBounds();
+
+        const isVisible = displays.some((display) => {
+          const wa = display.workArea;
+          const overlapX = Math.max(0, Math.min(bounds.x + bounds.width, wa.x + wa.width) - Math.max(bounds.x, wa.x));
+          const overlapY = Math.max(0, Math.min(bounds.y + bounds.height, wa.y + wa.height) - Math.max(bounds.y, wa.y));
+          const overlapArea = overlapX * overlapY;
+          const windowArea = bounds.width * bounds.height;
+          return overlapArea >= windowArea * 0.5;
+        });
+
+        if (!isVisible) {
+          log.info(`Window moved to primary display after monitor removed (was at ${bounds.x},${bounds.y})`);
+          win.setBounds({
+            x: primary.workArea.x + 100,
+            y: primary.workArea.y + 100,
+            width: Math.min(bounds.width, primary.workArea.width - 100),
+            height: Math.min(bounds.height, primary.workArea.height - 100),
+          });
+        }
+      });
+    });
   } catch (err) {
     log.error(`Startup error: ${err.message}`);
     if (splashWindow) {
@@ -548,11 +661,11 @@ app.whenReady().then(async () => {
   }
 });
 
-// Quit when all windows are closed (except on macOS)
+// Always quit when all windows are closed — this ensures the .NET backend child process
+// is cleaned up via cleanup(). The standard macOS "stay in dock" pattern is wrong here
+// because Log4YM owns a backend process that must be killed when the user is done.
 app.on('window-all-closed', () => {
-  if (process.platform !== 'darwin') {
-    app.quit();
-  }
+  app.quit();
 });
 
 // Cleanup before quit

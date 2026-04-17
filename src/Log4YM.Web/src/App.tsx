@@ -336,6 +336,37 @@ export function App() {
     };
   }, [saveLayoutImmediately]);
 
+  // Handle minimize-panel events dispatched by plugins (e.g. rig auto-collapse on connect)
+  // The event detail should contain: { component: string } identifying the plugin component name
+  useEffect(() => {
+    const handleMinimizePanel = (e: Event) => {
+      const component = (e as CustomEvent<{ component: string }>).detail?.component;
+      if (!component) return;
+
+      // Find the tab node for this component
+      let tabId: string | null = null;
+      model.visitNodes((node) => {
+        if (node.getType() === 'tab') {
+          const tab = node as TabNode;
+          if (tab.getComponent() === component) {
+            tabId = tab.getId();
+          }
+        }
+      });
+      if (!tabId) return;
+
+      // Find the bottom border and dock the tab there
+      const borders = model.getBorderSet().getBorders();
+      const bottomBorder = borders.find((b: BorderNode) => b.getLocation().getName() === 'bottom');
+      if (!bottomBorder) return;
+
+      model.doAction(Actions.moveNode(tabId, bottomBorder.getId(), DockLocation.CENTER, 0));
+    };
+
+    window.addEventListener('minimize-panel', handleMinimizePanel);
+    return () => window.removeEventListener('minimize-panel', handleMinimizePanel);
+  }, [model]);
+
   // Factory function to render components
   const factory = useCallback((node: TabNode) => {
     const component = node.getComponent();

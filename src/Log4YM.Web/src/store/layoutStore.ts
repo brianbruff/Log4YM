@@ -4,12 +4,19 @@ import type { IJsonModel } from 'flexlayout-react';
 // Default layout configuration
 export const defaultLayout: IJsonModel = {
   global: {
-    tabEnableFloat: false,
-    tabSetMinWidth: 100,
-    tabSetMinHeight: 40,
-    borderMinSize: 100,
+    tabEnableFloat: true,
+    tabSetMinWidth: 80,
+    tabSetMinHeight: 30,
+    borderMinSize: 50,
   },
-  borders: [],
+  borders: [
+    {
+      type: 'border',
+      location: 'bottom',
+      size: 220,
+      children: [],
+    },
+  ],
   layout: {
     type: 'row',
     weight: 100,
@@ -22,6 +29,7 @@ export const defaultLayout: IJsonModel = {
           {
             type: 'tabset',
             weight: 6,
+            minHeight: 36,
             children: [
               {
                 type: 'tab',
@@ -39,6 +47,7 @@ export const defaultLayout: IJsonModel = {
               {
                 type: 'tabset',
                 weight: 30,
+                minWidth: 200,
                 children: [
                   {
                     type: 'tab',
@@ -59,6 +68,8 @@ export const defaultLayout: IJsonModel = {
                   {
                     type: 'tabset',
                     weight: 60,
+                    minWidth: 300,
+                    minHeight: 120,
                     children: [
                       {
                         type: 'tab',
@@ -75,6 +86,7 @@ export const defaultLayout: IJsonModel = {
                   {
                     type: 'tabset',
                     weight: 40,
+                    minWidth: 200,
                     children: [
                       {
                         type: 'tab',

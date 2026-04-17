@@ -1,4 +1,4 @@
-import { useState, useEffect, useMemo, useCallback } from "react";
+import { useState, useEffect, useMemo, useCallback, useRef } from "react";
 import { Radio, Wifi, WifiOff, Power, PowerOff, Plus, Settings, ChevronDown, ChevronUp, RefreshCw } from "lucide-react";
 import { useAppStore } from "../store/appStore";
 import { useSettingsStore } from "../store/settingsStore";
@@ -180,6 +180,20 @@ export function RigPlugin() {
       setIsConnectingHamlib(false);
     }
   }, [selectedConnectionState, selectedRadioState]);
+
+  // Auto-minimize the rig panel to the bottom border when the rig first connects.
+  // This collapses the panel out of the way without closing it — click the border tab to expand.
+  const hasAutoMinimizedRef = useRef(false);
+  const isConnectedEarly = !!(selectedConnectionState && ["Connected", "Monitoring"].includes(selectedConnectionState)) || !!selectedRadioState;
+  useEffect(() => {
+    if (isConnectedEarly && !hasAutoMinimizedRef.current) {
+      hasAutoMinimizedRef.current = true;
+      window.dispatchEvent(new CustomEvent('minimize-panel', { detail: { component: 'rig' } }));
+    }
+    if (!isConnectedEarly) {
+      hasAutoMinimizedRef.current = false;
+    }
+  }, [isConnectedEarly]);
 
   const handleConnect = useCallback(async (radioId: string) => {
     setSelectedRadio(radioId);

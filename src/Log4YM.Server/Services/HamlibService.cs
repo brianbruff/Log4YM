@@ -5,6 +5,8 @@ using Log4YM.Contracts.Models;
 using Log4YM.Server.Core.Database;
 using Log4YM.Server.Hubs;
 using Log4YM.Server.Native.Hamlib;
+using Polly;
+using Polly.Retry;
 
 namespace Log4YM.Server.Services;
 
@@ -36,6 +38,9 @@ public class HamlibService : BackgroundService
     private int _consecutiveErrors;
     private const int MaxConsecutiveErrors = 3;
 
+    private CancellationToken _stoppingToken = CancellationToken.None;
+    private CancellationTokenSource? _reconnectCts;
+
     public HamlibService(
         ILogger<HamlibService> logger,
         IHubContext<LogHub, ILogHubClient> hubContext,
@@ -48,6 +53,7 @@ public class HamlibService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        _stoppingToken = stoppingToken;
         _logger.LogInformation("Hamlib service starting...");
 
         // Initialize Hamlib library
@@ -213,9 +219,16 @@ public class HamlibService : BackgroundService
     }
 
     /// <summary>
-    /// Connect to a rig with the specified configuration
+    /// Connect to a rig with the specified configuration. Cancels any running reconnect loop.
     /// </summary>
     public async Task ConnectAsync(HamlibRigConfig config)
+    {
+        _reconnectCts?.Cancel();
+        _reconnectCts = null;
+        await ConnectCoreAsync(config);
+    }
+
+    private async Task ConnectCoreAsync(HamlibRigConfig config)
     {
         if (!_initialized)
         {
@@ -326,10 +339,13 @@ public class HamlibService : BackgroundService
     }
 
     /// <summary>
-    /// Disconnect from the current rig
+    /// Disconnect from the current rig and cancel any running reconnect loop.
     /// </summary>
     public async Task DisconnectAsync()
     {
+        _reconnectCts?.Cancel();
+        _reconnectCts = null;
+
         if (_rig == null || _radioId == null) return;
 
         var radioId = _radioId;
@@ -796,6 +812,8 @@ public class HamlibService : BackgroundService
 
                 await _hubContext.BroadcastRadioConnectionStateChanged(
                     new RadioConnectionStateChangedEvent(radioId, RadioConnectionState.Disconnected));
+
+                _ = StartReconnectLoopAsync();
             }
             else
             {
@@ -826,5 +844,70 @@ public class HamlibService : BackgroundService
             _currentFrequencyHz, _currentMode, _isTransmitting);
 
         await _hubContext.BroadcastRadioStateChanged(state);
+    }
+
+    private async Task StartReconnectLoopAsync()
+    {
+        var config = _config;
+        if (config == null) return;
+
+        _reconnectCts?.Cancel();
+        _reconnectCts = CancellationTokenSource.CreateLinkedTokenSource(_stoppingToken);
+        var ct = _reconnectCts.Token;
+
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var settings = await scope.ServiceProvider.GetRequiredService<ISettingsRepository>().GetAsync();
+            if (settings?.Radio is not { AutoReconnect: true, ActiveRigType: "hamlib" })
+            {
+                _logger.LogInformation("Hamlib auto-reconnect not enabled, skipping reconnect loop");
+                return;
+            }
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to check Hamlib auto-reconnect setting");
+            return;
+        }
+
+        _logger.LogInformation("Hamlib rig disconnected unexpectedly — starting reconnect loop (exponential backoff, max 60s)");
+
+        var pipeline = new ResiliencePipelineBuilder()
+            .AddRetry(new RetryStrategyOptions
+            {
+                MaxRetryAttempts = int.MaxValue,
+                BackoffType = DelayBackoffType.Exponential,
+                UseJitter = true,
+                Delay = TimeSpan.FromSeconds(2),
+                MaxDelay = TimeSpan.FromSeconds(60),
+                ShouldHandle = new PredicateBuilder().Handle<Exception>(ex => ex is not OperationCanceledException),
+                OnRetry = args =>
+                {
+                    _logger.LogInformation("Hamlib reconnect attempt {Attempt} — waiting {Delay} before retry",
+                        args.AttemptNumber + 1, args.RetryDelay);
+                    return ValueTask.CompletedTask;
+                }
+            })
+            .Build();
+
+        try
+        {
+            await pipeline.ExecuteAsync(async _ =>
+            {
+                if (_rig?.IsOpen == true) return;
+                await ConnectCoreAsync(config);
+            }, ct);
+
+            _logger.LogInformation("Hamlib reconnect succeeded");
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogInformation("Hamlib reconnect loop cancelled");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Hamlib reconnect loop failed unexpectedly");
+        }
     }
 }

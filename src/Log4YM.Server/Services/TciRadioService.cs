@@ -9,6 +9,8 @@ using Log4YM.Contracts.Events;
 using Log4YM.Contracts.Models;
 using Log4YM.Server.Core.Database;
 using Log4YM.Server.Hubs;
+using Polly;
+using Polly.Retry;
 
 namespace Log4YM.Server.Services;
 
@@ -32,6 +34,9 @@ public class TciRadioService : BackgroundService
     private CancellationTokenSource? _discoveryCts;
     private bool _isDiscovering;
 
+    private CancellationToken _stoppingToken = CancellationToken.None;
+    private readonly ConcurrentDictionary<string, CancellationTokenSource> _reconnectCtsByRadioId = new();
+
     public TciRadioService(
         ILogger<TciRadioService> logger,
         IHubContext<LogHub, ILogHubClient> hubContext,
@@ -44,6 +49,7 @@ public class TciRadioService : BackgroundService
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
     {
+        _stoppingToken = stoppingToken;
         _logger.LogInformation("TCI Radio service starting...");
 
         // Clear any stale connections and discoveries from previous session
@@ -142,6 +148,10 @@ public class TciRadioService : BackgroundService
     /// </summary>
     public async Task RemoveRadioAsync(string radioId)
     {
+        // Cancel any auto-reconnect loop for this radio
+        if (_reconnectCtsByRadioId.TryRemove(radioId, out var reconnectCts))
+            reconnectCts.Cancel();
+
         // Disconnect if currently connected
         if (_connections.TryRemove(radioId, out var connection))
         {
@@ -324,6 +334,10 @@ public class TciRadioService : BackgroundService
     {
         var radioId = $"tci-{host}:{port}";
 
+        // Cancel any existing reconnect loop for this radio
+        if (_reconnectCtsByRadioId.TryRemove(radioId, out var existingReconnectCts))
+            existingReconnectCts.Cancel();
+
         // If already connected or connecting, disconnect first to allow reconnection
         if (_connections.TryRemove(radioId, out var existingConnection))
         {
@@ -358,11 +372,7 @@ public class TciRadioService : BackgroundService
         await _hubContext.BroadcastRadioConnectionStateChanged(
             new RadioConnectionStateChangedEvent(radioId, RadioConnectionState.Connecting));
 
-        var connection = new TciRadioConnection(device, _logger, _hubContext);
-        if (_connections.TryAdd(radioId, connection))
-        {
-            _ = connection.ConnectAsync();
-        }
+        _ = RunConnectionWithReconnectAsync(radioId, device);
     }
 
     public async Task ConnectAsync(string radioId)
@@ -372,6 +382,10 @@ public class TciRadioService : BackgroundService
             _logger.LogWarning("TCI radio {RadioId} not found", radioId);
             return;
         }
+
+        // Cancel any existing reconnect loop for this radio
+        if (_reconnectCtsByRadioId.TryRemove(radioId, out var existingReconnectCts))
+            existingReconnectCts.Cancel();
 
         // If already connected or connecting, disconnect first to allow reconnection
         if (_connections.TryRemove(radioId, out var existingConnection))
@@ -383,15 +397,15 @@ public class TciRadioService : BackgroundService
         await _hubContext.BroadcastRadioConnectionStateChanged(
             new RadioConnectionStateChangedEvent(radioId, RadioConnectionState.Connecting));
 
-        var connection = new TciRadioConnection(device, _logger, _hubContext);
-        if (_connections.TryAdd(radioId, connection))
-        {
-            _ = connection.ConnectAsync();
-        }
+        _ = RunConnectionWithReconnectAsync(radioId, device);
     }
 
     public async Task DisconnectAsync(string radioId)
     {
+        // Cancel any auto-reconnect loop for this radio
+        if (_reconnectCtsByRadioId.TryRemove(radioId, out var reconnectCts))
+            reconnectCts.Cancel();
+
         if (_connections.TryRemove(radioId, out var connection))
         {
             await connection.DisconnectAsync();
@@ -568,6 +582,90 @@ public class TciRadioService : BackgroundService
         }
     }
 
+    private async Task RunConnectionWithReconnectAsync(string radioId, TciRadioDevice device)
+    {
+        var cts = CancellationTokenSource.CreateLinkedTokenSource(_stoppingToken);
+        _reconnectCtsByRadioId[radioId] = cts;
+
+        var pipeline = new ResiliencePipelineBuilder()
+            .AddRetry(new RetryStrategyOptions
+            {
+                MaxRetryAttempts = int.MaxValue,
+                BackoffType = DelayBackoffType.Exponential,
+                UseJitter = true,
+                Delay = TimeSpan.FromSeconds(2),
+                MaxDelay = TimeSpan.FromSeconds(60),
+                ShouldHandle = new PredicateBuilder().Handle<Exception>(ex => ex is not OperationCanceledException),
+                OnRetry = async args =>
+                {
+                    _logger.LogInformation("TCI {RadioId}: reconnect attempt {Attempt} — waiting {Delay} before retry",
+                        radioId, args.AttemptNumber + 1, args.RetryDelay);
+
+                    await _hubContext.BroadcastRadioConnectionStateChanged(
+                        new RadioConnectionStateChangedEvent(radioId, RadioConnectionState.Connecting));
+
+                    if (!await IsTciAutoReconnectEnabledAsync())
+                    {
+                        _logger.LogInformation("TCI auto-reconnect disabled — stopping reconnect loop for {RadioId}", radioId);
+                        cts.Cancel();
+                    }
+                }
+            })
+            .Build();
+
+        try
+        {
+            await pipeline.ExecuteAsync(async ct =>
+            {
+                ct.ThrowIfCancellationRequested();
+
+                var conn = new TciRadioConnection(device, _logger, _hubContext);
+                _connections[radioId] = conn;
+
+                try
+                {
+                    await conn.ConnectAsync(ct);
+                }
+                finally
+                {
+                    _connections.TryRemove(radioId, out _);
+                }
+
+                if (!conn.WasUserDisconnected)
+                    throw new InvalidOperationException($"TCI connection for {radioId} dropped unexpectedly — will retry");
+            }, cts.Token);
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogInformation("TCI reconnect loop for {RadioId} cancelled", radioId);
+            _connections.TryRemove(radioId, out _);
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "TCI reconnect loop for {RadioId} failed unexpectedly", radioId);
+            _connections.TryRemove(radioId, out _);
+        }
+        finally
+        {
+            _reconnectCtsByRadioId.TryRemove(radioId, out _);
+        }
+    }
+
+    private async Task<bool> IsTciAutoReconnectEnabledAsync()
+    {
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var settings = await scope.ServiceProvider.GetRequiredService<ISettingsRepository>().GetAsync();
+            return settings?.Radio is { AutoReconnect: true, ActiveRigType: "tci" };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Failed to check TCI auto-reconnect setting");
+            return false;
+        }
+    }
+
     /// <summary>
     /// One-time migration: if settings.Radio.Tci has a host, migrate to radio_configs
     /// </summary>
@@ -660,6 +758,7 @@ internal class TciRadioConnection
 
     private ClientWebSocket? _webSocket;
     private CancellationTokenSource? _cts;
+    private bool _disconnectedByUser;
 
     private int _selectedInstance;
     private long _currentFrequencyHz;
@@ -667,6 +766,7 @@ internal class TciRadioConnection
     private bool _isTransmitting;
 
     public bool IsConnected => _webSocket?.State == WebSocketState.Open;
+    public bool WasUserDisconnected => _disconnectedByUser;
 
     public TciRadioConnection(TciRadioDevice device, ILogger logger, IHubContext<LogHub, ILogHubClient> hubContext)
     {
@@ -675,9 +775,11 @@ internal class TciRadioConnection
         _hubContext = hubContext;
     }
 
-    public async Task ConnectAsync()
+    public async Task ConnectAsync(CancellationToken externalToken = default)
     {
-        _cts = new CancellationTokenSource();
+        _cts = externalToken.CanBeCanceled
+            ? CancellationTokenSource.CreateLinkedTokenSource(externalToken)
+            : new CancellationTokenSource();
         var ct = _cts.Token;
 
         try
@@ -701,6 +803,10 @@ internal class TciRadioConnection
             // Start receive loop
             await ReceiveLoopAsync(ct);
         }
+        catch (OperationCanceledException)
+        {
+            throw;
+        }
         catch (Exception ex)
         {
             _logger.LogError(ex, "TCI connection error for {Id}", _device.Id);
@@ -711,6 +817,7 @@ internal class TciRadioConnection
 
     public async Task DisconnectAsync()
     {
+        _disconnectedByUser = true;
         _cts?.Cancel();
         if (_webSocket?.State == WebSocketState.Open)
         {

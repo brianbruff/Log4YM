@@ -18,13 +18,51 @@ export function AnalogClockPlugin() {
   const [time, setTime] = useState(new Date());
   const containerRef = useRef<HTMLDivElement>(null);
   const { stationGrid } = useAppStore();
+  const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null);
 
-  // Update time every second
+  // Update time every second, but only when page is visible
   useEffect(() => {
-    const interval = setInterval(() => {
+    const updateTime = () => {
       setTime(new Date());
-    }, 1000);
-    return () => clearInterval(interval);
+    };
+
+    const startInterval = () => {
+      // Clear any existing interval
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+      }
+      // Start new interval
+      intervalRef.current = setInterval(updateTime, 1000);
+    };
+
+    const stopInterval = () => {
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current);
+        intervalRef.current = null;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopInterval();
+      } else {
+        updateTime(); // Update immediately when becoming visible
+        startInterval();
+      }
+    };
+
+    // Start interval initially if page is visible
+    if (!document.hidden) {
+      startInterval();
+    }
+
+    // Listen for visibility changes
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      stopInterval();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   // Calculate sunrise/sunset times

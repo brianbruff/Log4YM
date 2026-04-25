@@ -308,8 +308,14 @@ export function GlobeCore({ hideOverlays, hideCompass }: { hideOverlays?: boolea
   const commandedAzimuthRef = useRef<number | null>(null);
   const displayedAzimuthRef = useRef<number>(0);
 
+  // Track visibility state in ref to avoid re-initializing globe
+  const isVisibleRef = useRef(!document.hidden);
+
   const animateBeam = useCallback(() => {
-    renderBeam(currentAzimuthRef.current, rotatorEnabledRef.current);
+    // Only render if page is visible
+    if (isVisibleRef.current) {
+      renderBeam(currentAzimuthRef.current, rotatorEnabledRef.current);
+    }
     animationRef.current = requestAnimationFrame(animateBeam);
   }, [renderBeam]);
 
@@ -539,6 +545,19 @@ export function GlobeCore({ hideOverlays, hideCompass }: { hideOverlays?: boolea
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stationLat, stationLon, stationGrid]);
+
+  // Handle page visibility changes to throttle rendering when hidden
+  useEffect(() => {
+    const handleVisibilityChange = () => {
+      isVisibleRef.current = !document.hidden;
+    };
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
+  }, []);
 
   // Update beam when rotator position changes
   useEffect(() => {

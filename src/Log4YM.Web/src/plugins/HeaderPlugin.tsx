@@ -57,8 +57,42 @@ export function HeaderPlugin() {
   }, []);
 
   useEffect(() => {
-    const timer = setInterval(() => setCurrentTime(new Date()), 1000);
-    return () => clearInterval(timer);
+    let timer: ReturnType<typeof setInterval> | null = null;
+
+    const updateTime = () => setCurrentTime(new Date());
+
+    const startTimer = () => {
+      if (timer) clearInterval(timer);
+      timer = setInterval(updateTime, 1000);
+    };
+
+    const stopTimer = () => {
+      if (timer) {
+        clearInterval(timer);
+        timer = null;
+      }
+    };
+
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        stopTimer();
+      } else {
+        updateTime(); // Update immediately when becoming visible
+        startTimer();
+      }
+    };
+
+    // Start timer initially if page is visible
+    if (!document.hidden) {
+      startTimer();
+    }
+
+    document.addEventListener('visibilitychange', handleVisibilityChange);
+
+    return () => {
+      stopTimer();
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
+    };
   }, []);
 
   useEffect(() => {

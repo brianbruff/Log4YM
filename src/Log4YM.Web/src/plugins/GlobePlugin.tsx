@@ -110,7 +110,6 @@ interface GlobeInstance {
 export function GlobeCore({ hideOverlays, hideCompass }: { hideOverlays?: boolean; hideCompass?: boolean }) {
   const containerRef = useRef<HTMLDivElement>(null);
   const globeRef = useRef<GlobeInstance | null>(null);
-  const animationRef = useRef<number | null>(null);
   const cameraAnimationRef = useRef<number | null>(null);
   const lastTargetCoordsRef = useRef<{ lat: number; lng: number } | null>(null);
 
@@ -121,6 +120,7 @@ export function GlobeCore({ hideOverlays, hideCompass }: { hideOverlays?: boolea
   const [currentAzimuth, setCurrentAzimuth] = useState(0);
   const [webglError, setWebglError] = useState<string | null>(null);
   const [containerHeight, setContainerHeight] = useState(0);
+  const [globeReady, setGlobeReady] = useState(false);
 
   // Get current radio state if connected
   const selectedRadioState = selectedRadioId ? radioStates.get(selectedRadioId) : null;
@@ -216,10 +216,6 @@ export function GlobeCore({ hideOverlays, hideCompass }: { hideOverlays?: boolea
     const numSegments = 50;
     const maxDistance = 18000;
 
-    // Subtle pulse effect for rotator beam
-    const pulseTime = Date.now() / 3000;
-    const pulseFactor = 0.6 + Math.sin(pulseTime * Math.PI * 2) * 0.1;
-
     // Render rotator beam only when connected
     if (isConnected) {
       // Create left and right edge paths (amber accent)
@@ -240,7 +236,7 @@ export function GlobeCore({ hideOverlays, hideCompass }: { hideOverlays?: boolea
 
         pathsData.push({
           path: pathPoints,
-          color: `rgba(255, 180, 50, ${pulseFactor})`, // Amber accent for edges
+          color: 'rgba(255, 180, 50, 0.6)', // Amber accent for edges
           stroke: 3
         });
       }
@@ -289,11 +285,7 @@ export function GlobeCore({ hideOverlays, hideCompass }: { hideOverlays?: boolea
       .ringsData([]);
   }, [stationLat, stationLon, getDestinationPoint]);
 
-  // Animation loop - use ref to avoid dependency on currentAzimuth
-  const currentAzimuthRef = useRef(currentAzimuth);
-  currentAzimuthRef.current = currentAzimuth;
-
-  // Track rotator enabled status in ref for animation loop
+  // Track rotator enabled status in ref for click handler (avoids stale closure)
   const rotatorEnabledRef = useRef(rotatorEnabled);
   rotatorEnabledRef.current = rotatorEnabled;
 
@@ -307,17 +299,6 @@ export function GlobeCore({ hideOverlays, hideCompass }: { hideOverlays?: boolea
   const lastCommandTimeRef = useRef<number>(0);
   const commandedAzimuthRef = useRef<number | null>(null);
   const displayedAzimuthRef = useRef<number>(0);
-
-  // Track visibility state in ref to avoid re-initializing globe
-  const isVisibleRef = useRef(!document.hidden);
-
-  const animateBeam = useCallback(() => {
-    // Only render if page is visible
-    if (isVisibleRef.current) {
-      renderBeam(currentAzimuthRef.current, rotatorEnabledRef.current);
-    }
-    animationRef.current = requestAnimationFrame(animateBeam);
-  }, [renderBeam]);
 
   // Initialize globe - only runs once on mount
   useEffect(() => {
@@ -515,7 +496,7 @@ export function GlobeCore({ hideOverlays, hideCompass }: { hideOverlays?: boolea
       resizeObserver.observe(containerRef.current);
       window.addEventListener('resize', debouncedResize);
       setTimeout(handleResize, 100);
-      animationRef.current = requestAnimationFrame(animateBeam);
+      setGlobeReady(true);
 
       } catch (e) {
         if (!isCancelled) {
@@ -530,6 +511,8 @@ export function GlobeCore({ hideOverlays, hideCompass }: { hideOverlays?: boolea
     // Cleanup function
     return () => {
       isCancelled = true;
+      setGlobeReady(false);
+      globeRef.current = null;
       if (resizeObserver) {
         resizeObserver.disconnect();
       }
@@ -539,25 +522,23 @@ export function GlobeCore({ hideOverlays, hideCompass }: { hideOverlays?: boolea
       if (resizeTimeout) {
         clearTimeout(resizeTimeout);
       }
-      if (animationRef.current) {
-        cancelAnimationFrame(animationRef.current);
-      }
     };
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [stationLat, stationLon, stationGrid]);
 
-  // Handle page visibility changes to throttle rendering when hidden
+  // Render the beam whenever its inputs change. Replaces the old per-frame rAF
+  // loop that drove the GPU helper to >100% CPU even while idle.
   useEffect(() => {
-    const handleVisibilityChange = () => {
-      isVisibleRef.current = !document.hidden;
-    };
-
-    document.addEventListener('visibilitychange', handleVisibilityChange);
-
-    return () => {
-      document.removeEventListener('visibilitychange', handleVisibilityChange);
-    };
-  }, []);
+    if (!globeReady) return;
+    renderBeam(currentAzimuth, rotatorEnabled);
+  }, [
+    globeReady,
+    currentAzimuth,
+    rotatorEnabled,
+    focusedCallsignInfo?.latitude,
+    focusedCallsignInfo?.longitude,
+    renderBeam,
+  ]);
 
   // Update beam when rotator position changes
   useEffect(() => {

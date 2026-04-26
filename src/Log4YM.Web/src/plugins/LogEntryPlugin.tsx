@@ -133,12 +133,41 @@ export function LogEntryPlugin() {
         setQsoDate(formatDateForInput(now));
         setQsoTime(formatTimeForInput(now));
       };
-      updateTime();
-      timeIntervalRef.current = setInterval(updateTime, 1000);
-      return () => {
+
+      const startInterval = () => {
         if (timeIntervalRef.current) {
           clearInterval(timeIntervalRef.current);
         }
+        timeIntervalRef.current = setInterval(updateTime, 1000);
+      };
+
+      const stopInterval = () => {
+        if (timeIntervalRef.current) {
+          clearInterval(timeIntervalRef.current);
+          timeIntervalRef.current = null;
+        }
+      };
+
+      const handleVisibilityChange = () => {
+        if (document.hidden) {
+          stopInterval();
+        } else {
+          updateTime(); // Update immediately when becoming visible
+          startInterval();
+        }
+      };
+
+      // Update immediately and start interval if page is visible
+      updateTime();
+      if (!document.hidden) {
+        startInterval();
+      }
+
+      document.addEventListener('visibilitychange', handleVisibilityChange);
+
+      return () => {
+        stopInterval();
+        document.removeEventListener('visibilitychange', handleVisibilityChange);
       };
     }
   }, [timeLocked]);

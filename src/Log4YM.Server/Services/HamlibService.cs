@@ -5,6 +5,8 @@ using Log4YM.Contracts.Models;
 using Log4YM.Server.Core.Database;
 using Log4YM.Server.Hubs;
 using Log4YM.Server.Native.Hamlib;
+using Polly;
+using Polly.Retry;
 
 namespace Log4YM.Server.Services;
 
@@ -36,6 +38,10 @@ public class HamlibService : BackgroundService
     private int _consecutiveErrors;
     private const int MaxConsecutiveErrors = 3;
 
+    // Reconnection state tracking
+    private bool _isReconnecting;
+    private readonly ResiliencePipeline _reconnectPipeline;
+
     public HamlibService(
         ILogger<HamlibService> logger,
         IHubContext<LogHub, ILogHubClient> hubContext,
@@ -44,6 +50,25 @@ public class HamlibService : BackgroundService
         _logger = logger;
         _hubContext = hubContext;
         _scopeFactory = scopeFactory;
+
+        // Configure exponential backoff retry policy for reconnection
+        // Retry delays: 2s, 4s, 8s, 16s, 32s, 60s (max), then continues at 60s intervals
+        _reconnectPipeline = new ResiliencePipelineBuilder()
+            .AddRetry(new RetryStrategyOptions
+            {
+                MaxRetryAttempts = int.MaxValue, // Retry indefinitely while autoReconnect is enabled
+                Delay = TimeSpan.FromSeconds(2),
+                BackoffType = DelayBackoffType.Exponential,
+                MaxDelay = TimeSpan.FromSeconds(60),
+                ShouldHandle = new PredicateBuilder().Handle<Exception>(),
+                OnRetry = args =>
+                {
+                    _logger.LogInformation("Hamlib reconnect attempt {AttemptNumber} failed, waiting {RetryDelay}ms before next attempt",
+                        args.AttemptNumber + 1, args.RetryDelay.TotalMilliseconds);
+                    return ValueTask.CompletedTask;
+                }
+            })
+            .Build();
     }
 
     protected override async Task ExecuteAsync(CancellationToken stoppingToken)
@@ -72,13 +97,20 @@ public class HamlibService : BackgroundService
         // Try to load and auto-connect saved config if autoReconnect is enabled
         await TryAutoConnectAsync();
 
-        // Poll connected rig periodically
+        // Poll connected rig periodically and attempt reconnection if needed
         while (!stoppingToken.IsCancellationRequested)
         {
             if (_rig?.IsOpen == true && _config != null)
             {
+                // Rig is connected - poll its state
                 await PollRigStateAsync();
             }
+            else if (_config != null && await ShouldAttemptReconnectAsync())
+            {
+                // Rig is disconnected but we have config and autoReconnect is enabled - try to reconnect
+                await TryReconnectAsync(stoppingToken);
+            }
+
             await Task.Delay(_config?.PollIntervalMs ?? 250, stoppingToken);
         }
     }
@@ -118,6 +150,84 @@ public class HamlibService : BackgroundService
         catch (Exception ex)
         {
             _logger.LogWarning(ex, "Failed to auto-connect to Hamlib rig");
+        }
+    }
+
+    /// <summary>
+    /// Check if we should attempt to reconnect to the rig
+    /// </summary>
+    private async Task<bool> ShouldAttemptReconnectAsync()
+    {
+        // Don't reconnect if already in progress
+        if (_isReconnecting)
+            return false;
+
+        // Check if autoReconnect is enabled
+        try
+        {
+            using var scope = _scopeFactory.CreateScope();
+            var settingsRepository = scope.ServiceProvider.GetRequiredService<ISettingsRepository>();
+            var settings = await settingsRepository.GetAsync();
+            var radioSettings = settings?.Radio;
+
+            // Only reconnect if autoReconnect is enabled AND activeRigType is hamlib
+            return radioSettings is { AutoReconnect: true, ActiveRigType: "hamlib" };
+        }
+        catch (Exception ex)
+        {
+            _logger.LogWarning(ex, "Error checking autoReconnect setting");
+            return false;
+        }
+    }
+
+    /// <summary>
+    /// Attempt to reconnect to the rig using exponential backoff via Polly
+    /// </summary>
+    private async Task TryReconnectAsync(CancellationToken stoppingToken)
+    {
+        if (_config == null || _isReconnecting)
+            return;
+
+        _isReconnecting = true;
+
+        try
+        {
+            _logger.LogInformation("Starting auto-reconnection for Hamlib rig {ModelName} (model {ModelId})",
+                _config.ModelName, _config.ModelId);
+
+            // Use Polly retry pipeline with exponential backoff
+            await _reconnectPipeline.ExecuteAsync(async ct =>
+            {
+                // Check if autoReconnect is still enabled before each attempt
+                if (!await ShouldAttemptReconnectAsync())
+                {
+                    _logger.LogInformation("Auto-reconnect disabled, stopping reconnection attempts");
+                    throw new OperationCanceledException("Auto-reconnect disabled");
+                }
+
+                // Attempt to connect
+                await ConnectAsync(_config);
+
+                // If we get here, connection succeeded
+                _logger.LogInformation("Successfully reconnected to Hamlib rig {ModelName}", _config.ModelName);
+
+            }, stoppingToken);
+        }
+        catch (OperationCanceledException) when (stoppingToken.IsCancellationRequested)
+        {
+            _logger.LogInformation("Reconnection cancelled due to service shutdown");
+        }
+        catch (OperationCanceledException)
+        {
+            _logger.LogInformation("Reconnection cancelled (auto-reconnect disabled)");
+        }
+        catch (Exception ex)
+        {
+            _logger.LogError(ex, "Unexpected error during reconnection");
+        }
+        finally
+        {
+            _isReconnecting = false;
         }
     }
 

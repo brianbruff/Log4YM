@@ -317,35 +317,21 @@ export function GlobeCore({ hideOverlays, hideCompass }: { hideOverlays?: boolea
   useEffect(() => {
     if (!containerRef.current) return;
 
-    // Thorough WebGL check - test actual shader compilation.
+    // Quick WebGL availability check — only tests for context existence.
+    // The shader-compilation pre-check that was here produced false negatives on
+    // Windows (ANGLE backend) and Linux (Mesa) even when WebGL was fully functional,
+    // preventing the globe from loading on non-macOS platforms.
+    // globe.gl's own Three.js initialization handles deeper WebGL failures via the
+    // try/catch below.
     try {
       const testCanvas = document.createElement('canvas');
-      const gl2 = testCanvas.getContext('webgl2');
-      const gl: WebGLRenderingContext | null = gl2 ??
-        (testCanvas.getContext('webgl') ?? testCanvas.getContext('experimental-webgl') as WebGLRenderingContext | null);
-
+      const gl = testCanvas.getContext('webgl2') ?? testCanvas.getContext('webgl');
       if (!gl) {
         setWebglError('WebGL is not supported in your browser.');
         return;
       }
-
-      const vertexShader = gl.createShader(gl.VERTEX_SHADER);
-      if (!vertexShader) {
-        setWebglError('WebGL shader creation failed.');
-        return;
-      }
-
-      gl.shaderSource(vertexShader, 'void main() { gl_Position = vec4(0.0); }');
-      gl.compileShader(vertexShader);
-
-      if (!gl.getShaderParameter(vertexShader, gl.COMPILE_STATUS)) {
-        setWebglError('WebGL shader compilation failed.');
-        gl.deleteShader(vertexShader);
-        return;
-      }
-      gl.deleteShader(vertexShader);
     } catch (e) {
-      setWebglError('Failed to initialize WebGL.');
+      setWebglError('WebGL is not available in this environment.');
       return;
     }
 
